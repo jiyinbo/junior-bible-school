@@ -1,0 +1,31 @@
+SiteGround upload — Junior Bible School API
+============================================
+
+Before you zip/FTP the `api/` folder:
+
+1) Production Composer vendor (already run locally before upload):
+   cd api && composer run siteground-vendor
+
+   This installs `vendor/` with --no-dev so it matches production.
+
+2) Environment on the server
+   - Copy `api/.env.siteground.example` to `api/.env` on SiteGround (or merge with your existing `.env`).
+   - Set DB_USERNAME and DB_PASSWORD from Site Tools → MySQL.
+   - Leave APP_KEY empty until first deploy, then SSH:
+     cd path/to/api && php artisan key:generate --force
+   - php artisan migrate --force
+
+3) Web layout (API subdomain)
+   - Upload the entire `api/` directory beside `public_html` (same level).
+   - Copy only the *contents* of `api/public/` into that subdomain’s `public_html`
+     (index.php, .htaccess — not a nested `public` folder).
+   - Remove default host files (e.g. Default.html) from `public_html`.
+
+4) Permissions (SSH)
+   chmod -R ug+rwx storage bootstrap/cache
+
+5) Smoke test
+   curl -sS https://jbs-api.winners-chapel.org.uk/up
+   curl -sS https://jbs-api.winners-chapel.org.uk/api/v1/health
+
+Do not commit real passwords. `.env` is gitignored; upload it only via SFTP/secure channel.

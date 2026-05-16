@@ -1,0 +1,14 @@
+# React Router (SPA): serve index.html for client-side routes.
+# Required on SiteGround / Apache when using BrowserRouter.
+# If the app lives in a subfolder (e.g. public_html/jbs), set RewriteBase /jbs/
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>
+
+Options -Indexes
