@@ -17,7 +17,7 @@ import { useStaffAuth } from '../../staff/StaffAuthContext';
 
 type ModuleRow = {
   assignment_id: number;
-  module: { id: number; name: string };
+  module: { id: number; name: string; code: string | null };
   level: string;
   session: string;
   teacher: string;
@@ -55,7 +55,7 @@ export function ModulesPage() {
           <TableHead>
             <TableRow>
               <TableCell>Session</TableCell>
-              <TableCell>Level</TableCell>
+              <TableCell>Tier</TableCell>
               <TableCell>Module</TableCell>
               <TableCell>Teacher</TableCell>
               <TableCell>Test</TableCell>
@@ -67,7 +67,12 @@ export function ModulesPage() {
               <TableRow key={r.assignment_id}>
                 <TableCell>{r.session}</TableCell>
                 <TableCell>{r.level}</TableCell>
-                <TableCell>{r.module.name}</TableCell>
+                <TableCell>
+                  {r.module.name}
+                  {r.module.code && (
+                    <Chip size="small" label={r.module.code} sx={{ ml: 1 }} />
+                  )}
+                </TableCell>
                 <TableCell>{r.teacher}</TableCell>
                 <TableCell>
                   <Chip size="small" label={r.test_status ?? 'draft'} />

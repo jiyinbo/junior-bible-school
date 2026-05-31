@@ -41,6 +41,7 @@ class StudentTestController extends Controller
 
     private function assertTestOpenForTaking(JbsTest $test): void
     {
+        $test->refreshAndCloseIfExpired();
         abort_unless($test->isOpen(), 403, 'Test is not open.');
         abort_unless($test->questions()->exists(), 403, 'No questions configured.');
     }
@@ -50,6 +51,7 @@ class StudentTestController extends Controller
         $reg = $this->resolveRegistration($request);
         $this->assertTestBelongsToRegistration($jbs_test, $reg);
         $jbs_test->load('module');
+        $jbs_test->refreshAndCloseIfExpired();
 
         $existing = JbsAttempt::query()
             ->where('jbs_test_id', $jbs_test->id)
@@ -102,6 +104,10 @@ class StudentTestController extends Controller
             'session_name' => $reg->session->name,
             'level_name' => $reg->level->name,
             'already_submitted' => $alreadySubmitted,
+            'duration_minutes' => $test->duration_minutes,
+            'closes_at' => $test->closesAt()?->toIso8601String(),
+            'remaining_seconds' => $test->remainingSeconds(),
+            'server_time' => now()->toIso8601String(),
             'result' => $attempt ? $this->attemptResult($attempt, $test->module->name) : null,
             'questions' => $questions,
         ];

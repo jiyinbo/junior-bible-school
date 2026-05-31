@@ -5,16 +5,12 @@ namespace App\Http\Controllers\Api\V1\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\JbsModule;
 use App\Models\JbsSession;
-use App\Services\JbsModuleScheduleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class SessionController extends Controller
 {
-    public function __construct(
-        private JbsModuleScheduleService $schedule,
-    ) {}
     public function index(): JsonResponse
     {
         return response()->json(['data' => JbsSession::query()->orderByDesc('id')->get()]);
@@ -43,23 +39,21 @@ class SessionController extends Controller
                     'placement_group' => $level->placement_group,
                     'registration_prefix' => $level->registration_prefix,
                     'sort_order' => $level->sort_order,
-                    'modules' => $level->modules->map(fn (JbsModule $mod) => array_merge(
-                        [
-                            'id' => $mod->id,
-                            'name' => $mod->name,
-                            'sort_order' => $mod->sort_order,
-                            'test' => $mod->test ? [
-                                'id' => $mod->test->id,
-                                'status' => $mod->test->status,
-                            ] : null,
-                            'assigned_teacher' => $mod->assignment?->teacher ? [
-                                'id' => $mod->assignment->teacher->id,
-                                'name' => $mod->assignment->teacher->name,
-                                'email' => $mod->assignment->teacher->email,
-                            ] : null,
-                        ],
-                        $this->schedule->moduleSchedulePayload($mod),
-                    )),
+                    'modules' => $level->modules->map(fn (JbsModule $mod) => [
+                        'id' => $mod->id,
+                        'name' => $mod->name,
+                        'code' => $mod->code,
+                        'sort_order' => $mod->sort_order,
+                        'test' => $mod->test ? [
+                            'id' => $mod->test->id,
+                            'status' => $mod->test->status,
+                        ] : null,
+                        'assigned_teacher' => $mod->assignment?->teacher ? [
+                            'id' => $mod->assignment->teacher->id,
+                            'name' => $mod->assignment->teacher->name,
+                            'email' => $mod->assignment->teacher->email,
+                        ] : null,
+                    ]),
                 ]),
             ],
         ]);

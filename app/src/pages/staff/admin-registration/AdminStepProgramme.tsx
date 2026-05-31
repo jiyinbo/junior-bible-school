@@ -45,10 +45,10 @@ export function AdminStepProgramme({
 
   return (
     <Stack spacing={3}>
-      <FormSection title="Programme">
+      <FormSection title="Session">
         <TextField
           select
-          label="Session / programme"
+          label="Session"
           value={sessionId}
           onChange={(e) => {
             const v = e.target.value;

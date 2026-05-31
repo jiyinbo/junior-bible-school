@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react';
 import {
+  Alert,
+  Button,
   Collapse,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   IconButton,
   MenuItem,
   Paper,
@@ -11,38 +18,62 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { FormRowButton, InlineFormRow } from '../../components/InlineFormRow';
 import { toastSuccess } from '../../feedback/toast';
 import { apiJson, parseApiError } from '../../api/http';
 import { PageHeader } from '../../staff/PageHeader';
+import { useStaffAuth } from '../../staff/StaffAuthContext';
 
 type StaffUser = { id: number; name: string; email: string; role: string };
+type StaffRole = 'admin' | 'teacher' | 'assistant';
 
 function StaffUserRow({
   user,
+  isSelf,
   onUpdated,
   onError,
 }: {
   user: StaffUser;
+  isSelf: boolean;
   onUpdated: () => void;
   onError: (msg: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
-  const [role, setRole] = useState<'admin' | 'teacher'>(user.role as 'admin' | 'teacher');
+  const [role, setRole] = useState<StaffRole>(user.role as StaffRole);
   const [password, setPassword] = useState('');
   const [saving, setSaving] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     setName(user.name);
     setEmail(user.email);
-    setRole(user.role as 'admin' | 'teacher');
+    setRole(user.role as StaffRole);
     setPassword('');
   }, [user]);
+
+  const remove = async () => {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await apiJson(`/api/v1/admin/staff-users/${user.id}`, { method: 'DELETE' });
+      toastSuccess('Staff account deleted.');
+      setConfirmOpen(false);
+      onUpdated();
+    } catch (e) {
+      setDeleteError(parseApiError(e));
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const save = async () => {
     setSaving(true);
@@ -74,10 +105,26 @@ function StaffUserRow({
         <TableCell>{user.name}</TableCell>
         <TableCell>{user.email}</TableCell>
         <TableCell>{user.role}</TableCell>
-        <TableCell align="right" width={56}>
+        <TableCell align="right" width={96}>
           <IconButton size="small" onClick={() => setOpen((o) => !o)} aria-label="Edit user">
             <EditIcon fontSize="small" />
           </IconButton>
+          <Tooltip title={isSelf ? 'You cannot delete your own account' : 'Delete user'}>
+            <span>
+              <IconButton
+                size="small"
+                color="error"
+                disabled={isSelf}
+                onClick={() => {
+                  setDeleteError(null);
+                  setConfirmOpen(true);
+                }}
+                aria-label="Delete user"
+              >
+                <DeleteOutlineIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
         </TableCell>
       </TableRow>
       <TableRow>
@@ -93,11 +140,12 @@ function StaffUserRow({
                   select
                   label="Role"
                   value={role}
-                  onChange={(e) => setRole(e.target.value as 'admin' | 'teacher')}
+                  onChange={(e) => setRole(e.target.value as StaffRole)}
                   size="small"
                   sx={{ minWidth: 140 }}
                 >
                   <MenuItem value="teacher">Teacher</MenuItem>
+                  <MenuItem value="assistant">Assistant</MenuItem>
                   <MenuItem value="admin">Admin</MenuItem>
                 </TextField>
                 <TextField
@@ -117,17 +165,39 @@ function StaffUserRow({
           </Collapse>
         </TableCell>
       </TableRow>
+      <Dialog open={confirmOpen} onClose={() => (deleting ? undefined : setConfirmOpen(false))} maxWidth="xs" fullWidth>
+        <DialogTitle>Delete staff account</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Delete <strong>{user.name}</strong> ({user.email})? This cannot be undone.
+          </DialogContentText>
+          {deleteError && (
+            <Alert severity="warning" sx={{ mt: 2 }}>
+              {deleteError}
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmOpen(false)} disabled={deleting}>
+            Cancel
+          </Button>
+          <Button color="error" variant="contained" onClick={() => void remove()} disabled={deleting}>
+            {deleting ? 'Deleting…' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }
 
 export function UsersPage() {
+  const { user: currentUser } = useStaffAuth();
   const [staff, setStaff] = useState<StaffUser[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'admin' | 'teacher'>('teacher');
+  const [role, setRole] = useState<StaffRole>('teacher');
 
   const load = () => {
     apiJson<{ data: StaffUser[] }>('/api/v1/admin/staff-users')
@@ -164,7 +234,7 @@ export function UsersPage() {
     <>
       <PageHeader
         title="Staff users"
-        subtitle="Create admin or teacher accounts. Assign teachers to modules on a session detail page."
+        subtitle="Create admin, assistant or teacher accounts. Assign teachers to modules on a session detail page."
       />
       {error && (
         <Typography color="error" sx={{ mb: 2 }}>
@@ -202,11 +272,12 @@ export function UsersPage() {
             select
             label="Role"
             value={role}
-            onChange={(e) => setRole(e.target.value as 'admin' | 'teacher')}
+            onChange={(e) => setRole(e.target.value as StaffRole)}
             size="small"
             sx={{ minWidth: 120 }}
           >
             <MenuItem value="teacher">Teacher</MenuItem>
+            <MenuItem value="assistant">Assistant</MenuItem>
             <MenuItem value="admin">Admin</MenuItem>
           </TextField>
           <FormRowButton onClick={() => void create()}>Create</FormRowButton>
@@ -227,7 +298,13 @@ export function UsersPage() {
           </TableHead>
           <TableBody>
             {staff.map((u) => (
-              <StaffUserRow key={u.id} user={u} onUpdated={load} onError={setError} />
+              <StaffUserRow
+                key={u.id}
+                user={u}
+                isSelf={u.id === currentUser?.id}
+                onUpdated={load}
+                onError={setError}
+              />
             ))}
           </TableBody>
         </Table>

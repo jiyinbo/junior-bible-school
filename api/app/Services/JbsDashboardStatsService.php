@@ -174,6 +174,8 @@ class JbsDashboardStatsService
      */
     private function openTestsCount(int $sessionId, ?array $moduleIds = null): int
     {
+        JbsTest::closeAllExpired();
+
         $query = JbsTest::query()
             ->where('status', 'open')
             ->whereHas('module.level', fn ($q) => $q->where('jbs_session_id', $sessionId));

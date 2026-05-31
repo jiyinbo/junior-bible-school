@@ -15,11 +15,13 @@ class MyModulesController extends Controller
 
         $query = JbsModuleAssignment::query()->with(['module.level.session', 'teacher']);
 
-        if (! $user->isAdmin()) {
+        // Admins and assistants can score any module, so they see all assignments.
+        $seesAllModules = $user->isAdmin() || $user->isAssistant();
+        if (! $seesAllModules) {
             $query->where('user_id', $user->id);
         }
 
-        $rows = $query->orderByDesc('id')->limit($user->isAdmin() ? 300 : 100)->get();
+        $rows = $query->orderByDesc('id')->limit($seesAllModules ? 300 : 100)->get();
 
         return response()->json([
             'data' => $rows->map(fn (JbsModuleAssignment $a) => [
@@ -27,6 +29,7 @@ class MyModulesController extends Controller
                 'module' => [
                     'id' => $a->module->id,
                     'name' => $a->module->name,
+                    'code' => $a->module->code,
                 ],
                 'level' => $a->module->level->name,
                 'session' => $a->module->level->session->name,

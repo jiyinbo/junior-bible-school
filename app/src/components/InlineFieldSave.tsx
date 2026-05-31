@@ -9,6 +9,8 @@ type Props = {
   disabled?: boolean;
   fullWidth?: boolean;
   size?: 'small' | 'medium';
+  /** Allow saving an empty value (e.g. to clear an optional field). */
+  allowEmpty?: boolean;
 };
 
 export function InlineFieldSave({
@@ -18,6 +20,7 @@ export function InlineFieldSave({
   disabled,
   fullWidth,
   size = 'small',
+  allowEmpty = false,
 }: Props) {
   const [draft, setDraft] = useState(value);
   const [saving, setSaving] = useState(false);
@@ -27,7 +30,7 @@ export function InlineFieldSave({
   }, [value]);
 
   const changed = draft.trim() !== value.trim();
-  const canSave = changed && draft.trim() !== '' && !disabled && !saving;
+  const canSave = changed && (allowEmpty || draft.trim() !== '') && !disabled && !saving;
 
   const save = async () => {
     if (!canSave) return;

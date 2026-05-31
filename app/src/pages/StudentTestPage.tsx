@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link as RouterLink, useParams, useSearchParams } from 'react-router-dom';
 import FlagIcon from '@mui/icons-material/Flag';
 import FlagOutlinedIcon from '@mui/icons-material/FlagOutlined';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import {
   Alert,
   Box,
@@ -25,7 +26,6 @@ import {
 } from '@mui/material';
 import { apiJson, parseApiError } from '../api/http';
 import { toastError } from '../feedback/toast';
-import { gradeChipColor } from '../utils/grading';
 
 const STUDENT_REG_KEY = 'jbs_student_reg';
 
@@ -56,6 +56,10 @@ type TestStart = {
   session_name: string;
   level_name: string;
   already_submitted: boolean;
+  duration_minutes: number | null;
+  closes_at: string | null;
+  remaining_seconds: number | null;
+  server_time: string | null;
   result: TestResult | null;
   questions: Question[];
 };
@@ -85,6 +89,8 @@ export function StudentTestPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitOpen, setSubmitOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [remainingSec, setRemainingSec] = useState<number | null>(null);
+  const autoSubmittedRef = useRef(false);
 
   const portalHref = reg ? `/student?reg=${encodeURIComponent(reg)}` : '/student';
 
@@ -121,6 +127,7 @@ export function StudentTestPage() {
       setFlagged(new Set());
       setCurrentIndex(0);
       setResult(null);
+      autoSubmittedRef.current = false;
       setPhase('taking');
     } catch (e) {
       setError(parseApiError(e));
@@ -132,34 +139,8 @@ export function StudentTestPage() {
     void loadTest();
   }, [loadTest]);
 
-  const current = questions[currentIndex];
-  const progress = questions.length > 0 ? ((currentIndex + 1) / questions.length) * 100 : 0;
-
-  const unanswered = useMemo(
-    () => questions.filter((q) => !hasAnswer(q, answers[q.id] ?? [])),
-    [questions, answers],
-  );
-
-  const toggleFlag = () => {
-    setFlagged((prev) => {
-      const next = new Set(prev);
-      if (next.has(currentIndex)) {
-        next.delete(currentIndex);
-      } else {
-        next.add(currentIndex);
-      }
-      return next;
-    });
-  };
-
-  const goTo = (index: number) => {
-    if (index >= 0 && index < questions.length) {
-      setCurrentIndex(index);
-    }
-  };
-
-  const doSubmit = async () => {
-    if (!testId) return;
+  const doSubmit = useCallback(async () => {
+    if (!testId || submitting) return;
     setSubmitting(true);
     setError(null);
     const payload: Record<string, number | number[]> = {};
@@ -187,6 +168,61 @@ export function StudentTestPage() {
       toastError(parseApiError(e));
     } finally {
       setSubmitting(false);
+    }
+  }, [answers, questions, reg, submitting, testId]);
+
+  useEffect(() => {
+    if (phase !== 'taking' || !meta?.closes_at) {
+      setRemainingSec(null);
+      return;
+    }
+
+    const closesAt = new Date(meta.closes_at).getTime();
+    const serverSkew = meta.server_time ? Date.now() - new Date(meta.server_time).getTime() : 0;
+
+    const tick = () => {
+      const left = Math.max(0, Math.floor((closesAt - (Date.now() - serverSkew)) / 1000));
+      setRemainingSec(left);
+      if (left <= 0 && !autoSubmittedRef.current && !submitting) {
+        autoSubmittedRef.current = true;
+        void doSubmit();
+      }
+    };
+
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [phase, meta?.closes_at, meta?.server_time, submitting, doSubmit]);
+
+  const formatRemaining = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  };
+
+  const current = questions[currentIndex];
+  const progress = questions.length > 0 ? ((currentIndex + 1) / questions.length) * 100 : 0;
+
+  const unanswered = useMemo(
+    () => questions.filter((q) => !hasAnswer(q, answers[q.id] ?? [])),
+    [questions, answers],
+  );
+
+  const toggleFlag = () => {
+    setFlagged((prev) => {
+      const next = new Set(prev);
+      if (next.has(currentIndex)) {
+        next.delete(currentIndex);
+      } else {
+        next.add(currentIndex);
+      }
+      return next;
+    });
+  };
+
+  const goTo = (index: number) => {
+    if (index >= 0 && index < questions.length) {
+      setCurrentIndex(index);
     }
   };
 
@@ -222,58 +258,54 @@ export function StudentTestPage() {
   if (phase === 'result') {
     const display = result ?? meta?.result;
     return (
-      <Container maxWidth="sm" sx={{ py: { xs: 4, md: 6 } }}>
-        <Button component={RouterLink} to={portalHref} sx={{ mb: 2 }}>
-          ← Back to portal
-        </Button>
+      <Container maxWidth="sm" sx={{ py: { xs: 4, md: 6 }, px: { xs: 2, sm: 3 } }}>
+        <Stack spacing={2} alignItems="stretch">
+          <Button
+            component={RouterLink}
+            to={portalHref}
+            sx={{ alignSelf: 'flex-start' }}
+          >
+            ← Back to portal
+          </Button>
 
-        {error && !display && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
+          {error && !display && (
+            <Alert severity="error">{error}</Alert>
+          )}
 
-        {display && (
-          <Paper sx={{ p: 4, textAlign: 'center' }}>
-            <Typography variant="overline" color="text.secondary">
-              {display.module_name}
-            </Typography>
-            <Typography variant="h4" sx={{ mt: 1, mb: 2 }}>
-              {meta?.already_submitted ? 'Test already completed' : 'Your score'}
-            </Typography>
-            <Typography
-              variant="h2"
-              fontWeight={700}
-              color={display.passed ? 'success.main' : 'warning.main'}
-            >
-              {display.score}%
-            </Typography>
-            {display.correct_count != null && display.question_count != null && (
-              <Typography color="text.secondary" sx={{ mt: 1 }}>
-                {display.correct_count} of {display.question_count} questions correct
-              </Typography>
-            )}
-            <Chip
-              sx={{ mt: 2 }}
-              label={display.passed ? 'Passed (≥40%)' : 'Below pass mark'}
-              color={gradeChipColor(display.passed)}
-            />
-            {display.message && (
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                {display.message}
-              </Typography>
-            )}
-            <Button
-              component={RouterLink}
-              to={portalHref}
-              variant="contained"
-              fullWidth
-              sx={{ mt: 4 }}
-            >
-              Return to portal
-            </Button>
-          </Paper>
-        )}
+          {display && (
+            <Paper sx={{ p: { xs: 3, sm: 4 } }}>
+              <Stack spacing={2} alignItems="center" textAlign="center">
+                <Typography
+                  variant="overline"
+                  color="text.secondary"
+                  sx={{ lineHeight: 1.4, display: 'block', width: '100%' }}
+                >
+                  {display.module_name}
+                </Typography>
+                <CheckCircleOutlineIcon
+                  color="success"
+                  sx={{ fontSize: { xs: 56, sm: 64 }, display: 'block' }}
+                />
+                <Typography variant="h4" component="h1" sx={{ lineHeight: 1.2 }}>
+                  {meta?.already_submitted ? 'Test already completed' : 'Test submitted'}
+                </Typography>
+                <Typography color="text.secondary" sx={{ maxWidth: 420, lineHeight: 1.6 }}>
+                  Your answers have been recorded. Results are not shown here — your scores will appear on
+                  your statement of result once your tier is complete.
+                </Typography>
+                <Button
+                  component={RouterLink}
+                  to={portalHref}
+                  variant="contained"
+                  fullWidth
+                  sx={{ mt: 1, maxWidth: { sm: 360 } }}
+                >
+                  Return to portal
+                </Button>
+              </Stack>
+            </Paper>
+          )}
+        </Stack>
       </Container>
     );
   }
@@ -308,7 +340,7 @@ export function StudentTestPage() {
               </Typography>
             </Box>
             <Typography variant="caption" sx={{ flexShrink: 0 }}>
-              {currentIndex + 1}/{questions.length}
+              {remainingSec != null ? formatRemaining(remainingSec) : `${currentIndex + 1}/${questions.length}`}
             </Typography>
           </Stack>
           <LinearProgress
@@ -316,6 +348,19 @@ export function StudentTestPage() {
             value={progress}
             sx={{ mt: 1.5, bgcolor: 'rgba(255,255,255,0.25)', '& .MuiLinearProgress-bar': { bgcolor: 'common.white' } }}
           />
+          {remainingSec != null && meta.duration_minutes && (
+            <LinearProgress
+              variant="determinate"
+              value={Math.min(100, (remainingSec / (meta.duration_minutes * 60)) * 100)}
+              sx={{
+                mt: 0.5,
+                bgcolor: 'rgba(255,255,255,0.15)',
+                '& .MuiLinearProgress-bar': {
+                  bgcolor: remainingSec <= 60 ? 'warning.light' : 'rgba(255,255,255,0.85)',
+                },
+              }}
+            />
+          )}
         </Container>
       </Box>
 

@@ -29,7 +29,8 @@ function sessionLevelKey(m: ModuleOption): string {
 }
 
 export function ScoresPage() {
-  const { isAdmin } = useStaffAuth();
+  const { user, isAdmin } = useStaffAuth();
+  const canScoreAllModules = isAdmin || user?.role === 'assistant';
   const [modules, setModules] = useState<ModuleOption[]>([]);
   const [regNum, setRegNum] = useState('');
   const [levelKey, setLevelKey] = useState('');
@@ -98,9 +99,9 @@ export function ScoresPage() {
       <PageHeader
         title="Enter scores"
         subtitle={
-          isAdmin
-            ? 'Record paper test results for any module. Choose session and level, then search for the module.'
-            : 'Record paper test results for your assigned modules. Choose level, then search for the module.'
+          canScoreAllModules
+            ? 'Record paper test results for any module. Choose session and tier, then search for the module.'
+            : 'Record paper test results for your assigned modules. Choose tier, then search for the module.'
         }
       />
       {error && (
@@ -119,7 +120,7 @@ export function ScoresPage() {
           />
           <TextField
             select
-            label="Session · level"
+            label="Session · tier"
             value={levelKey}
             onChange={(e) => {
               setLevelKey(e.target.value);
@@ -127,7 +128,7 @@ export function ScoresPage() {
             }}
             fullWidth
             required
-            helperText="Pick the course level first to shorten the module list"
+            helperText="Pick the course tier first to shorten the module list"
           >
             {levelOptions.map((l) => (
               <MenuItem key={l.key} value={l.key}>
@@ -145,13 +146,13 @@ export function ScoresPage() {
             fullWidth
             autoHighlight
             openOnFocus
-            noOptionsText={levelKey ? 'No modules for this level' : 'Select a level first'}
+            noOptionsText={levelKey ? 'No modules for this tier' : 'Select a tier first'}
             renderInput={(params) => (
               <TextField
                 {...params}
                 label="Module"
                 required
-                placeholder={levelKey ? 'Type to search…' : 'Select a level first'}
+                placeholder={levelKey ? 'Type to search…' : 'Select a tier first'}
               />
             )}
           />

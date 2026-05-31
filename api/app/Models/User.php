@@ -39,6 +39,11 @@ class User extends Authenticatable
         return $this->role === 'teacher';
     }
 
+    public function isAssistant(): bool
+    {
+        return $this->role === 'assistant';
+    }
+
     public function moduleAssignments(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(JbsModuleAssignment::class, 'user_id');
@@ -46,7 +51,8 @@ class User extends Authenticatable
 
     public function managesModule(JbsModule $module): bool
     {
-        if ($this->isAdmin()) {
+        // Admins and assistants can manage tests and record scores for any module.
+        if ($this->isAdmin() || $this->isAssistant()) {
             return true;
         }
 

@@ -27,7 +27,7 @@ class AuthController extends Controller
             ]);
         }
 
-        if (! in_array($user->role, ['admin', 'teacher'], true)) {
+        if (! in_array($user->role, ['admin', 'teacher', 'assistant'], true)) {
             throw ValidationException::withMessages([
                 'email' => ['This account cannot access the staff portal.'],
             ]);

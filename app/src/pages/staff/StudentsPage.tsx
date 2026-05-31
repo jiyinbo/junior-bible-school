@@ -3,11 +3,11 @@ import { Link as RouterLink } from 'react-router-dom';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import {
   Alert,
+  Box,
   Button,
   Chip,
   MenuItem,
   Paper,
-  Stack,
   Table,
   TableBody,
   TableCell,
@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import { apiJson, downloadCsvGet, parseApiError } from '../../api/http';
 import { PageHeader } from '../../staff/PageHeader';
+import { useStaffAuth } from '../../staff/StaffAuthContext';
 
 type SessionOption = { id: number; name: string };
 type LevelOption = { id: number; name: string };
@@ -29,6 +30,7 @@ type StudentRow = {
   email: string;
   session_name: string;
   level_name: string;
+  allergies: string | null;
   level_completed: boolean;
   attendance_days: number;
   tests_taken: number;
@@ -37,12 +39,14 @@ type StudentRow = {
 };
 
 export function StudentsPage() {
+  const { isAdmin } = useStaffAuth();
   const [sessions, setSessions] = useState<SessionOption[]>([]);
   const [levels, setLevels] = useState<LevelOption[]>([]);
   const [sessionId, setSessionId] = useState<number | ''>('');
   const [levelId, setLevelId] = useState<number | ''>('');
   const [query, setQuery] = useState('');
   const [completedFilter, setCompletedFilter] = useState<'' | 'yes' | 'no'>('');
+  const [allergiesOnly, setAllergiesOnly] = useState(false);
   const [rows, setRows] = useState<StudentRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -72,6 +76,7 @@ export function StudentsPage() {
     if (query.trim()) params.set('q', query.trim());
     if (completedFilter === 'yes') params.set('level_completed', '1');
     if (completedFilter === 'no') params.set('level_completed', '0');
+    if (allergiesOnly) params.set('has_allergies', '1');
     const q = params.toString() ? `?${params}` : '';
     apiJson<{ data: StudentRow[] }>(`/api/v1/admin/registrations${q}`)
       .then((r) => {
@@ -79,7 +84,7 @@ export function StudentsPage() {
         setError(null);
       })
       .catch(() => setError('Could not load students.'));
-  }, [sessionId, levelId, query, completedFilter]);
+  }, [sessionId, levelId, query, completedFilter, allergiesOnly]);
 
   useEffect(() => {
     load();
@@ -92,6 +97,7 @@ export function StudentsPage() {
     if (query.trim()) params.set('q', query.trim());
     if (completedFilter === 'yes') params.set('level_completed', '1');
     if (completedFilter === 'no') params.set('level_completed', '0');
+    if (allergiesOnly) params.set('has_allergies', '1');
     return params;
   };
 
@@ -114,29 +120,41 @@ export function StudentsPage() {
     <>
       <PageHeader
         title="Students"
-        subtitle="View registration details, attendance and test progress, and mark level completion for statement and certificate access."
+        subtitle="View registration details, attendance and test progress, and mark tier completion for statement and certificate access."
         action={
-          <Button
-            variant="outlined"
-            startIcon={<FileDownloadOutlinedIcon />}
-            onClick={() => void exportCsv()}
-            disabled={exporting}
-          >
-            {exporting ? 'Exporting…' : 'Export CSV'}
-          </Button>
+          isAdmin ? (
+            <Button
+              variant="outlined"
+              startIcon={<FileDownloadOutlinedIcon />}
+              onClick={() => void exportCsv()}
+              disabled={exporting}
+            >
+              {exporting ? 'Exporting…' : 'Export CSV'}
+            </Button>
+          ) : undefined
         }
       />
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
       <Paper sx={{ p: 2, mb: 2 }}>
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} flexWrap="wrap">
+        <Box
+          sx={{
+            display: 'grid',
+            gap: 2,
+            gridTemplateColumns: {
+              xs: '1fr',
+              sm: 'repeat(2, 1fr)',
+              md: 'repeat(4, 1fr)',
+            },
+          }}
+        >
           <TextField
             select
             label="Session"
             size="small"
             value={sessionId}
             onChange={(e) => setSessionId(e.target.value === '' ? '' : Number(e.target.value))}
-            sx={{ minWidth: 200 }}
+            fullWidth
           >
             <MenuItem value="">All sessions</MenuItem>
             {sessions.map((s) => (
@@ -147,14 +165,14 @@ export function StudentsPage() {
           </TextField>
           <TextField
             select
-            label="Level"
+            label="Tier"
             size="small"
             value={levelId}
             onChange={(e) => setLevelId(e.target.value === '' ? '' : Number(e.target.value))}
             disabled={levels.length === 0}
-            sx={{ minWidth: 160 }}
+            fullWidth
           >
-            <MenuItem value="">All levels</MenuItem>
+            <MenuItem value="">All tiers</MenuItem>
             {levels.map((l) => (
               <MenuItem key={l.id} value={l.id}>
                 {l.name}
@@ -167,11 +185,22 @@ export function StudentsPage() {
             size="small"
             value={completedFilter}
             onChange={(e) => setCompletedFilter(e.target.value as '' | 'yes' | 'no')}
-            sx={{ minWidth: 140 }}
+            fullWidth
           >
             <MenuItem value="">All</MenuItem>
             <MenuItem value="yes">Completed</MenuItem>
             <MenuItem value="no">Not completed</MenuItem>
+          </TextField>
+          <TextField
+            select
+            label="Allergies / medical"
+            size="small"
+            value={allergiesOnly ? 'yes' : ''}
+            onChange={(e) => setAllergiesOnly(e.target.value === 'yes')}
+            fullWidth
+          >
+            <MenuItem value="">All</MenuItem>
+            <MenuItem value="yes">With allergies / medical</MenuItem>
           </TextField>
           <TextField
             label="Search"
@@ -179,9 +208,10 @@ export function StudentsPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Name, email, reg #"
-            sx={{ flex: 1, minWidth: 180 }}
+            fullWidth
+            sx={{ gridColumn: '1 / -1' }}
           />
-        </Stack>
+        </Box>
       </Paper>
 
       <Paper sx={{ overflowX: 'auto' }}>
@@ -190,7 +220,8 @@ export function StudentsPage() {
             <TableRow>
               <TableCell>Student</TableCell>
               <TableCell>Reg #</TableCell>
-              <TableCell>Level</TableCell>
+              <TableCell>Tier</TableCell>
+              <TableCell>Allergies / medical</TableCell>
               <TableCell align="center">Attendance</TableCell>
               <TableCell align="center">Tests</TableCell>
               <TableCell>Status</TableCell>
@@ -212,6 +243,17 @@ export function StudentsPage() {
                   <Typography variant="caption" display="block" color="text.secondary">
                     {row.session_name}
                   </Typography>
+                </TableCell>
+                <TableCell sx={{ maxWidth: 240 }}>
+                  {row.allergies ? (
+                    <Typography variant="body2" color="error.main">
+                      {row.allergies}
+                    </Typography>
+                  ) : (
+                    <Typography variant="caption" color="text.secondary">
+                      —
+                    </Typography>
+                  )}
                 </TableCell>
                 <TableCell align="center">{row.attendance_days}</TableCell>
                 <TableCell align="center">
@@ -238,7 +280,7 @@ export function StudentsPage() {
             ))}
             {rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7}>
+                <TableCell colSpan={8}>
                   <Typography color="text.secondary" sx={{ py: 2 }}>
                     No students match your filters.
                   </Typography>

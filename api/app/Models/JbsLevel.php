@@ -34,4 +34,9 @@ class JbsLevel extends Model
     {
         return $this->hasMany(JbsStudentRegistration::class, 'jbs_level_id');
     }
+
+    public function timetableEntries(): HasMany
+    {
+        return $this->hasMany(JbsTimetableEntry::class, 'jbs_level_id');
+    }
 }

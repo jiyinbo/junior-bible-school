@@ -33,10 +33,10 @@ export function StepParentInfo({ data, sessions, update, onNext, nextLoading }: 
 
   return (
     <Stack spacing={3}>
-      <FormSection title="Programme">
+      <FormSection title="Session">
         <TextField
           select
-          label="Session / programme"
+          label="Session"
           value={data.session_slug}
           onChange={(e) => update({ session_slug: e.target.value })}
           error={Boolean(errors.session_slug)}

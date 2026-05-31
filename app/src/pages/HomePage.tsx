@@ -51,7 +51,7 @@ export function HomePage() {
             }}
           >
             Register for the next session, take open tests with your registration number, and download
-            results when your programme is complete.
+            results when your session is complete.
           </Typography>
           <Stack
             direction={{ xs: 'column', sm: 'row' }}

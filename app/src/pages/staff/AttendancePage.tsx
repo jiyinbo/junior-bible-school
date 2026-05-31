@@ -112,8 +112,8 @@ export function AttendancePage() {
       {status && (
         <Alert severity={canRecord ? 'info' : 'warning'} sx={{ mb: 2 }}>
           {canRecord
-            ? `Programme in progress: ${status.ongoing_sessions.map((s) => s.name).join(', ')}`
-            : 'No programme session is running right now. Attendance cannot be recorded until a session is in progress.'}
+            ? `Session in progress: ${status.ongoing_sessions.map((s) => s.name).join(', ')}`
+            : 'No session is running right now. Attendance cannot be recorded until a session is in progress.'}
         </Alert>
       )}
 
@@ -169,7 +169,7 @@ export function AttendancePage() {
                   <TableCell>Student</TableCell>
                   <TableCell>Reg #</TableCell>
                   <TableCell>Session</TableCell>
-                  <TableCell>Level</TableCell>
+                  <TableCell>Tier</TableCell>
                   <TableCell>By</TableCell>
                 </TableRow>
               </TableHead>

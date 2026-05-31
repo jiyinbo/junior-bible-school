@@ -206,4 +206,37 @@ class StudentTestScoringTest extends TestCase
             ->assertJsonPath('data.questions', [])
             ->assertJsonPath('data.result.score', 100);
     }
+
+    public function test_expired_test_closes_automatically_and_rejects_new_attempts(): void
+    {
+        [$test, $question] = $this->openTestWithQuestion([0]);
+        $test->update([
+            'duration_minutes' => 10,
+            'opened_at' => now()->subMinutes(11),
+        ]);
+
+        $this->postJson("/api/v1/student/tests/{$test->id}/questions", [
+            'registration_number' => 'BCC/0001',
+        ])->assertStatus(403);
+
+        $test->refresh();
+        $this->assertSame('closed', $test->status);
+        $this->assertNotNull($test->closed_at);
+    }
+
+    public function test_open_test_includes_remaining_time(): void
+    {
+        [$test] = $this->openTestWithQuestion([0]);
+        $test->update([
+            'duration_minutes' => 10,
+            'opened_at' => now()->subMinutes(2),
+        ]);
+
+        $this->postJson("/api/v1/student/tests/{$test->id}/questions", [
+            'registration_number' => 'BCC/0001',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.duration_minutes', 10)
+            ->assertJsonStructure(['data' => ['closes_at', 'remaining_seconds', 'server_time']]);
+    }
 }

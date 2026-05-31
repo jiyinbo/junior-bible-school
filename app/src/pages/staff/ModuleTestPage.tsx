@@ -6,6 +6,7 @@ import {
   Button,
   Chip,
   IconButton,
+  MenuItem,
   Paper,
   Stack,
   TextField,
@@ -13,8 +14,9 @@ import {
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import { toastSuccess } from '../../feedback/toast';
-import { apiJson, parseApiError } from '../../api/http';
+import { apiJson, downloadPdfGet, parseApiError } from '../../api/http';
 import { PageHeader } from '../../staff/PageHeader';
 import { useStaffAuth } from '../../staff/StaffAuthContext';
 
@@ -27,6 +29,9 @@ type QuestionDraft = {
 type TestData = {
   id: number;
   status: string;
+  duration_minutes: number | null;
+  closes_at: string | null;
+  remaining_seconds: number | null;
   questions: QuestionDraft[];
 };
 
@@ -46,6 +51,8 @@ const emptyQuestion = (): QuestionDraft => ({
   correct_indices: [0],
 });
 
+const DURATION_OPTIONS = [5, 10, 15, 20, 30, 45, 60];
+
 function normalizeIndices(indices: number[], choiceCount: number): number[] {
   const valid = [...new Set(indices.filter((i) => i >= 0 && i < choiceCount))].sort((a, b) => a - b);
   return valid.length > 0 ? valid : [0];
@@ -56,6 +63,9 @@ export function ModuleTestPage() {
   const { moduleId } = useParams<{ moduleId: string }>();
   const [context, setContext] = useState<ModuleContext | null>(null);
   const [status, setStatus] = useState<string>('draft');
+  const [durationMinutes, setDurationMinutes] = useState<number>(10);
+  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
+  const [savedQuestionCount, setSavedQuestionCount] = useState(0);
   const [questions, setQuestions] = useState<QuestionDraft[]>([emptyQuestion()]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -69,6 +79,9 @@ export function ModuleTestPage() {
         setContext(moduleCtx);
         if (test) {
           setStatus(test.status);
+          setDurationMinutes(test.duration_minutes ?? 10);
+          setRemainingSeconds(test.remaining_seconds);
+          setSavedQuestionCount(test.questions.length);
           setQuestions(
             test.questions.length > 0
               ? test.questions.map((q) => ({
@@ -81,6 +94,7 @@ export function ModuleTestPage() {
         } else {
           setStatus('draft');
           setQuestions([emptyQuestion()]);
+          setSavedQuestionCount(0);
         }
         setError(null);
       })
@@ -91,6 +105,12 @@ export function ModuleTestPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const formatRemaining = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  };
 
   const saveQuestions = async () => {
     if (!moduleId) return;
@@ -114,7 +134,7 @@ export function ModuleTestPage() {
     try {
       await apiJson(`/api/v1/admin/modules/${moduleId}/tests/questions`, {
         method: 'POST',
-        json: { questions: payload },
+        json: { questions: payload, duration_minutes: durationMinutes },
       });
       toastSuccess('Questions saved.');
       load();
@@ -127,7 +147,10 @@ export function ModuleTestPage() {
     if (!moduleId) return;
     setError(null);
     try {
-      await apiJson(`/api/v1/admin/modules/${moduleId}/tests/open`, { method: 'POST' });
+      await apiJson(`/api/v1/admin/modules/${moduleId}/tests/open`, {
+        method: 'POST',
+        json: { duration_minutes: durationMinutes },
+      });
       toastSuccess('Test is now open for students.');
       load();
     } catch (e) {
@@ -142,6 +165,17 @@ export function ModuleTestPage() {
       await apiJson(`/api/v1/admin/modules/${moduleId}/tests/close`, { method: 'POST' });
       toastSuccess('Test closed.');
       load();
+    } catch (e) {
+      setError(parseApiError(e));
+    }
+  };
+
+  const downloadPaperTest = async () => {
+    if (!moduleId) return;
+    setError(null);
+    try {
+      const slug = context?.module.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase() || moduleId;
+      await downloadPdfGet(`/api/v1/admin/modules/${moduleId}/tests/pdf`, `jbs-test-${slug}.pdf`);
     } catch (e) {
       setError(parseApiError(e));
     }
@@ -205,28 +239,113 @@ export function ModuleTestPage() {
         </Alert>
       )}
 
-      <Stack direction="row" spacing={1} sx={{ mb: 3 }} flexWrap="wrap">
-        <Chip label={`Status: ${status}`} color={isOpen ? 'success' : 'default'} />
-        {status !== 'open' && (
-          <Button variant="contained" color="success" onClick={() => void openTest()}>
-            Open test
-          </Button>
+      <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
+        <Box
+          sx={{
+            display: 'grid',
+            gap: 2,
+            gridTemplateColumns: { xs: '1fr', md: 'auto auto 1fr' },
+            alignItems: 'center',
+          }}
+        >
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ gridColumn: { xs: '1', md: '1' } }}>
+            <Chip label={`Status: ${status}`} color={isOpen ? 'success' : 'default'} sx={{ alignSelf: 'center' }} />
+            {isOpen && remainingSeconds != null && (
+              <Chip
+                label={remainingSeconds > 0 ? `Time left: ${formatRemaining(remainingSeconds)}` : 'Closing…'}
+                color="warning"
+                variant="outlined"
+                sx={{ alignSelf: 'center' }}
+              />
+            )}
+          </Stack>
+
+          {!isOpen && (
+            <TextField
+              select
+              label="Duration"
+              value={durationMinutes}
+              onChange={(e) => setDurationMinutes(Number(e.target.value))}
+              size="small"
+              fullWidth
+              sx={{ gridColumn: { xs: '1', md: '2' }, maxWidth: { md: 140 } }}
+            >
+              {DURATION_OPTIONS.map((m) => (
+                <MenuItem key={m} value={m}>
+                  {m} min
+                </MenuItem>
+              ))}
+            </TextField>
+          )}
+
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={1}
+            flexWrap="wrap"
+            useFlexGap
+            sx={{
+              gridColumn: { xs: '1', md: isOpen ? '2 / -1' : '3' },
+              justifyContent: { md: 'flex-end' },
+            }}
+          >
+            {status !== 'open' && (
+              <Button
+                variant="contained"
+                color="success"
+                onClick={() => void openTest()}
+                sx={{ width: { xs: '100%', sm: 'auto' } }}
+              >
+                Open test
+              </Button>
+            )}
+            {status === 'open' && (
+              <Button
+                variant="outlined"
+                color="warning"
+                onClick={() => void closeTest()}
+                sx={{ width: { xs: '100%', sm: 'auto' } }}
+              >
+                Close test
+              </Button>
+            )}
+            {canEdit && (
+              <Button
+                variant="contained"
+                onClick={() => void saveQuestions()}
+                sx={{ width: { xs: '100%', sm: 'auto' } }}
+              >
+                Save questions
+              </Button>
+            )}
+            <Button
+              variant="outlined"
+              startIcon={<PictureAsPdfIcon />}
+              onClick={() => void downloadPaperTest()}
+              disabled={savedQuestionCount === 0}
+              sx={{ width: { xs: '100%', sm: 'auto' } }}
+            >
+              Download paper test
+            </Button>
+          </Stack>
+        </Box>
+
+        {!isOpen && (
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
+            Test closes automatically after the selected duration when opened.
+          </Typography>
         )}
-        {status === 'open' && (
-          <Button variant="outlined" color="warning" onClick={() => void closeTest()}>
-            Close test
-          </Button>
-        )}
-        {canEdit && (
-          <Button variant="contained" onClick={() => void saveQuestions()}>
-            Save questions
-          </Button>
-        )}
-      </Stack>
+      </Paper>
+
+      {savedQuestionCount > 0 && (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Download a printable PDF for students taking this test on paper. Correct answers are not included.
+        </Typography>
+      )}
 
       {isOpen && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          Close the test before editing questions.
+          Test is open for {durationMinutes} minutes and will close automatically when time runs out.
+          Close the test manually before editing questions.
         </Alert>
       )}
 

@@ -68,7 +68,7 @@ export function StaffLayout() {
             JBS Staff
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            {user.role === 'admin' ? 'Administrator' : 'Teacher'}
+            {user.role === 'admin' ? 'Administrator' : user.role === 'assistant' ? 'Assistant' : 'Teacher'}
           </Typography>
         </Box>
       </Toolbar>

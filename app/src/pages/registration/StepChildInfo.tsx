@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { FormSection } from './FormLayout';
-import { LevelCourseField } from './LevelCourseField';
+import { LevelCourseField, TierPlacementGuide } from './LevelCourseField';
 import { StudentRegistrationFields } from './StudentRegistrationFields';
 import type { ChildForm, LevelOption } from './types';
 import { emptyChild } from './types';
@@ -66,13 +66,15 @@ export function StepChildInfo({ levels, children, onChildrenChange, onBack, onNe
 
   return (
     <Stack spacing={3}>
+      <TierPlacementGuide />
+
       <FormSection title="Course">
         <LevelCourseField
           levels={levels}
           value={draft.jbs_level_id}
           onChange={(id) => patchDraft({ jbs_level_id: id })}
           error={errors.jbs_level_id}
-          label="Course / level"
+          label="Course / tier"
         />
       </FormSection>
 

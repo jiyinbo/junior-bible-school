@@ -3,13 +3,17 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Mail\RegistrationConfirmationMail;
 use App\Models\JbsSession;
 use App\Services\JbsAuditLogger;
 use App\Services\JbsRegistrationService;
 use App\Services\JbsRegistrationValidationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use RuntimeException;
+use Throwable;
 
 class PublicRegistrationController extends Controller
 {
@@ -72,8 +76,10 @@ class PublicRegistrationController extends Controller
         }
 
         foreach ($registrations as $reg) {
-            $reg->load('level');
+            $reg->load(['level', 'session']);
         }
+
+        $this->sendConfirmationEmails($registrations);
 
         $this->audit->record(
             'registration.public_created',
@@ -95,5 +101,30 @@ class PublicRegistrationController extends Controller
                 'level_name' => $reg->level->name,
             ])->values(),
         ], 201);
+    }
+
+    /**
+     * Send a confirmation email per registered child. A delivery failure must
+     * never fail the registration itself, so each send is isolated and logged.
+     *
+     * @param  array<int, \App\Models\JbsStudentRegistration>  $registrations
+     */
+    private function sendConfirmationEmails(array $registrations): void
+    {
+        foreach ($registrations as $reg) {
+            if (empty($reg->email)) {
+                continue;
+            }
+
+            try {
+                Mail::to($reg->email)->send(new RegistrationConfirmationMail($reg));
+            } catch (Throwable $e) {
+                Log::error('Failed to send registration confirmation email', [
+                    'registration_number' => $reg->registration_number,
+                    'email' => $reg->email,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
     }
 }

@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\JbsAttempt;
 use App\Models\JbsStudentRegistration;
 use App\Services\JbsGradingService;
-use App\Services\JbsModuleScheduleService;
 use App\Services\JbsStudentProgressService;
+use App\Services\JbsTimetableGridService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -15,8 +15,8 @@ class StudentLookupController extends Controller
 {
     public function __construct(
         private JbsStudentProgressService $progress,
-        private JbsModuleScheduleService $schedule,
         private JbsGradingService $grading,
+        private JbsTimetableGridService $timetableGrid,
     ) {}
 
     public function __invoke(Request $request): JsonResponse
@@ -67,11 +67,13 @@ class StudentLookupController extends Controller
                 continue;
             }
 
-            if ($test->isOpen()) {
+            if ($test->refreshAndCloseIfExpired()->isOpen()) {
                 $openTests[] = [
                     'test_id' => $test->id,
                     'module_id' => $module->id,
                     'module_name' => $module->name,
+                    'duration_minutes' => $test->duration_minutes,
+                    'remaining_seconds' => $test->remainingSeconds(),
                 ];
             }
         }
@@ -79,8 +81,8 @@ class StudentLookupController extends Controller
         $summary = $this->progress->summary($reg);
         $completed = $summary['level_completed'];
         $session = $reg->session;
-        $programmePhase = $this->schedule->programmePhase($session);
-        $timetable = $this->schedule->timetableForRegistration($reg);
+        $this->timetableGrid->ensureDays($session);
+        $timetableGrid = $this->timetableGrid->gridForLevel($reg->level);
 
         return response()->json([
             'data' => [
@@ -90,10 +92,10 @@ class StudentLookupController extends Controller
                 'level_name' => $reg->level->name,
                 'session_starts_at' => $session->session_starts_at,
                 'session_ends_at' => $session->session_ends_at,
-                'programme_phase' => $programmePhase,
+                'programme_phase' => $session->programmePhase(),
                 'open_tests' => $openTests,
                 'completed_tests' => $completedTests,
-                'timetable' => $timetable,
+                'timetable_grid' => $timetableGrid,
                 'level_completed' => $completed,
                 'programme_completed' => $completed,
                 'documents_available' => $completed,

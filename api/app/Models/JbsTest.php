@@ -15,6 +15,7 @@ class JbsTest extends Model
         'status',
         'opened_at',
         'closed_at',
+        'duration_minutes',
     ];
 
     protected function casts(): array
@@ -22,7 +23,58 @@ class JbsTest extends Model
         return [
             'opened_at' => 'datetime',
             'closed_at' => 'datetime',
+            'duration_minutes' => 'integer',
         ];
+    }
+
+    public function closesAt(): ?\Carbon\Carbon
+    {
+        if (! $this->opened_at || ! $this->duration_minutes) {
+            return null;
+        }
+
+        return $this->opened_at->copy()->addMinutes($this->duration_minutes);
+    }
+
+    /**
+     * Close the test when its duration has elapsed. Returns true if it was closed.
+     */
+    public function closeIfExpired(): bool
+    {
+        if ($this->status !== 'open') {
+            return false;
+        }
+
+        $closesAt = $this->closesAt();
+        if ($closesAt === null || now()->lt($closesAt)) {
+            return false;
+        }
+
+        $this->update([
+            'status' => 'closed',
+            'closed_at' => $closesAt,
+        ]);
+
+        return true;
+    }
+
+    public function refreshAndCloseIfExpired(): self
+    {
+        if ($this->closeIfExpired()) {
+            $this->refresh();
+        }
+
+        return $this;
+    }
+
+    public function remainingSeconds(): ?int
+    {
+        $closesAt = $this->closesAt();
+        if ($closesAt === null || $this->status !== 'open') {
+            return null;
+        }
+
+        return max(0, (int) now()->diffInSeconds($closesAt, false));
     }
 
     public function module(): BelongsTo
@@ -43,5 +95,14 @@ class JbsTest extends Model
     public function isOpen(): bool
     {
         return $this->status === 'open';
+    }
+
+    public static function closeAllExpired(): void
+    {
+        static::query()
+            ->where('status', 'open')
+            ->whereNotNull('duration_minutes')
+            ->whereNotNull('opened_at')
+            ->each(fn (self $test) => $test->closeIfExpired());
     }
 }

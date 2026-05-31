@@ -3,6 +3,9 @@
 namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\JbsLevel;
+use App\Models\JbsModule;
+use App\Models\JbsModuleScoreOutcome;
 use App\Models\JbsStudentRegistration;
 use App\Services\JbsIdCardPdfService;
 use App\Services\JbsQrService;
@@ -35,6 +38,7 @@ class RegistrationAdminController extends Controller
             'jbs_level_id' => ['nullable', 'integer', 'exists:jbs_levels,id'],
             'q' => ['nullable', 'string', 'max:191'],
             'level_completed' => ['nullable', 'boolean'],
+            'has_allergies' => ['nullable', 'boolean'],
         ]);
     }
 
@@ -69,6 +73,9 @@ class RegistrationAdminController extends Controller
         if (array_key_exists('level_completed', $filters)) {
             $query->where('level_completed', $filters['level_completed']);
         }
+        if (! empty($filters['has_allergies'])) {
+            $query->whereNotNull('allergies')->where('allergies', '!=', '');
+        }
 
         return $query;
     }
@@ -89,6 +96,7 @@ class RegistrationAdminController extends Controller
                     'email' => $reg->email,
                     'session_name' => $reg->session->name,
                     'level_name' => $reg->level->name,
+                    'allergies' => $reg->allergies,
                     'level_completed' => $summary['level_completed'],
                     'attendance_days' => $summary['attendance_days'],
                     'tests_taken' => $summary['tests_taken'],
@@ -253,7 +261,18 @@ class RegistrationAdminController extends Controller
             'phone' => ['nullable', 'string', 'max:40'],
             'guardian_name' => ['nullable', 'string', 'max:255'],
             'guardian_relationship' => ['nullable', 'string', 'max:120'],
+            'jbs_level_id' => ['sometimes', 'integer', 'exists:jbs_levels,id'],
         ]);
+
+        // Moving a student between tiers is allowed only within the same session.
+        if (array_key_exists('jbs_level_id', $data)) {
+            $targetLevel = JbsLevel::query()->find($data['jbs_level_id']);
+            if (! $targetLevel || $targetLevel->jbs_session_id !== $jbs_student_registration->jbs_session_id) {
+                return response()->json([
+                    'message' => 'Selected tier is not available for this student\'s session.',
+                ], 422);
+            }
+        }
 
         $keys = array_keys($data);
         $old = $this->audit()->snapshot($jbs_student_registration, $keys);
@@ -346,6 +365,92 @@ class RegistrationAdminController extends Controller
                 'level_completed' => $reg->level_completed,
                 'progress' => $this->progress->summary($reg),
             ],
+        ]);
+    }
+
+    public function updateScore(Request $request, JbsStudentRegistration $jbs_student_registration): JsonResponse
+    {
+        $data = $request->validate([
+            'jbs_module_id' => ['required', 'integer', 'exists:jbs_modules,id'],
+            'score' => ['required', 'numeric', 'min:0'],
+            'max_score' => ['required', 'numeric', 'min:0.01'],
+        ]);
+
+        if ((float) $data['score'] > (float) $data['max_score']) {
+            return response()->json(['message' => 'Score cannot be greater than the maximum score.'], 422);
+        }
+
+        $module = JbsModule::query()->findOrFail($data['jbs_module_id']);
+
+        $jbs_student_registration->loadMissing('level.modules');
+        $moduleIds = $jbs_student_registration->level->modules->pluck('id')->all();
+        abort_unless(in_array($module->id, $moduleIds, true), 422, 'Module does not belong to the student tier.');
+
+        $existing = JbsModuleScoreOutcome::query()
+            ->where('jbs_student_registration_id', $jbs_student_registration->id)
+            ->where('jbs_module_id', $module->id)
+            ->first();
+
+        $old = $existing ? [
+            'score' => $existing->score,
+            'max_score' => $existing->max_score,
+            'source' => $existing->source,
+        ] : null;
+
+        $outcome = JbsModuleScoreOutcome::query()->updateOrCreate(
+            [
+                'jbs_student_registration_id' => $jbs_student_registration->id,
+                'jbs_module_id' => $module->id,
+            ],
+            [
+                'score' => (int) round((float) $data['score']),
+                'max_score' => (int) round((float) $data['max_score']),
+                'source' => $existing->source ?? 'paper',
+                'admin_confirmed_at' => now(),
+                'admin_confirmed_by_user_id' => $request->user()->id,
+            ],
+        );
+
+        $this->audit()->record(
+            $existing ? 'score.admin_updated' : 'score.admin_created',
+            $request,
+            $jbs_student_registration,
+            oldValues: $old,
+            newValues: ['score' => $outcome->score, 'max_score' => $outcome->max_score, 'source' => $outcome->source],
+            metadata: ['module_id' => $module->id, 'module_name' => $module->name],
+        );
+
+        return response()->json([
+            'data' => ['progress' => $this->progress->summary($jbs_student_registration->fresh()->load(['session', 'level.modules']))],
+        ]);
+    }
+
+    public function deleteScore(Request $request, JbsStudentRegistration $jbs_student_registration): JsonResponse
+    {
+        $data = $request->validate([
+            'jbs_module_id' => ['required', 'integer', 'exists:jbs_modules,id'],
+        ]);
+
+        $module = JbsModule::query()->findOrFail($data['jbs_module_id']);
+
+        $existing = JbsModuleScoreOutcome::query()
+            ->where('jbs_student_registration_id', $jbs_student_registration->id)
+            ->where('jbs_module_id', $module->id)
+            ->first();
+
+        if ($existing) {
+            $this->audit()->record(
+                'score.admin_cleared',
+                $request,
+                $jbs_student_registration,
+                oldValues: ['score' => $existing->score, 'max_score' => $existing->max_score, 'source' => $existing->source],
+                metadata: ['module_id' => $module->id, 'module_name' => $module->name],
+            );
+            $existing->delete();
+        }
+
+        return response()->json([
+            'data' => ['progress' => $this->progress->summary($jbs_student_registration->fresh()->load(['session', 'level.modules']))],
         ]);
     }
 

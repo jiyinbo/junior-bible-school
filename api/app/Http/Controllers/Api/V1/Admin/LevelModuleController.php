@@ -39,11 +39,13 @@ class LevelModuleController extends Controller
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'code' => ['nullable', 'string', 'max:32'],
             'sort_order' => ['sometimes', 'integer', 'min:0'],
         ]);
 
         $module = $jbs_level->modules()->create([
-            'name' => $data['name'],
+            'name' => trim($data['name']),
+            'code' => $this->normalizeCode($data['code'] ?? null),
             'sort_order' => $data['sort_order'] ?? 0,
         ]);
 
@@ -76,14 +78,34 @@ class LevelModuleController extends Controller
     public function updateModule(Request $request, JbsModule $jbs_module): JsonResponse
     {
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
+            'name' => ['sometimes', 'required', 'string', 'max:255'],
+            'code' => ['sometimes', 'nullable', 'string', 'max:32'],
         ]);
 
-        $old = $this->audit()->snapshot($jbs_module, ['name']);
-        $jbs_module->update(['name' => trim($data['name'])]);
+        $payload = [];
+        if (array_key_exists('name', $data)) {
+            $payload['name'] = trim($data['name']);
+        }
+        if (array_key_exists('code', $data)) {
+            $payload['code'] = $this->normalizeCode($data['code']);
+        }
+
+        $keys = array_keys($payload);
+        $old = $this->audit()->snapshot($jbs_module, $keys);
+        $jbs_module->update($payload);
         $fresh = $jbs_module->fresh();
-        $this->audit()->updated($request, 'module.updated', $fresh, $old, $this->audit()->snapshot($fresh, ['name']));
+        $this->audit()->updated($request, 'module.updated', $fresh, $old, $this->audit()->snapshot($fresh, $keys));
 
         return response()->json(['data' => $fresh]);
+    }
+
+    private function normalizeCode(?string $code): ?string
+    {
+        if ($code === null) {
+            return null;
+        }
+        $trimmed = trim($code);
+
+        return $trimmed === '' ? null : $trimmed;
     }
 }

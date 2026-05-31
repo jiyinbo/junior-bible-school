@@ -9,6 +9,7 @@ import { StudentTestPage } from './pages/StudentTestPage';
 import { StaffAuthProvider } from './staff/StaffAuthContext';
 import { StaffLayout } from './staff/StaffLayout';
 import { RequireAdmin } from './staff/RequireAdmin';
+import { RequireRole } from './staff/RequireRole';
 import { StaffLoginPage } from './pages/staff/StaffLoginPage';
 import { DashboardPage } from './pages/staff/DashboardPage';
 import { SessionsPage } from './pages/staff/SessionsPage';
@@ -49,13 +50,15 @@ export default function App() {
             <Route path="modules/:moduleId/test" element={<ModuleTestPage />} />
             <Route path="attendance" element={<AttendancePage />} />
             <Route path="scores" element={<ScoresPage />} />
-            <Route element={<RequireAdmin />}>
+            <Route element={<RequireRole roles={['admin', 'assistant']} />}>
               <Route path="students" element={<StudentsPage />} />
               <Route path="students/:studentId" element={<StudentDetailPage />} />
               <Route path="sessions" element={<SessionsPage />} />
               <Route path="sessions/:sessionId" element={<SessionDetailPage />} />
-              <Route path="users" element={<UsersPage />} />
               <Route path="registrations" element={<RegistrationsPage />} />
+            </Route>
+            <Route element={<RequireAdmin />}>
+              <Route path="users" element={<UsersPage />} />
               <Route path="audit-logs" element={<AuditLogsPage />} />
             </Route>
           </Route>

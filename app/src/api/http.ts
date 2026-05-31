@@ -14,7 +14,7 @@ export type StaffUser = {
   id: number;
   name: string;
   email: string;
-  role: 'admin' | 'teacher';
+  role: 'admin' | 'teacher' | 'assistant';
 };
 
 const TOKEN_KEY = 'jbs_staff_token';
@@ -142,4 +142,26 @@ export async function downloadPdf(path: string, body: Record<string, string>, fi
   a.click();
   URL.revokeObjectURL(url);
   toastSuccess('Download started');
+}
+
+export async function printPdf(path: string, body: Record<string, string>): Promise<void> {
+  const res = await apiFetch(path, { method: 'POST', json: body });
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(t || res.statusText);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const iframe = document.createElement('iframe');
+  iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:none';
+  iframe.src = url;
+  document.body.appendChild(iframe);
+  iframe.onload = () => {
+    iframe.contentWindow?.focus();
+    iframe.contentWindow?.print();
+    window.setTimeout(() => {
+      document.body.removeChild(iframe);
+      URL.revokeObjectURL(url);
+    }, 1000);
+  };
 }

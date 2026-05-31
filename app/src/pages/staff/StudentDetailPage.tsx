@@ -7,6 +7,7 @@ import {
   Chip,
   FormControlLabel,
   Grid,
+  MenuItem,
   Paper,
   Stack,
   Switch,
@@ -18,13 +19,14 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import EditIcon from '@mui/icons-material/Edit';
 import { toastSuccess } from '../../feedback/toast';
 import { apiJson, downloadPdfGet, parseApiError } from '../../api/http';
 import { GradingKeyTable } from '../../components/GradingKeyTable';
 import { MetricCard } from '../../staff/MetricCard';
 import { PageHeader } from '../../staff/PageHeader';
+import { useStaffAuth } from '../../staff/StaffAuthContext';
 import type { GradingBand } from '../../utils/grading';
-import { gradeChipColor } from '../../utils/grading';
 
 type Progress = {
   attendance_days: number;
@@ -33,6 +35,7 @@ type Progress = {
   tests_passed: number;
   level_completed: boolean;
   modules: {
+    module_id: number;
     module_name: string;
     test_taken: boolean;
     test_passed: boolean;
@@ -62,12 +65,148 @@ type StudentDetail = {
   level_completed_by: { name: string } | null;
 };
 
+type TierOption = { id: number; name: string };
+
+type ProgressModule = Progress['modules'][number];
+
+function ModuleResultRow({
+  studentId,
+  module,
+  isAdmin,
+  onSaved,
+  onError,
+}: {
+  studentId: string;
+  module: ProgressModule;
+  isAdmin: boolean;
+  onSaved: () => void;
+  onError: (msg: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [score, setScore] = useState('');
+  const [maxScore, setMaxScore] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const startEdit = () => {
+    setScore(module.score != null ? String(module.score) : '');
+    setMaxScore(module.max_score != null ? String(module.max_score) : '100');
+    setEditing(true);
+  };
+
+  const save = async () => {
+    setBusy(true);
+    onError('');
+    try {
+      await apiJson(`/api/v1/admin/registrations/${studentId}/scores`, {
+        method: 'PATCH',
+        json: {
+          jbs_module_id: module.module_id,
+          score: Number(score),
+          max_score: Number(maxScore) || 100,
+        },
+      });
+      toastSuccess('Score updated.');
+      setEditing(false);
+      onSaved();
+    } catch (e) {
+      onError(parseApiError(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const clear = async () => {
+    setBusy(true);
+    onError('');
+    try {
+      await apiJson(`/api/v1/admin/registrations/${studentId}/scores`, {
+        method: 'DELETE',
+        json: { jbs_module_id: module.module_id },
+      });
+      toastSuccess('Score cleared.');
+      setEditing(false);
+      onSaved();
+    } catch (e) {
+      onError(parseApiError(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <TableRow>
+      <TableCell>{module.module_name}</TableCell>
+      {editing ? (
+        <TableCell>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <TextField
+              type="number"
+              size="small"
+              label="Score"
+              value={score}
+              onChange={(e) => setScore(e.target.value)}
+              sx={{ width: 84 }}
+              inputProps={{ min: 0 }}
+            />
+            <Typography variant="body2">/</Typography>
+            <TextField
+              type="number"
+              size="small"
+              label="Max"
+              value={maxScore}
+              onChange={(e) => setMaxScore(e.target.value)}
+              sx={{ width: 84 }}
+              inputProps={{ min: 1 }}
+            />
+          </Stack>
+        </TableCell>
+      ) : (
+        <TableCell>
+          {module.test_taken && module.score != null ? `${module.score} / ${module.max_score}` : '—'}
+        </TableCell>
+      )}
+      <TableCell>{module.test_taken && module.percent != null ? `${module.percent}%` : '—'}</TableCell>
+      <TableCell>{module.source ?? '—'}</TableCell>
+      <TableCell>
+        {!module.test_taken && <Chip size="small" label="Not taken" />}
+        {module.test_taken && module.test_passed && <Chip size="small" color="success" label="Passed" />}
+        {module.test_taken && !module.test_passed && <Chip size="small" color="error" label="Fail" />}
+      </TableCell>
+      {isAdmin && (
+        <TableCell align="right">
+          {editing ? (
+            <Stack direction="row" spacing={1} justifyContent="flex-end">
+              <Button size="small" variant="contained" onClick={() => void save()} disabled={busy || score === ''}>
+                Save
+              </Button>
+              {module.test_taken && (
+                <Button size="small" color="error" onClick={() => void clear()} disabled={busy}>
+                  Clear
+                </Button>
+              )}
+              <Button size="small" onClick={() => setEditing(false)} disabled={busy}>
+                Cancel
+              </Button>
+            </Stack>
+          ) : (
+            <Button size="small" startIcon={<EditIcon fontSize="small" />} onClick={startEdit}>
+              {module.test_taken ? 'Edit' : 'Add'}
+            </Button>
+          )}
+        </TableCell>
+      )}
+    </TableRow>
+  );
+}
+
 export function StudentDetailPage() {
   const { studentId } = useParams<{ studentId: string }>();
+  const { isAdmin } = useStaffAuth();
   const [student, setStudent] = useState<StudentDetail | null>(null);
   const [completed, setCompleted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [tiers, setTiers] = useState<TierOption[]>([]);
   const [profile, setProfile] = useState({
     first_name: '',
     last_name: '',
@@ -75,6 +214,7 @@ export function StudentDetailPage() {
     phone: '',
     guardian_name: '',
     guardian_relationship: '',
+    jbs_level_id: '' as number | '',
   });
 
   const load = useCallback(() => {
@@ -90,6 +230,7 @@ export function StudentDetailPage() {
           phone: r.data.phone ?? '',
           guardian_name: r.data.guardian_name ?? '',
           guardian_relationship: r.data.guardian_relationship ?? '',
+          jbs_level_id: r.data.level.id,
         });
         setError(null);
       })
@@ -99,6 +240,13 @@ export function StudentDetailPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (!student) return;
+    apiJson<{ data: { levels: TierOption[] } }>(`/api/v1/admin/sessions/${student.session.id}`)
+      .then((r) => setTiers(r.data.levels.map((l) => ({ id: l.id, name: l.name }))))
+      .catch(() => setTiers([]));
+  }, [student]);
 
   const saveProfile = async () => {
     if (!studentId) return;
@@ -114,6 +262,7 @@ export function StudentDetailPage() {
           phone: profile.phone.trim() || null,
           guardian_name: profile.guardian_name.trim() || null,
           guardian_relationship: profile.guardian_relationship.trim() || null,
+          ...(profile.jbs_level_id !== '' ? { jbs_level_id: profile.jbs_level_id } : {}),
         },
       });
       toastSuccess('Student details saved.');
@@ -138,7 +287,7 @@ export function StudentDetailPage() {
       toastSuccess(
         value
           ? 'Marked as completed — student can download statement and certificate.'
-          : 'Level completion removed.',
+          : 'Tier completion removed.',
       );
       load();
     } catch (e) {
@@ -200,7 +349,7 @@ export function StudentDetailPage() {
         )}
         <Grid size={{ xs: 6, sm: 3 }}>
           <MetricCard
-            label="Level status"
+            label="Tier status"
             value={p.level_completed ? 'Completed' : 'In progress'}
             color={p.level_completed ? 'success' : 'default'}
           />
@@ -256,16 +405,37 @@ export function StudentDetailPage() {
                 onChange={(e) => setProfile((f) => ({ ...f, guardian_relationship: e.target.value }))}
                 fullWidth
               />
+              <TextField
+                select
+                label="Tier"
+                value={profile.jbs_level_id}
+                onChange={(e) =>
+                  setProfile((f) => ({
+                    ...f,
+                    jbs_level_id: e.target.value === '' ? '' : Number(e.target.value),
+                  }))
+                }
+                helperText="Move this student to a different tier within the same session."
+                disabled={tiers.length === 0}
+                fullWidth
+              >
+                {tiers.map((t) => (
+                  <MenuItem key={t.id} value={t.id}>
+                    {t.name}
+                  </MenuItem>
+                ))}
+              </TextField>
               <Button variant="contained" onClick={() => void saveProfile()} disabled={saving} sx={{ alignSelf: 'flex-start' }}>
                 {saving ? 'Saving…' : 'Save details'}
               </Button>
             </Stack>
           </Paper>
         </Grid>
+        {isAdmin && (
         <Grid size={{ xs: 12, md: 6 }}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>
-              Level completion
+              Tier completion
             </Typography>
             <FormControlLabel
               control={
@@ -275,7 +445,7 @@ export function StudentDetailPage() {
                   onChange={(e) => void saveCompletion(e.target.checked)}
                 />
               }
-              label={completed ? 'Successfully completed this level' : 'Not marked complete'}
+              label={completed ? 'Successfully completed this tier' : 'Not marked complete'}
             />
             {student.level_completed_by && (
               <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
@@ -305,6 +475,7 @@ export function StudentDetailPage() {
             </Stack>
           </Paper>
         </Grid>
+        )}
         <Grid size={{ xs: 12 }}>
           <Paper sx={{ p: 2, overflowX: 'auto' }}>
             <Typography variant="h6" gutterBottom sx={{ px: 1 }}>
@@ -318,28 +489,27 @@ export function StudentDetailPage() {
                   <TableCell>%</TableCell>
                   <TableCell>Source</TableCell>
                   <TableCell>Status</TableCell>
+                  {isAdmin && <TableCell align="right" />}
                 </TableRow>
               </TableHead>
               <TableBody>
                 {p.modules.map((m) => (
-                  <TableRow key={m.module_name}>
-                    <TableCell>{m.module_name}</TableCell>
-                    <TableCell>
-                      {m.test_taken && m.score != null ? `${m.score} / ${m.max_score}` : '—'}
-                    </TableCell>
-                    <TableCell>
-                      {m.test_taken && m.percent != null ? `${m.percent}%` : '—'}
-                    </TableCell>
-                    <TableCell>{m.source ?? '—'}</TableCell>
-                    <TableCell>
-                      {!m.test_taken && <Chip size="small" label="Not taken" />}
-                      {m.test_taken && m.test_passed && <Chip size="small" color="success" label="Passed" />}
-                      {m.test_taken && !m.test_passed && <Chip size="small" color="error" label="Fail" />}
-                    </TableCell>
-                  </TableRow>
+                  <ModuleResultRow
+                    key={m.module_id}
+                    studentId={studentId ?? ''}
+                    module={m}
+                    isAdmin={isAdmin}
+                    onSaved={load}
+                    onError={setError}
+                  />
                 ))}
               </TableBody>
             </Table>
+            {isAdmin && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', px: 1, mt: 1 }}>
+                Edit a score to correct a mistake made when it was recorded. Changes are logged in the audit trail.
+              </Typography>
+            )}
             {(p.grading_scale ?? []).length > 0 && (
               <Box sx={{ mt: 3 }}>
                 <Typography variant="subtitle2" gutterBottom>

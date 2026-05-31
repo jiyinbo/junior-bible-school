@@ -19,18 +19,18 @@ export function registrationStatusLabel(dates: SessionDatesInput, isPast: boolea
 }
 
 export function programmeStatusLabel(dates: SessionDatesInput, isPast: boolean): string {
-  if (isPast) return 'Programme ended (marked past)';
+  if (isPast) return 'Session ended (marked past)';
   const now = dayjs();
   if (dates.session_starts_at && now.isBefore(dates.session_starts_at, 'day')) {
-    return 'Programme not started';
+    return 'Session not started';
   }
   if (dates.session_ends_at && now.isAfter(dates.session_ends_at, 'day')) {
-    return 'Programme ended';
+    return 'Session ended';
   }
   if (!dates.session_starts_at && !dates.session_ends_at) {
-    return 'Programme (no dates set)';
+    return 'Session (no dates set)';
   }
-  return 'Programme in progress';
+  return 'Session in progress';
 }
 
 export function registrationChipColor(
@@ -50,8 +50,8 @@ export function programmeChipColor(
 ): 'default' | 'success' | 'warning' {
   if (isPast) return 'default';
   const label = programmeStatusLabel(dates, isPast);
-  if (label === 'Programme in progress') return 'success';
-  if (label === 'Programme not started') return 'warning';
+  if (label === 'Session in progress') return 'success';
+  if (label === 'Session not started') return 'warning';
   return 'default';
 }
 

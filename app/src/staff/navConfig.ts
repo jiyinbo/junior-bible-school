@@ -21,7 +21,7 @@ export type NavItem = {
 };
 
 const sectionLabels: Record<Exclude<NavSectionId, 'overview'>, string> = {
-  programme: 'Programme',
+  programme: 'Session',
   teaching: 'Teaching',
   students: 'Students',
   administration: 'Administration',
@@ -29,13 +29,13 @@ const sectionLabels: Record<Exclude<NavSectionId, 'overview'>, string> = {
 
 /** Sidebar order: overview → setup → daily teaching → student records → staff accounts */
 export const staffNavItems: NavItem[] = [
-  { label: 'Dashboard', path: '/staff', icon: DashboardIcon, roles: ['admin', 'teacher'], section: 'overview' },
-  { label: 'Sessions', path: '/staff/sessions', icon: EventIcon, roles: ['admin'], section: 'programme' },
-  { label: 'Register student', path: '/staff/registrations', icon: PersonAddIcon, roles: ['admin'], section: 'programme' },
-  { label: 'Attendance', path: '/staff/attendance', icon: QrCodeScannerIcon, roles: ['admin', 'teacher'], section: 'teaching' },
+  { label: 'Dashboard', path: '/staff', icon: DashboardIcon, roles: ['admin', 'teacher', 'assistant'], section: 'overview' },
+  { label: 'Sessions', path: '/staff/sessions', icon: EventIcon, roles: ['admin', 'assistant'], section: 'programme' },
+  { label: 'Register student', path: '/staff/registrations', icon: PersonAddIcon, roles: ['admin', 'assistant'], section: 'programme' },
+  { label: 'Attendance', path: '/staff/attendance', icon: QrCodeScannerIcon, roles: ['admin', 'teacher', 'assistant'], section: 'teaching' },
   { label: 'My modules', path: '/staff/modules', icon: MenuBookIcon, roles: ['admin', 'teacher'], section: 'teaching' },
-  { label: 'Enter scores', path: '/staff/scores', icon: GradeIcon, roles: ['admin', 'teacher'], section: 'teaching' },
-  { label: 'Students', path: '/staff/students', icon: GroupsIcon, roles: ['admin'], section: 'students' },
+  { label: 'Enter scores', path: '/staff/scores', icon: GradeIcon, roles: ['admin', 'teacher', 'assistant'], section: 'teaching' },
+  { label: 'Students', path: '/staff/students', icon: GroupsIcon, roles: ['admin', 'assistant'], section: 'students' },
   { label: 'Staff users', path: '/staff/users', icon: PeopleIcon, roles: ['admin'], section: 'administration' },
   { label: 'Activity log', path: '/staff/audit-logs', icon: HistoryIcon, roles: ['admin'], section: 'administration' },
 ];

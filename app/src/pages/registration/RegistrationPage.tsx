@@ -70,7 +70,7 @@ export function RegistrationPage() {
       setLevels(r.data.levels);
       return { levels: r.data.levels, error: null };
     } catch {
-      const message = 'Could not load levels for this session.';
+      const message = 'Could not load tiers for this session.';
       setLevels([]);
       return { levels: [], error: message };
     } finally {
@@ -82,7 +82,7 @@ export function RegistrationPage() {
     setError(null);
     const { levels: loaded, error: loadErr } = await loadLevels(guardian.session_slug);
     if (loadErr || loaded.length === 0) {
-      setError(loadErr ?? 'No levels available for this session.');
+      setError(loadErr ?? 'No tiers available for this session.');
       return;
     }
     setStep(1);

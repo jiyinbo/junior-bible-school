@@ -12,11 +12,10 @@ import {
 } from '@mui/material';
 import { apiJson } from '../../api/http';
 import { PageHeader } from '../../staff/PageHeader';
+import { StepChildInfo } from '../registration/StepChildInfo';
 import { StepIdCard } from '../registration/StepIdCard';
 import type { ChildForm, EnrolledParticipant, GuardianInfo, LevelOption } from '../registration/types';
-import { emptyChild } from '../registration/types';
 import { AdminStepProgramme } from './admin-registration/AdminStepProgramme';
-import { AdminStepStudent } from './admin-registration/AdminStepStudent';
 import { AdminStepSummary } from './admin-registration/AdminStepSummary';
 
 const STEPS = ['Parent / guardian', 'Student information', 'Summary', 'Confirmation'];
@@ -36,8 +35,8 @@ export function RegistrationsPage() {
   const [levels, setLevels] = useState<LevelOption[]>([]);
   const [levelsLoading, setLevelsLoading] = useState(false);
   const [guardian, setGuardian] = useState(initialGuardian);
-  const [child, setChild] = useState<ChildForm>(emptyChild);
-  const [enrolled, setEnrolled] = useState<EnrolledParticipant | null>(null);
+  const [children, setChildren] = useState<ChildForm[]>([]);
+  const [enrolled, setEnrolled] = useState<EnrolledParticipant[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -58,12 +57,12 @@ export function RegistrationsPage() {
       const loaded = r.data.levels;
       setLevels(loaded);
       if (loaded.length === 0) {
-        return { levels: [], error: 'No levels available for this session.' };
+        return { levels: [], error: 'No tiers available for this session.' };
       }
       return { levels: loaded, error: null };
     } catch {
       setLevels([]);
-      return { levels: [], error: 'Could not load levels for this session.' };
+      return { levels: [], error: 'Could not load tiers for this session.' };
     } finally {
       setLevelsLoading(false);
     }
@@ -72,23 +71,19 @@ export function RegistrationsPage() {
   const goToStudentStep = async () => {
     if (sessionId === '') return;
     setError(null);
-    const { levels: loaded, error: loadErr } = await loadLevels(sessionId);
+    const { error: loadErr } = await loadLevels(sessionId);
     if (loadErr) {
       setError(loadErr);
       return;
     }
-    setChild((prev) => ({
-      ...emptyChild(),
-      jbs_level_id: prev.jbs_level_id && loaded.some((l) => l.id === prev.jbs_level_id) ? prev.jbs_level_id : '',
-    }));
     setStep(1);
   };
 
   const handleSessionChange = (id: number | '') => {
     setSessionId(id);
     setLevels([]);
-    setChild(emptyChild());
-    setEnrolled(null);
+    setChildren([]);
+    setEnrolled([]);
   };
 
   const resetWizard = () => {
@@ -96,8 +91,8 @@ export function RegistrationsPage() {
     setSessionId('');
     setLevels([]);
     setGuardian(initialGuardian());
-    setChild(emptyChild());
-    setEnrolled(null);
+    setChildren([]);
+    setEnrolled([]);
     setError(null);
   };
 
@@ -141,10 +136,10 @@ export function RegistrationsPage() {
           />
         )}
         {step === 1 && (
-          <AdminStepStudent
+          <StepChildInfo
             levels={levels}
-            child={child}
-            onChildChange={(patch) => setChild((c) => ({ ...c, ...patch }))}
+            children={children}
+            onChildrenChange={setChildren}
             onBack={() => setStep(0)}
             onNext={() => setStep(2)}
           />
@@ -154,7 +149,7 @@ export function RegistrationsPage() {
             sessionName={sessionName}
             sessionId={sessionId}
             guardian={guardian}
-            child={child}
+            children={children}
             levels={levels}
             onBack={() => setStep(1)}
             onSuccess={(data) => {
@@ -164,9 +159,9 @@ export function RegistrationsPage() {
             onError={setError}
           />
         )}
-        {step === 3 && enrolled && (
+        {step === 3 && enrolled.length > 0 && (
           <StepIdCard
-            enrolled={[enrolled]}
+            enrolled={enrolled}
             footer={
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                 <Button variant="contained" onClick={resetWizard}>

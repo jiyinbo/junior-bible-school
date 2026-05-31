@@ -240,7 +240,7 @@ export function StudentRegistrationFields({ values, errors, onChange }: Props) {
         </FormRow>
         <FormRow>
           <TextField
-            label="Allergies (optional)"
+            label="Allergies / medical conditions (optional)"
             value={values.allergies}
             onChange={(e) => onChange({ allergies: e.target.value })}
             fullWidth

@@ -26,6 +26,9 @@ SET FOREIGN_KEY_CHECKS = 0;
 
 -- Child tables first (order does not matter with FK checks off)
 DROP TABLE IF EXISTS `jbs_audit_logs`;
+DROP TABLE IF EXISTS `jbs_timetable_entries`;
+DROP TABLE IF EXISTS `jbs_timetable_days`;
+DROP TABLE IF EXISTS `jbs_timetable_periods`;
 DROP TABLE IF EXISTS `jbs_module_score_outcomes`;
 DROP TABLE IF EXISTS `jbs_attempts`;
 DROP TABLE IF EXISTS `jbs_questions`;
@@ -194,10 +197,8 @@ CREATE TABLE `jbs_modules` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `jbs_level_id` bigint unsigned NOT NULL,
   `name` varchar(255) NOT NULL,
+  `code` varchar(32) DEFAULT NULL,
   `sort_order` smallint unsigned NOT NULL DEFAULT 0,
-  `scheduled_date` date DEFAULT NULL,
-  `scheduled_start_time` time DEFAULT NULL,
-  `scheduled_end_time` time DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
@@ -215,6 +216,58 @@ CREATE TABLE `jbs_module_assignments` (
   UNIQUE KEY `jbs_module_assignments_jbs_module_id_unique` (`jbs_module_id`),
   CONSTRAINT `jbs_module_assignments_jbs_module_id_foreign` FOREIGN KEY (`jbs_module_id`) REFERENCES `jbs_modules` (`id`) ON DELETE CASCADE,
   CONSTRAINT `jbs_module_assignments_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Timetable: shared day columns (periods) + day rows per session, module/activity cells per tier
+CREATE TABLE `jbs_timetable_periods` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `jbs_session_id` bigint unsigned NOT NULL,
+  `sort_order` smallint unsigned NOT NULL DEFAULT 0,
+  `start_time` time DEFAULT NULL,
+  `end_time` time DEFAULT NULL,
+  `kind` varchar(20) NOT NULL DEFAULT 'teaching',
+  `label` varchar(255) DEFAULT NULL,
+  `applies_all_days` tinyint(1) NOT NULL DEFAULT 0,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `jbs_timetable_periods_jbs_session_id_sort_order_index` (`jbs_session_id`,`sort_order`),
+  CONSTRAINT `jbs_timetable_periods_jbs_session_id_foreign` FOREIGN KEY (`jbs_session_id`) REFERENCES `jbs_sessions` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `jbs_timetable_days` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `jbs_session_id` bigint unsigned NOT NULL,
+  `day_date` date NOT NULL,
+  `sort_order` smallint unsigned NOT NULL DEFAULT 0,
+  `label` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `jbs_timetable_days_jbs_session_id_day_date_unique` (`jbs_session_id`,`day_date`),
+  KEY `jbs_timetable_days_jbs_session_id_sort_order_index` (`jbs_session_id`,`sort_order`),
+  CONSTRAINT `jbs_timetable_days_jbs_session_id_foreign` FOREIGN KEY (`jbs_session_id`) REFERENCES `jbs_sessions` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `jbs_timetable_entries` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `jbs_level_id` bigint unsigned NOT NULL,
+  `jbs_timetable_day_id` bigint unsigned NOT NULL,
+  `jbs_timetable_period_id` bigint unsigned NOT NULL,
+  `span` smallint unsigned NOT NULL DEFAULT 1,
+  `jbs_module_id` bigint unsigned DEFAULT NULL,
+  `activity_label` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `jbs_tt_entry_cell_unique` (`jbs_level_id`,`jbs_timetable_day_id`,`jbs_timetable_period_id`),
+  KEY `jbs_timetable_entries_jbs_timetable_day_id_foreign` (`jbs_timetable_day_id`),
+  KEY `jbs_timetable_entries_jbs_timetable_period_id_foreign` (`jbs_timetable_period_id`),
+  KEY `jbs_timetable_entries_jbs_module_id_foreign` (`jbs_module_id`),
+  CONSTRAINT `jbs_timetable_entries_jbs_level_id_foreign` FOREIGN KEY (`jbs_level_id`) REFERENCES `jbs_levels` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `jbs_timetable_entries_jbs_timetable_day_id_foreign` FOREIGN KEY (`jbs_timetable_day_id`) REFERENCES `jbs_timetable_days` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `jbs_timetable_entries_jbs_timetable_period_id_foreign` FOREIGN KEY (`jbs_timetable_period_id`) REFERENCES `jbs_timetable_periods` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `jbs_timetable_entries_jbs_module_id_foreign` FOREIGN KEY (`jbs_module_id`) REFERENCES `jbs_modules` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `jbs_student_registrations` (
@@ -281,6 +334,7 @@ CREATE TABLE `jbs_tests` (
   `status` varchar(32) NOT NULL DEFAULT 'draft',
   `opened_at` timestamp NULL DEFAULT NULL,
   `closed_at` timestamp NULL DEFAULT NULL,
+  `duration_minutes` smallint unsigned DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
@@ -383,8 +437,13 @@ INSERT INTO `migrations` (`migration`, `batch`) VALUES
 ('2026_05_13_101000_create_jbs_module_score_outcomes_table', 1),
 ('2026_05_16_120000_add_level_completion_to_jbs_student_registrations', 1),
 ('2026_05_16_130000_add_session_dates_and_attendance_recorded_at', 1),
-('2026_05_16_140000_add_schedule_to_jbs_modules', 1),
 ('2026_05_16_150000_add_unique_session_email_to_jbs_student_registrations', 1),
 ('2026_05_16_160000_replace_correct_index_with_correct_indices_on_jbs_questions', 1),
 ('2026_05_16_160000_expand_jbs_registrations_and_level_placement', 1),
-('2026_05_17_100000_create_jbs_audit_logs_table', 1);
+('2026_05_17_100000_create_jbs_audit_logs_table', 1),
+('2026_05_30_120000_add_code_to_jbs_modules', 1),
+('2026_05_31_120000_create_jbs_timetable_periods_table', 1),
+('2026_05_31_120100_create_jbs_timetable_days_table', 1),
+('2026_05_31_120200_create_jbs_timetable_entries_table', 1),
+('2026_05_31_140000_add_duration_minutes_to_jbs_tests', 1),
+('2026_05_31_150000_remove_schedule_from_jbs_modules', 1);

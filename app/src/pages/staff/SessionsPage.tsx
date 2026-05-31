@@ -45,7 +45,7 @@ export function SessionsPage() {
     <>
       <PageHeader
         title="Sessions"
-        subtitle="Each session is a programme year or intake. Add levels and modules on the session detail page."
+        subtitle="Each session is a school year or intake. Add tiers and modules on the session detail page."
       />
       {error && (
         <Typography color="error" sx={{ mb: 2 }}>

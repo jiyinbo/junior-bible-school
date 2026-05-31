@@ -11,19 +11,14 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import type { Dayjs } from 'dayjs';
 import { InlineFieldSave } from './InlineFieldSave';
-import { ModuleScheduleEditor } from './ModuleScheduleEditor';
-import type { ModuleScheduleInput } from '../utils/moduleSchedule';
 
 type TeacherOption = { id: number; name: string };
 
 export type LevelModuleRowData = {
   id: number;
   name: string;
-  scheduled_date: string | null;
-  scheduled_start_time: string | null;
-  scheduled_end_time: string | null;
+  code: string | null;
   test: { id: number; status: string } | null;
   assigned_teacher: { id: number; name: string } | null;
 };
@@ -31,25 +26,15 @@ export type LevelModuleRowData = {
 type Props = {
   mod: LevelModuleRowData;
   layout: 'table' | 'card';
-  programmeMin?: Dayjs;
-  programmeMax?: Dayjs;
   teacherOptions: TeacherOption[];
   assigningModuleId: number | null;
-  onUpdateName: (moduleId: number, name: string) => void | Promise<void>;
+  onUpdateModule: (moduleId: number, patch: { name?: string; code?: string }) => void | Promise<void>;
   onAssignTeacher: (moduleId: number, teacherId: number) => void | Promise<void>;
-  onScheduleSaved: () => void;
   testButton: ReactNode;
+  readOnly?: boolean;
 };
 
-function scheduleInitial(mod: LevelModuleRowData): ModuleScheduleInput {
-  return {
-    scheduled_date: mod.scheduled_date,
-    scheduled_start_time: mod.scheduled_start_time,
-    scheduled_end_time: mod.scheduled_end_time,
-  };
-}
-
-export const MODULE_TABLE_COL_WIDTH = '25%';
+export const MODULE_TABLE_COL_WIDTH = '33%';
 
 function TeacherSelect({
   mod,
@@ -94,23 +79,34 @@ function TeacherSelect({
 export function LevelModuleRow({
   mod,
   layout,
-  programmeMin,
-  programmeMax,
   teacherOptions,
   assigningModuleId,
-  onUpdateName,
+  onUpdateModule,
   onAssignTeacher,
-  onScheduleSaved,
   testButton,
+  readOnly = false,
 }: Props) {
-  const schedule = (
-    <ModuleScheduleEditor
-      moduleId={mod.id}
-      initial={scheduleInitial(mod)}
-      programmeMin={programmeMin}
-      programmeMax={programmeMax}
-      onSaved={onScheduleSaved}
-      fullWidth={layout === 'table'}
+  const moduleName = readOnly ? (
+    <Box>
+      <Typography fontWeight={600}>{mod.name}</Typography>
+      {mod.code && (
+        <Typography variant="caption" color="text.secondary">
+          {mod.code}
+        </Typography>
+      )}
+    </Box>
+  ) : null;
+
+  const teacher = readOnly ? (
+    <Typography variant="body2" color={mod.assigned_teacher ? 'text.primary' : 'text.secondary'}>
+      {mod.assigned_teacher?.name ?? 'Unassigned'}
+    </Typography>
+  ) : (
+    <TeacherSelect
+      mod={mod}
+      teacherOptions={teacherOptions}
+      assigningModuleId={assigningModuleId}
+      onAssignTeacher={onAssignTeacher}
     />
   );
 
@@ -118,28 +114,28 @@ export function LevelModuleRow({
     return (
       <Paper variant="outlined" sx={{ p: 2 }}>
         <Stack spacing={2}>
-          <InlineFieldSave
-            label="Module"
-            value={mod.name}
-            onSave={(name) => onUpdateName(mod.id, name)}
-            fullWidth
-          />
-          <Box>
-            <Typography variant="caption" color="text.secondary" sx={{ mb: 0.75, display: 'block' }}>
-              Schedule
-            </Typography>
-            {schedule}
-          </Box>
+          {readOnly ? (
+            moduleName
+          ) : (
+            <>
+              <InlineFieldSave
+                label="Module"
+                value={mod.name}
+                onSave={(name) => onUpdateModule(mod.id, { name })}
+                fullWidth
+              />
+              <InlineFieldSave
+                label="Short code"
+                value={mod.code ?? ''}
+                onSave={(code) => onUpdateModule(mod.id, { code })}
+                fullWidth
+                allowEmpty
+              />
+            </>
+          )}
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ sm: 'flex-end' }}>
             <Box sx={{ flexShrink: 0 }}>{testButton}</Box>
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <TeacherSelect
-                mod={mod}
-                teacherOptions={teacherOptions}
-                assigningModuleId={assigningModuleId}
-                onAssignTeacher={onAssignTeacher}
-              />
-            </Box>
+            <Box sx={{ flex: 1, minWidth: 0 }}>{teacher}</Box>
           </Stack>
         </Stack>
       </Paper>
@@ -151,22 +147,27 @@ export function LevelModuleRow({
   return (
     <TableRow hover>
       <TableCell sx={colSx}>
-        <InlineFieldSave
-          value={mod.name}
-          onSave={(name) => onUpdateName(mod.id, name)}
-          fullWidth
-        />
+        {readOnly ? (
+          moduleName
+        ) : (
+          <Stack spacing={1}>
+            <InlineFieldSave
+              value={mod.name}
+              onSave={(name) => onUpdateModule(mod.id, { name })}
+              fullWidth
+            />
+            <InlineFieldSave
+              label="Short code"
+              value={mod.code ?? ''}
+              onSave={(code) => onUpdateModule(mod.id, { code })}
+              fullWidth
+              allowEmpty
+            />
+          </Stack>
+        )}
       </TableCell>
-      <TableCell sx={colSx}>{schedule}</TableCell>
       <TableCell sx={{ ...colSx, whiteSpace: 'nowrap' }}>{testButton}</TableCell>
-      <TableCell sx={colSx}>
-        <TeacherSelect
-          mod={mod}
-          teacherOptions={teacherOptions}
-          assigningModuleId={assigningModuleId}
-          onAssignTeacher={onAssignTeacher}
-        />
-      </TableCell>
+      <TableCell sx={colSx}>{teacher}</TableCell>
     </TableRow>
   );
 }

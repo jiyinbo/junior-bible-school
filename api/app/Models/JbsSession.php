@@ -41,6 +41,16 @@ class JbsSession extends Model
         return $this->hasMany(JbsStudentRegistration::class, 'jbs_session_id');
     }
 
+    public function timetablePeriods(): HasMany
+    {
+        return $this->hasMany(JbsTimetablePeriod::class, 'jbs_session_id')->orderBy('sort_order');
+    }
+
+    public function timetableDays(): HasMany
+    {
+        return $this->hasMany(JbsTimetableDay::class, 'jbs_session_id')->orderBy('sort_order')->orderBy('day_date');
+    }
+
     public function registrationIsOpen(?\DateTimeInterface $at = null): bool
     {
         $at ??= now();
@@ -81,5 +91,28 @@ class JbsSession extends Model
         }
 
         return true;
+    }
+
+    public function programmePhase(?\DateTimeInterface $at = null): string
+    {
+        if ($this->is_past) {
+            return 'past';
+        }
+
+        $at ??= now();
+
+        if ($this->session_starts_at && $at < $this->session_starts_at) {
+            return 'upcoming';
+        }
+
+        if ($this->session_ends_at && $at > $this->session_ends_at) {
+            return 'ended';
+        }
+
+        if ($this->session_starts_at || $this->session_ends_at) {
+            return 'ongoing';
+        }
+
+        return 'ongoing';
     }
 }

@@ -142,8 +142,8 @@ export function DashboardPage() {
         >
           <Typography variant="body2" color="text.secondary" sx={{ flex: 1, minWidth: 0 }}>
             {isAdmin
-              ? 'Session overview — levels, modules, students, then today’s attendance and tests.'
-              : 'Your levels and modules, student progress, and today’s teaching activity.'}
+              ? 'Session overview — tiers, modules, students, then today’s attendance and tests.'
+              : 'Your tiers and modules, student progress, and today’s teaching activity.'}
           </Typography>
           {isAdmin && sessions.length > 0 && (
             <TextField
@@ -198,13 +198,13 @@ export function DashboardPage() {
           : (
             <>
               <Grid size={{ xs: 6, sm: 4, md: 3 }}>
-                <MetricCard label="Levels" value={m?.levels_count ?? 0} hint="In this session" />
+                <MetricCard label="Tiers" value={m?.levels_count ?? 0} hint="In this session" />
               </Grid>
               <Grid size={{ xs: 6, sm: 4, md: 3 }}>
                 <MetricCard
                   label="Modules"
                   value={m?.modules_count ?? 0}
-                  hint={isAdmin ? 'Across all levels' : 'In your levels'}
+                  hint={isAdmin ? 'Across all tiers' : 'In your tiers'}
                 />
               </Grid>
               {!isAdmin && (
@@ -214,14 +214,14 @@ export function DashboardPage() {
               )}
               <Grid size={{ xs: 6, sm: 4, md: 3 }}>
                 <MetricCard
-                  label={isAdmin ? 'Registered students' : 'Students (your levels)'}
+                  label={isAdmin ? 'Registered students' : 'Students (your tiers)'}
                   value={m?.registrations_total ?? 0}
                   hint={stats?.session?.registration_is_open ? 'Registration open' : 'Registration closed'}
                 />
               </Grid>
               <Grid size={{ xs: 6, sm: 4, md: 3 }}>
                 <MetricCard
-                  label="Levels completed"
+                  label="Tiers completed"
                   value={m?.level_completed_count ?? 0}
                   color="success"
                   hint={`${m?.level_not_completed_count ?? 0} still in progress`}
@@ -258,7 +258,7 @@ export function DashboardPage() {
             <Card sx={{ height: '100%' }}>
               <CardContent>
                 <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                  Modules per level
+                  Modules per tier
                 </Typography>
                 <Box sx={{ width: '100%', height: 240 }}>
                   {modChart.length > 0 ? (
@@ -284,7 +284,7 @@ export function DashboardPage() {
             <Card sx={{ height: '100%' }}>
               <CardContent>
                 <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                  Students per level
+                  Students per tier
                 </Typography>
                 <Box sx={{ width: '100%', height: 240 }}>
                   {regChart.length > 0 ? (

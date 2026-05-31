@@ -35,9 +35,11 @@ import {
   MODULE_TABLE_COL_WIDTH,
 } from "../../components/LevelModuleRow";
 import { DatePickerField } from "../../components/DatePickerField";
+import { TimetableBuilder } from "./TimetableBuilder";
 import { toastSuccess } from "../../feedback/toast";
 import { apiJson, parseApiError } from "../../api/http";
 import { PageHeader } from "../../staff/PageHeader";
+import { useStaffAuth } from "../../staff/StaffAuthContext";
 import {
   parseSessionDate,
   sessionDateToApi,
@@ -57,9 +59,7 @@ type StaffUser = { id: number; name: string; email: string; role: string };
 type ModuleRow = {
   id: number;
   name: string;
-  scheduled_date: string | null;
-  scheduled_start_time: string | null;
-  scheduled_end_time: string | null;
+  code: string | null;
   test: { id: number; status: string } | null;
   assigned_teacher: { id: number; name: string } | null;
 };
@@ -155,6 +155,8 @@ function TestManageButton({
 
 export function SessionDetailPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
+  const { isAdmin } = useStaffAuth();
+  const canManage = isAdmin;
   const [tab, setTab] = useState(0);
   const [session, setSession] = useState<SessionDetail | null>(null);
   const [staff, setStaff] = useState<StaffUser[]>([]);
@@ -168,6 +170,7 @@ export function SessionDetailPage() {
   const [levelPrefix, setLevelPrefix] = useState("");
   const [levelPlacementGroup, setLevelPlacementGroup] = useState("");
   const [moduleNames, setModuleNames] = useState<Record<number, string>>({});
+  const [moduleCodes, setModuleCodes] = useState<Record<number, string>>({});
   const [expandedLevels, setExpandedLevels] = useState<Record<number, boolean>>(
     {},
   );
@@ -278,7 +281,9 @@ export function SessionDetailPage() {
         },
       });
       setLevelName("");
-      toastSuccess("Level added.");
+      setLevelPrefix("");
+      setLevelPlacementGroup("");
+      toastSuccess("Tier added.");
       setTab(1);
       loadSession();
     } catch (e) {
@@ -289,13 +294,15 @@ export function SessionDetailPage() {
   const addModule = async (levelId: number) => {
     const name = (moduleNames[levelId] ?? "").trim();
     if (!name) return;
+    const code = (moduleCodes[levelId] ?? "").trim();
     setError(null);
     try {
       await apiJson(`/api/v1/admin/levels/${levelId}/modules`, {
         method: "POST",
-        json: { name },
+        json: { name, code: code || null },
       });
       setModuleNames((m) => ({ ...m, [levelId]: "" }));
+      setModuleCodes((m) => ({ ...m, [levelId]: "" }));
       toastSuccess("Module added.");
       loadSession();
     } catch (e) {
@@ -314,21 +321,24 @@ export function SessionDetailPage() {
         method: "PATCH",
         json: { name, registration_prefix },
       });
-      toastSuccess("Level updated.");
+      toastSuccess("Tier updated.");
       loadSession();
     } catch (e) {
       setError(parseApiError(e));
     }
   };
 
-  const updateModule = async (moduleId: number, name: string) => {
+  const updateModule = async (
+    moduleId: number,
+    patch: { name?: string; code?: string },
+  ) => {
     setError(null);
     try {
       await apiJson(`/api/v1/admin/modules/${moduleId}`, {
         method: "PATCH",
-        json: { name },
+        json: patch,
       });
-      toastSuccess("Module renamed.");
+      toastSuccess("Module updated.");
       loadSession();
     } catch (e) {
       setError(parseApiError(e));
@@ -400,7 +410,7 @@ export function SessionDetailPage() {
               <Chip
                 size="small"
                 variant="outlined"
-                label={`${stats.levels} levels`}
+                label={`${stats.levels} tiers`}
               />
               <Chip
                 size="small"
@@ -424,17 +434,26 @@ export function SessionDetailPage() {
           )}
         </Stack>
         <Typography variant="body2" color="text.secondary">
-          Set dates under <strong>Settings</strong>. Add levels and modules
-          under <strong>Programme</strong>.
+          {canManage ? (
+            <>
+              Add tiers and modules under <strong>Curriculum</strong>. Build the
+              day-by-day timetable under <strong>Timetable</strong>.
+            </>
+          ) : (
+            <>Viewing tiers, modules and teachers for this session (read-only). Use the Timetable tab for the schedule.</>
+          )}
         </Typography>
       </Paper>
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
-        <Tab label="Settings" />
-        <Tab label={`Programme${session ? ` (${stats.levels} levels)` : ""}`} />
-      </Tabs>
+      {canManage && (
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
+          <Tab label="Settings" />
+          <Tab label={`Curriculum${session ? ` (${stats.levels} tiers)` : ""}`} />
+          <Tab label="Timetable" />
+        </Tabs>
+      )}
 
-      {tab === 0 && (
+      {canManage && tab === 0 && (
         <Paper sx={{ p: 3 }}>
           <Typography variant="h6" gutterBottom>
             Dates & status
@@ -485,7 +504,7 @@ export function SessionDetailPage() {
               color="text.secondary"
               sx={{ pt: 1 }}
             >
-              Programme dates (attendance and module timetable slots must fall
+              Session dates (attendance and module timetable slots must fall
               within this range)
             </Typography>
             <Grid container spacing={2}>
@@ -527,21 +546,22 @@ export function SessionDetailPage() {
         </Paper>
       )}
 
-      {tab === 1 && (
+      {(!canManage || tab === 1) && (
         <Stack spacing={2}>
-          {!dates.session_starts_at && !dates.session_ends_at && (
+          {canManage && !dates.session_starts_at && !dates.session_ends_at && (
             <Alert severity="warning">
-              Set programme start and end dates under <strong>Settings</strong>{" "}
-              before scheduling module slots.
+              Set session start and end dates under <strong>Settings</strong>, then
+              build the timetable under the <strong>Timetable</strong> tab.
             </Alert>
           )}
+          {canManage && (
           <Paper sx={{ p: 2 }}>
             <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-              Add level
+              Add tier
             </Typography>
             <InlineFormRow>
               <TextField
-                label="Level name"
+                label="Tier name"
                 value={levelName}
                 onChange={(e) => setLevelName(e.target.value)}
                 size="small"
@@ -572,7 +592,7 @@ export function SessionDetailPage() {
                 ))}
               </TextField>
               <FormRowButton onClick={() => void addLevel()}>
-                Add level
+                Add tier
               </FormRowButton>
             </InlineFormRow>
             <Typography
@@ -583,11 +603,13 @@ export function SessionDetailPage() {
               Prefix is used in student registration numbers (e.g. BCC-0001).
             </Typography>
           </Paper>
+          )}
 
           {!session?.levels.length && (
             <Alert severity="info">
-              No levels yet. Add a level above, then add modules inside each
-              level.
+              {canManage
+                ? "No tiers yet. Add a tier above, then add modules inside each tier."
+                : "No tiers have been set up for this session yet."}
             </Alert>
           )}
 
@@ -631,10 +653,11 @@ export function SessionDetailPage() {
                   </Box>
                 </AccordionSummary>
                 <AccordionDetails sx={{ pt: 0 }}>
+                  {canManage && (
                   <Grid container spacing={1.5} sx={{ mb: 2 }}>
                     <Grid size={{ xs: 12, md: 6 }}>
                       <InlineFieldSave
-                        label="Level name"
+                        label="Tier name"
                         value={level.name}
                         onSave={(name) =>
                           updateLevel(level.id, name, level.registration_prefix)
@@ -653,13 +676,14 @@ export function SessionDetailPage() {
                       />
                     </Grid>
                   </Grid>
+                  )}
                   {level.modules.length === 0 ? (
                     <Typography
                       variant="body2"
                       color="text.secondary"
                       sx={{ mb: 2 }}
                     >
-                      No modules in this level yet.
+                      No modules in this tier yet.
                     </Typography>
                   ) : (
                     <>
@@ -672,13 +696,11 @@ export function SessionDetailPage() {
                             key={mod.id}
                             layout="card"
                             mod={mod}
-                            programmeMin={dates.session_starts_at ?? undefined}
-                            programmeMax={dates.session_ends_at ?? undefined}
+                            readOnly={!canManage}
                             teacherOptions={teacherOptions}
                             assigningModuleId={assigningModuleId}
-                            onUpdateName={updateModule}
+                            onUpdateModule={updateModule}
                             onAssignTeacher={assignTeacher}
-                            onScheduleSaved={loadSession}
                             testButton={
                               <TestManageButton
                                 moduleId={mod.id}
@@ -716,9 +738,6 @@ export function SessionDetailPage() {
                                 Module
                               </TableCell>
                               <TableCell sx={{ width: MODULE_TABLE_COL_WIDTH }}>
-                                Schedule
-                              </TableCell>
-                              <TableCell sx={{ width: MODULE_TABLE_COL_WIDTH }}>
                                 Test
                               </TableCell>
                               <TableCell sx={{ width: MODULE_TABLE_COL_WIDTH }}>
@@ -732,17 +751,11 @@ export function SessionDetailPage() {
                                 key={mod.id}
                                 layout="table"
                                 mod={mod}
-                                programmeMin={
-                                  dates.session_starts_at ?? undefined
-                                }
-                                programmeMax={
-                                  dates.session_ends_at ?? undefined
-                                }
+                                readOnly={!canManage}
                                 teacherOptions={teacherOptions}
                                 assigningModuleId={assigningModuleId}
-                                onUpdateName={updateModule}
+                                onUpdateModule={updateModule}
                                 onAssignTeacher={assignTeacher}
-                                onScheduleSaved={loadSession}
                                 testButton={
                                   <TestManageButton
                                     moduleId={mod.id}
@@ -757,6 +770,7 @@ export function SessionDetailPage() {
                       </Box>
                     </>
                   )}
+                  {canManage && (
                   <InlineFormRow>
                     <TextField
                       size="small"
@@ -775,15 +789,53 @@ export function SessionDetailPage() {
                         e.key === "Enter" && void addModule(level.id)
                       }
                     />
+                    <TextField
+                      size="small"
+                      label="Short code"
+                      placeholder="e.g. M4"
+                      value={moduleCodes[level.id] ?? ""}
+                      onChange={(e) =>
+                        setModuleCodes((m) => ({
+                          ...m,
+                          [level.id]: e.target.value,
+                        }))
+                      }
+                      sx={{ width: { xs: "100%", sm: 160 }, flexShrink: 0 }}
+                      onKeyDown={(e) =>
+                        e.key === "Enter" && void addModule(level.id)
+                      }
+                    />
                     <FormRowButton onClick={() => void addModule(level.id)}>
                       Add module
                     </FormRowButton>
                   </InlineFormRow>
+                  )}
                 </AccordionDetails>
               </Accordion>
             );
           })}
         </Stack>
+      )}
+
+      {session && canManage && tab === 2 && (
+        <TimetableBuilder
+          sessionId={session.id}
+          tiers={session.levels.map((l) => ({ id: l.id, name: l.name }))}
+          canManage
+        />
+      )}
+
+      {session && !canManage && (
+        <Paper sx={{ p: 2, mt: 2 }}>
+          <Typography variant="h6" gutterBottom>
+            Timetable
+          </Typography>
+          <TimetableBuilder
+            sessionId={session.id}
+            tiers={session.levels.map((l) => ({ id: l.id, name: l.name }))}
+            canManage={false}
+          />
+        </Paper>
       )}
     </>
   );

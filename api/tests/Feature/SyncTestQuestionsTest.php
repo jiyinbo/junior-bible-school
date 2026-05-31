@@ -64,4 +64,46 @@ class SyncTestQuestionsTest extends TestCase
         $this->assertFalse($question->isAnswerCorrect([1]));
         $this->assertFalse($question->isAnswerCorrect(0));
     }
+
+    public function test_admin_can_download_paper_test_pdf(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        Sanctum::actingAs($admin);
+
+        $session = JbsSession::query()->create([
+            'name' => 'Summer 2026',
+            'slug' => 'summer-2026',
+            'is_past' => false,
+        ]);
+
+        $level = JbsLevel::query()->create([
+            'jbs_session_id' => $session->id,
+            'name' => 'BCC',
+            'registration_prefix' => 'BCC',
+            'next_sequence' => 1,
+        ]);
+
+        $module = JbsModule::query()->create([
+            'jbs_level_id' => $level->id,
+            'name' => 'Course One',
+            'sort_order' => 0,
+        ]);
+
+        $this->postJson("/api/v1/admin/modules/{$module->id}/tests/questions", [
+            'questions' => [
+                [
+                    'prompt' => 'What is faith?',
+                    'choices' => ['A', 'B', 'C', 'D'],
+                    'correct_indices' => [0],
+                    'position' => 0,
+                ],
+            ],
+        ])->assertOk();
+
+        $response = $this->get("/api/v1/admin/modules/{$module->id}/tests/pdf");
+
+        $response->assertOk();
+        $this->assertStringContainsString('application/pdf', (string) $response->headers->get('content-type'));
+        $this->assertStringStartsWith('%PDF', $response->getContent());
+    }
 }

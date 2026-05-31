@@ -13,7 +13,7 @@ class StaffUserAdminController extends Controller
     public function index(): JsonResponse
     {
         $users = User::query()
-            ->whereIn('role', ['admin', 'teacher'])
+            ->whereIn('role', ['admin', 'teacher', 'assistant'])
             ->orderBy('name')
             ->get(['id', 'name', 'email', 'role']);
 
@@ -26,7 +26,7 @@ class StaffUserAdminController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8'],
-            'role' => ['required', Rule::in(['admin', 'teacher'])],
+            'role' => ['required', Rule::in(['admin', 'teacher', 'assistant'])],
         ]);
 
         $user = User::query()->create([
@@ -50,13 +50,13 @@ class StaffUserAdminController extends Controller
 
     public function update(Request $request, User $user): JsonResponse
     {
-        abort_unless(in_array($user->role, ['admin', 'teacher'], true), 404);
+        abort_unless(in_array($user->role, ['admin', 'teacher', 'assistant'], true), 404);
 
         $data = $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],
             'email' => ['sometimes', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
             'password' => ['nullable', 'string', 'min:8'],
-            'role' => ['sometimes', Rule::in(['admin', 'teacher'])],
+            'role' => ['sometimes', Rule::in(['admin', 'teacher', 'assistant'])],
         ]);
 
         $payload = [];
@@ -87,5 +87,37 @@ class StaffUserAdminController extends Controller
                 'role' => $user->role,
             ],
         ]);
+    }
+
+    public function destroy(Request $request, User $user): JsonResponse
+    {
+        abort_unless(in_array($user->role, ['admin', 'teacher', 'assistant'], true), 404);
+
+        if ($user->id === $request->user()->id) {
+            return response()->json(['message' => 'You cannot delete your own account.'], 422);
+        }
+
+        $assignmentCount = $user->moduleAssignments()->count();
+        if ($assignmentCount > 0) {
+            return response()->json([
+                'message' => 'This teacher is still assigned to '.$assignmentCount.' module'
+                    .($assignmentCount === 1 ? '' : 's')
+                    .'. Reassign their modules to another teacher before deleting this account.',
+                'assignment_count' => $assignmentCount,
+            ], 409);
+        }
+
+        $this->audit()->record(
+            'staff_user.deleted',
+            $request,
+            $user,
+            oldValues: $this->audit()->snapshot($user, ['name', 'email', 'role']),
+            metadata: ['email' => $user->email, 'role' => $user->role],
+        );
+
+        $user->tokens()->delete();
+        $user->delete();
+
+        return response()->json(['message' => 'Staff account deleted.']);
     }
 }

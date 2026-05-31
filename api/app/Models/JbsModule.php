@@ -14,18 +14,9 @@ class JbsModule extends Model
     protected $fillable = [
         'jbs_level_id',
         'name',
+        'code',
         'sort_order',
-        'scheduled_date',
-        'scheduled_start_time',
-        'scheduled_end_time',
     ];
-
-    protected function casts(): array
-    {
-        return [
-            'scheduled_date' => 'date',
-        ];
-    }
 
     protected static function booted(): void
     {

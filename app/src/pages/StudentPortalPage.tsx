@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Alert,
-  Box,
   Button,
   Chip,
   Container,
@@ -11,21 +10,15 @@ import {
   ListItemText,
   Paper,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Typography,
 } from '@mui/material';
 import { FormRowButton, InlineFormRow } from '../components/InlineFormRow';
 import { GradingKeyTable } from '../components/GradingKeyTable';
 import { PortalSection } from '../components/PortalSection';
+import { TimetableGrid, type TimetableGridData } from '../components/TimetableGrid';
 import { apiJson, downloadPdf } from '../api/http';
 import type { GradingBand } from '../utils/grading';
-import { gradeChipColor } from '../utils/grading';
 
 const STUDENT_REG_KEY = 'jbs_student_reg';
 
@@ -41,17 +34,6 @@ type Progress = {
   overall_grade_label: string | null;
   overall_grade_short: string | null;
   grading_scale: GradingBand[];
-};
-
-type TimetableRow = {
-  module_id: number;
-  module_name: string;
-  teacher_name: string | null;
-  scheduled_date: string | null;
-  scheduled_start_time: string | null;
-  scheduled_end_time: string | null;
-  time_label: string | null;
-  slot_status: 'unscheduled' | 'upcoming' | 'today' | 'ongoing' | 'past';
 };
 
 type OpenTest = { test_id: number; module_id: number; module_name: string };
@@ -72,7 +54,7 @@ type LookupData = {
   session_starts_at: string | null;
   session_ends_at: string | null;
   programme_phase: 'upcoming' | 'ongoing' | 'ended' | 'past';
-  timetable: TimetableRow[];
+  timetable_grid: TimetableGridData;
   open_tests: OpenTest[];
   completed_tests: CompletedTest[];
   level_completed: boolean;
@@ -81,43 +63,15 @@ type LookupData = {
   completion_message: string | null;
 };
 
-function formatTimetableDate(iso: string | null): string {
-  if (!iso) return '—';
-  const d = new Date(iso + 'T12:00:00');
-  return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
-}
-
-function slotStatusLabel(status: TimetableRow['slot_status']): string {
-  switch (status) {
-    case 'ongoing':
-      return 'Now';
-    case 'today':
-      return 'Today';
-    case 'upcoming':
-      return 'Upcoming';
-    case 'past':
-      return 'Past';
-    default:
-      return 'Not scheduled';
-  }
-}
-
-function slotStatusColor(status: TimetableRow['slot_status']): 'default' | 'success' | 'warning' | 'info' {
-  if (status === 'ongoing') return 'success';
-  if (status === 'today' || status === 'upcoming') return 'info';
-  if (status === 'past') return 'default';
-  return 'warning';
-}
-
 function programmePhaseMessage(lookup: LookupData): string | null {
   if (lookup.programme_phase === 'upcoming') {
-    return 'Your programme has not started yet. Timetable shows planned sessions for your level.';
+    return 'Your session has not started yet. Timetable shows planned classes for your tier.';
   }
   if (lookup.programme_phase === 'ongoing') {
-    return 'Your programme is in progress. See your class timetable below.';
+    return 'Your session is in progress. See your class timetable below.';
   }
   if (lookup.programme_phase === 'ended' || lookup.programme_phase === 'past') {
-    return 'This programme has ended. Timetable is shown for reference.';
+    return 'This session has ended. Timetable is shown for reference.';
   }
   return null;
 }
@@ -244,22 +198,14 @@ export function StudentPortalPage() {
               <Chip size="small" label={`Attendance: ${lookup.progress.attendance_days} days`} />
               <Chip
                 size="small"
-                label={`Tests: ${lookup.progress.tests_passed}/${lookup.progress.tests_taken} passed`}
+                label={`Tests completed: ${lookup.progress.tests_taken}/${lookup.progress.tests_total}`}
               />
               <Chip
                 size="small"
                 color={lookup.level_completed ? 'success' : 'default'}
-                label={lookup.level_completed ? 'Level completed' : 'Level in progress'}
+                label={lookup.level_completed ? 'Tier completed' : 'Tier in progress'}
               />
             </Stack>
-            {lookup.progress.overall_grade_label != null && lookup.progress.overall_percent != null && (
-              <Chip
-                size="small"
-                sx={{ mt: 2, mr: 1 }}
-                color={gradeChipColor(true, lookup.progress.overall_grade_short)}
-                label={`Overall: ${lookup.progress.overall_grade_label} (${lookup.progress.overall_percent}%)`}
-              />
-            )}
             {lookup.completion_message && (
               <Alert severity="info" sx={{ mt: 2 }}>
                 {lookup.completion_message}
@@ -270,9 +216,9 @@ export function StudentPortalPage() {
           <PortalSection
             title={`Timetable — ${lookup.level_name}`}
             subtitle={
-              lookup.timetable.length > 0
-                ? `${lookup.timetable.length} session${lookup.timetable.length === 1 ? '' : 's'}`
-                : 'No sessions scheduled'
+              lookup.timetable_grid.periods.length > 0
+                ? `${lookup.timetable_grid.days.length} day${lookup.timetable_grid.days.length === 1 ? '' : 's'}`
+                : 'Not set up yet'
             }
             expanded={expanded.timetable}
             onExpandedChange={(open) => setSectionExpanded('timetable', open)}
@@ -282,57 +228,18 @@ export function StudentPortalPage() {
                 {phaseMessage}
               </Alert>
             )}
-            {lookup.timetable.length === 0 ? (
-              <Typography color="text.secondary">No modules in your level yet.</Typography>
+            {lookup.timetable_grid.periods.length > 0 ? (
+              <TimetableGrid grid={lookup.timetable_grid} />
             ) : (
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Date</TableCell>
-                      <TableCell>Time</TableCell>
-                      <TableCell>Module</TableCell>
-                      <TableCell>Teacher</TableCell>
-                      <TableCell>Status</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {lookup.timetable.map((row) => (
-                      <TableRow
-                        key={row.module_id}
-                        sx={
-                          row.slot_status === 'ongoing'
-                            ? { bgcolor: 'success.50' }
-                            : row.slot_status === 'unscheduled'
-                              ? { opacity: 0.85 }
-                              : undefined
-                        }
-                      >
-                        <TableCell>{formatTimetableDate(row.scheduled_date)}</TableCell>
-                        <TableCell>{row.time_label ?? '—'}</TableCell>
-                        <TableCell>
-                          <Typography fontWeight={500}>{row.module_name}</Typography>
-                        </TableCell>
-                        <TableCell>{row.teacher_name ?? '—'}</TableCell>
-                        <TableCell>
-                          <Chip
-                            size="small"
-                            label={slotStatusLabel(row.slot_status)}
-                            color={slotStatusColor(row.slot_status)}
-                            variant={row.slot_status === 'unscheduled' ? 'outlined' : 'filled'}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+              <Typography color="text.secondary">
+                The timetable for your tier has not been set up yet.
+              </Typography>
             )}
           </PortalSection>
 
           <PortalSection
             title="Open tests"
-            subtitle="Each test can only be taken once · score shown after submit"
+            subtitle="Each test can only be taken once"
             expanded={expanded.openTests}
             onExpandedChange={(open) => setSectionExpanded('openTests', open)}
             trailing={
@@ -365,7 +272,7 @@ export function StudentPortalPage() {
           {completedTests.length > 0 && (
             <PortalSection
               title="Completed tests"
-              subtitle="Scores and pass/fail for tests you have submitted"
+              subtitle="Tests you have submitted · results appear on your statement of result"
               expanded={expanded.completedTests}
               onExpandedChange={(open) => setSectionExpanded('completedTests', open)}
               trailing={<Chip size="small" label={String(completedTests.length)} />}
@@ -375,28 +282,7 @@ export function StudentPortalPage() {
                   <ListItem
                     key={t.test_id}
                     disableGutters
-                    secondaryAction={
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <Chip
-                          size="small"
-                          label={
-                            t.percent != null
-                              ? `${t.percent}% · ${t.passed ? 'Pass' : 'Fail'}`
-                              : t.passed
-                                ? 'Pass'
-                                : 'Fail'
-                          }
-                          color={t.passed ? 'success' : 'error'}
-                        />
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={() => startTest(t.test_id)}
-                        >
-                          View score
-                        </Button>
-                      </Stack>
-                    }
+                    secondaryAction={<Chip size="small" color="success" label="Completed" />}
                   >
                     <ListItemText
                       primary={t.module_name}
@@ -428,7 +314,7 @@ export function StudentPortalPage() {
             subtitle={
               lookup.documents_available
                 ? 'ID card, statement, and certificate'
-                : 'ID card available · statement & certificate after level completion'
+                : 'ID card available · statement & certificate after tier completion'
             }
             expanded={expanded.documents}
             onExpandedChange={(open) => setSectionExpanded('documents', open)}

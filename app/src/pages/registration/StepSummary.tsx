@@ -95,7 +95,7 @@ export function StepSummary({
           <Typography variant="subtitle2" gutterBottom>
             Child {idx + 1}: {child.first_name} {child.last_name}
           </Typography>
-          <Typography variant="body2">Level: {levelName(levels, child.jbs_level_id)}</Typography>
+          <Typography variant="body2">Tier: {levelName(levels, child.jbs_level_id)}</Typography>
           <Typography variant="body2">
             DOB: {child.date_of_birth ? new Date(child.date_of_birth + 'T12:00:00').toLocaleDateString() : '—'}
           </Typography>
@@ -103,7 +103,7 @@ export function StepSummary({
           <Typography variant="body2">Phone: {child.phone}</Typography>
           <Typography variant="body2">School: {child.current_school} ({child.current_school_year})</Typography>
           {child.allergies && (
-            <Typography variant="body2">Allergies: {child.allergies}</Typography>
+            <Typography variant="body2">Allergies / medical: {child.allergies}</Typography>
           )}
         </Paper>
       ))}
