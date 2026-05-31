@@ -14,7 +14,7 @@ export function getAge(dateOfBirth: string): number | null {
 
 export function validateAdminGuardian(
   sessionId: number | '',
-  data: Pick<GuardianInfo, 'guardian_name' | 'guardian_relationship' | 'guardian_phone'>,
+  data: Pick<GuardianInfo, 'guardian_name' | 'guardian_relationship' | 'guardian_phone' | 'guardian_email'>,
 ): Record<string, string> {
   const g = normalizeGuardianContacts(data);
   const errors: Record<string, string> = {};
@@ -25,6 +25,8 @@ export function validateAdminGuardian(
   }
   const guardianPhoneErr = ukPhoneError(g.guardian_phone, 'Parent / guardian phone');
   if (guardianPhoneErr) errors.guardian_phone = guardianPhoneErr;
+  const guardianEmailErr = emailError(g.guardian_email, 'Parent / guardian email');
+  if (guardianEmailErr) errors.guardian_email = guardianEmailErr;
   return errors;
 }
 
@@ -38,12 +40,20 @@ export function validateGuardian(data: GuardianInfo): Record<string, string> {
   }
   const guardianPhoneErr = ukPhoneError(g.guardian_phone, 'Parent / guardian phone');
   if (guardianPhoneErr) errors.guardian_phone = guardianPhoneErr;
+  const guardianEmailErr = emailError(g.guardian_email, 'Parent / guardian email');
+  if (guardianEmailErr) errors.guardian_email = guardianEmailErr;
   return errors;
 }
 
 /** Normalize contact fields before API submit. */
-export function normalizeGuardianContacts<T extends Pick<GuardianInfo, 'guardian_phone'>>(data: T): T {
-  return { ...data, guardian_phone: normalizeUkPhone(data.guardian_phone) };
+export function normalizeGuardianContacts<
+  T extends Pick<GuardianInfo, 'guardian_phone' | 'guardian_email'>,
+>(data: T): T {
+  return {
+    ...data,
+    guardian_phone: normalizeUkPhone(data.guardian_phone),
+    guardian_email: normalizeEmail(data.guardian_email),
+  };
 }
 
 export function normalizeChildContacts<T extends Pick<ChildForm, 'phone' | 'email'>>(child: T): T {

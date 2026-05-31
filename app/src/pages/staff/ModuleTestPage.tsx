@@ -6,7 +6,6 @@ import {
   Button,
   Chip,
   IconButton,
-  MenuItem,
   Paper,
   Stack,
   TextField,
@@ -51,7 +50,12 @@ const emptyQuestion = (): QuestionDraft => ({
   correct_indices: [0],
 });
 
-const DURATION_OPTIONS = [5, 10, 15, 20, 30, 45, 60];
+const MIN_DURATION_MINUTES = 1;
+const MAX_DURATION_MINUTES = 240;
+
+function isValidDuration(minutes: number): boolean {
+  return Number.isInteger(minutes) && minutes >= MIN_DURATION_MINUTES && minutes <= MAX_DURATION_MINUTES;
+}
 
 function normalizeIndices(indices: number[], choiceCount: number): number[] {
   const valid = [...new Set(indices.filter((i) => i >= 0 && i < choiceCount))].sort((a, b) => a - b);
@@ -114,6 +118,10 @@ export function ModuleTestPage() {
 
   const saveQuestions = async () => {
     if (!moduleId) return;
+    if (!isValidDuration(durationMinutes)) {
+      setError(`Enter a test duration between ${MIN_DURATION_MINUTES} and ${MAX_DURATION_MINUTES} minutes.`);
+      return;
+    }
     setError(null);
     const payload = questions
       .filter((q) => q.prompt.trim())
@@ -145,6 +153,10 @@ export function ModuleTestPage() {
 
   const openTest = async () => {
     if (!moduleId) return;
+    if (!isValidDuration(durationMinutes)) {
+      setError(`Enter a test duration between ${MIN_DURATION_MINUTES} and ${MAX_DURATION_MINUTES} minutes.`);
+      return;
+    }
     setError(null);
     try {
       await apiJson(`/api/v1/admin/modules/${moduleId}/tests/open`, {
@@ -203,6 +215,7 @@ export function ModuleTestPage() {
 
   const isOpen = status === 'open';
   const canEdit = !isOpen;
+  const durationInvalid = !isValidDuration(durationMinutes);
 
   if (!moduleId) return null;
 
@@ -262,20 +275,28 @@ export function ModuleTestPage() {
 
           {!isOpen && (
             <TextField
-              select
-              label="Duration"
+              type="number"
+              label="Duration (minutes)"
               value={durationMinutes}
-              onChange={(e) => setDurationMinutes(Number(e.target.value))}
+              onChange={(e) => {
+                const next = Number(e.target.value);
+                if (e.target.value === '' || Number.isNaN(next)) {
+                  setDurationMinutes(0);
+                  return;
+                }
+                setDurationMinutes(Math.trunc(next));
+              }}
+              error={durationInvalid}
+              helperText={
+                durationInvalid
+                  ? `Enter ${MIN_DURATION_MINUTES}–${MAX_DURATION_MINUTES} minutes`
+                  : undefined
+              }
               size="small"
               fullWidth
-              sx={{ gridColumn: { xs: '1', md: '2' }, maxWidth: { md: 140 } }}
-            >
-              {DURATION_OPTIONS.map((m) => (
-                <MenuItem key={m} value={m}>
-                  {m} min
-                </MenuItem>
-              ))}
-            </TextField>
+              inputProps={{ min: MIN_DURATION_MINUTES, max: MAX_DURATION_MINUTES, step: 1 }}
+              sx={{ gridColumn: { xs: '1', md: '2' }, maxWidth: { md: 240 } }}
+            />
           )}
 
           <Stack
@@ -331,7 +352,7 @@ export function ModuleTestPage() {
 
         {!isOpen && (
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
-            Test closes automatically after the selected duration when opened.
+            Test closes automatically after the entered duration when opened.
           </Typography>
         )}
       </Paper>

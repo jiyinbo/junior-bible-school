@@ -22,10 +22,14 @@ const STEPS = ['Parent / guardian', 'Student information', 'Summary', 'Confirmat
 
 type Session = { id: number; name: string };
 
-const initialGuardian = (): Pick<GuardianInfo, 'guardian_name' | 'guardian_relationship' | 'guardian_phone'> => ({
+const initialGuardian = (): Pick<
+  GuardianInfo,
+  'guardian_name' | 'guardian_relationship' | 'guardian_phone' | 'guardian_email'
+> => ({
   guardian_name: '',
   guardian_relationship: '',
   guardian_phone: '',
+  guardian_email: '',
 });
 
 export function RegistrationsPage() {

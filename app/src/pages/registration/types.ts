@@ -17,6 +17,7 @@ export type GuardianInfo = {
   guardian_name: string;
   guardian_relationship: string;
   guardian_phone: string;
+  guardian_email: string;
 };
 
 export type ChildForm = {

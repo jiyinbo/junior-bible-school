@@ -1,11 +1,11 @@
 import { MenuItem, TextField } from '@mui/material';
-import { UkPhoneTextField } from './ContactFields';
+import { EmailTextField, UkPhoneTextField } from './ContactFields';
 import { GUARDIAN_RELATIONSHIPS } from './constants';
 import { FormRow, FormSection } from './FormLayout';
 import type { GuardianInfo } from './types';
 
 type Props = {
-  values: Pick<GuardianInfo, 'guardian_name' | 'guardian_relationship' | 'guardian_phone'>;
+  values: Pick<GuardianInfo, 'guardian_name' | 'guardian_relationship' | 'guardian_phone' | 'guardian_email'>;
   errors: Record<string, string>;
   onChange: (patch: Partial<GuardianInfo>) => void;
 };
@@ -13,16 +13,16 @@ type Props = {
 export function GuardianRegistrationFields({ values, errors, onChange }: Props) {
   return (
     <FormSection title="Parent / guardian">
-      <TextField
-        label="Parent / guardian name"
-        value={values.guardian_name}
-        onChange={(e) => onChange({ guardian_name: e.target.value })}
-        error={Boolean(errors.guardian_name)}
-        helperText={errors.guardian_name}
-        required
-        fullWidth
-      />
       <FormRow>
+        <TextField
+          label="Parent / guardian name"
+          value={values.guardian_name}
+          onChange={(e) => onChange({ guardian_name: e.target.value })}
+          error={Boolean(errors.guardian_name)}
+          helperText={errors.guardian_name}
+          required
+          fullWidth
+        />
         <TextField
           select
           label="Relationship to child"
@@ -39,6 +39,16 @@ export function GuardianRegistrationFields({ values, errors, onChange }: Props) 
             </MenuItem>
           ))}
         </TextField>
+      </FormRow>
+      <FormRow>
+        <EmailTextField
+          label="Parent / guardian email"
+          fieldLabel="Parent / guardian email"
+          value={values.guardian_email}
+          onChange={(email) => onChange({ guardian_email: email })}
+          error={errors.guardian_email}
+          required
+        />
         <UkPhoneTextField
           label="Parent / guardian phone"
           fieldLabel="Parent / guardian phone"

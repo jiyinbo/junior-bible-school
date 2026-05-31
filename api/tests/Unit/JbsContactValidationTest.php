@@ -38,6 +38,7 @@ class JbsContactValidationTest extends TestCase
     {
         $payload = [
             'guardian_phone' => '+44 7123 456788',
+            'guardian_email' => '  Parent@Example.COM ',
             'children' => [
                 [
                     'phone' => '07111 222 333',
@@ -49,6 +50,7 @@ class JbsContactValidationTest extends TestCase
         $normalized = $this->validation->normalizeRegistrationPayload($payload);
 
         $this->assertSame('07123456788', $normalized['guardian_phone']);
+        $this->assertSame('parent@example.com', $normalized['guardian_email']);
         $this->assertSame('07111222333', $normalized['children'][0]['phone']);
         $this->assertSame('child@example.com', $normalized['children'][0]['email']);
     }

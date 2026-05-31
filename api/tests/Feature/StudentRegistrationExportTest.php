@@ -34,6 +34,7 @@ class StudentRegistrationExportTest extends TestCase
             'guardian_name' => 'Parent',
             'guardian_relationship' => 'Mother',
             'guardian_phone' => '07987654321',
+            'guardian_email' => 'parent@example.com',
             'gender' => 'Female',
             'date_of_birth' => '2014-01-15',
             'nationality' => 'British',
@@ -56,5 +57,6 @@ class StudentRegistrationExportTest extends TestCase
         $this->assertStringContainsString('Registration number', $response->streamedContent());
         $this->assertStringContainsString('B/0001', $response->streamedContent());
         $this->assertStringContainsString('ada@example.com', $response->streamedContent());
+        $this->assertStringContainsString('parent@example.com', $response->streamedContent());
     }
 }

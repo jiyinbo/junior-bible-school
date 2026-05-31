@@ -73,6 +73,7 @@ class DuplicateSessionRegistrationTest extends TestCase
             'guardian_name' => 'Parent',
             'guardian_relationship' => 'Mother',
             'guardian_phone' => '07222222222',
+            'guardian_email' => 'parent@example.com',
             'children' => [
                 $this->childPayload($level->id, 'ADA@Example.com'),
             ],
@@ -105,6 +106,7 @@ class DuplicateSessionRegistrationTest extends TestCase
             'guardian_name' => 'Jane Parent',
             'guardian_relationship' => 'Mother',
             'guardian_phone' => '07123456780',
+            'guardian_email' => 'jane.parent@example.com',
             'children' => [
                 $this->childPayload($level->id, 'child1@example.com'),
                 $this->childPayload($level->id, 'child2@example.com'),
@@ -114,5 +116,13 @@ class DuplicateSessionRegistrationTest extends TestCase
         $response->assertCreated();
         $response->assertJsonCount(2, 'data');
         $this->assertDatabaseCount('jbs_student_registrations', 2);
+        $this->assertDatabaseHas('jbs_student_registrations', [
+            'email' => 'child1@example.com',
+            'guardian_email' => 'jane.parent@example.com',
+        ]);
+        $this->assertDatabaseHas('jbs_student_registrations', [
+            'email' => 'child2@example.com',
+            'guardian_email' => 'jane.parent@example.com',
+        ]);
     }
 }

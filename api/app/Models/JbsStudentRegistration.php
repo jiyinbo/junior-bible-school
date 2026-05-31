@@ -21,6 +21,7 @@ class JbsStudentRegistration extends Model
         'guardian_name',
         'guardian_relationship',
         'guardian_phone',
+        'guardian_email',
         'gender',
         'date_of_birth',
         'nationality',

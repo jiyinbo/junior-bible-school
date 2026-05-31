@@ -30,6 +30,7 @@ class JbsRegistrationValidationService
             'guardian_name' => ['required', 'string', 'max:255'],
             'guardian_relationship' => ['required', 'string', 'max:120'],
             'guardian_phone' => ['required', 'string', 'regex:'.self::UK_PHONE_PATTERN],
+            'guardian_email' => ['required', 'email', 'max:255'],
         ];
     }
 
@@ -69,6 +70,9 @@ class JbsRegistrationValidationService
     {
         if (isset($guardian['guardian_phone']) && is_string($guardian['guardian_phone'])) {
             $guardian['guardian_phone'] = $this->normalizeUkPhone($guardian['guardian_phone']);
+        }
+        if (isset($guardian['guardian_email']) && is_string($guardian['guardian_email'])) {
+            $guardian['guardian_email'] = strtolower(trim($guardian['guardian_email']));
         }
 
         Validator::make($guardian, $this->guardianRules(), $this->validationMessages())->validate();
@@ -159,6 +163,10 @@ class JbsRegistrationValidationService
             $payload['guardian_phone'] = $this->normalizeUkPhone($payload['guardian_phone']);
         }
 
+        if (isset($payload['guardian_email']) && is_string($payload['guardian_email'])) {
+            $payload['guardian_email'] = strtolower(trim($payload['guardian_email']));
+        }
+
         if (isset($payload['phone']) && is_string($payload['phone'])) {
             $payload['phone'] = $this->normalizeUkPhone($payload['phone']);
         }
@@ -192,6 +200,7 @@ class JbsRegistrationValidationService
     {
         return [
             'guardian_phone.regex' => 'The parent or guardian phone must be a valid UK number (11 digits starting with 0).',
+            'guardian_email.email' => 'Enter a valid parent or guardian email address.',
             'phone.regex' => 'The phone number must be a valid UK number (11 digits starting with 0).',
             'children.*.phone.regex' => 'Each child phone must be a valid UK number (11 digits starting with 0).',
             'email.email' => 'Enter a valid email address.',

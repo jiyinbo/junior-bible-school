@@ -10,7 +10,7 @@ type Session = { id: number; name: string };
 type Props = {
   sessionId: number | '';
   sessions: Session[];
-  guardian: Pick<GuardianInfo, 'guardian_name' | 'guardian_relationship' | 'guardian_phone'>;
+  guardian: Pick<GuardianInfo, 'guardian_name' | 'guardian_relationship' | 'guardian_phone' | 'guardian_email'>;
   onSessionChange: (sessionId: number | '') => void;
   onGuardianChange: (patch: Partial<GuardianInfo>) => void;
   onNext: () => void;

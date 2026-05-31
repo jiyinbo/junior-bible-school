@@ -16,6 +16,7 @@
 --   - UK phone: 11 digits including leading 0 (e.g. 07123456789); +44 accepted
 --     in the app and normalized before save.
 --   - Email: valid format, max 255 chars; unique per session (jbs_session_id + email).
+--   - Parent / guardian email: captured on registration step 1; stored lowercase on each child row.
 --   - Full student/guardian profile columns on jbs_student_registrations (see below).
 --   - jbs_levels.placement_group: basic_10_12 | basic_teens | advanced |
 --     teens_masterclass (NULL = no placement rule).
@@ -282,6 +283,7 @@ CREATE TABLE `jbs_student_registrations` (
   `guardian_name` varchar(255) DEFAULT NULL,
   `guardian_relationship` varchar(120) DEFAULT NULL,
   `guardian_phone` varchar(11) DEFAULT NULL COMMENT 'UK: 0 + 10 digits',
+  `guardian_email` varchar(255) DEFAULT NULL COMMENT 'Parent / guardian email; stored lowercase',
   `gender` varchar(20) DEFAULT NULL,
   `date_of_birth` date DEFAULT NULL,
   `nationality` varchar(120) DEFAULT NULL,
@@ -446,4 +448,5 @@ INSERT INTO `migrations` (`migration`, `batch`) VALUES
 ('2026_05_31_120100_create_jbs_timetable_days_table', 1),
 ('2026_05_31_120200_create_jbs_timetable_entries_table', 1),
 ('2026_05_31_140000_add_duration_minutes_to_jbs_tests', 1),
-('2026_05_31_150000_remove_schedule_from_jbs_modules', 1);
+('2026_05_31_150000_remove_schedule_from_jbs_modules', 1),
+('2026_05_31_160000_add_guardian_email_to_jbs_student_registrations', 1);

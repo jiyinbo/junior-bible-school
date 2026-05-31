@@ -29,6 +29,7 @@ const initialGuardian: GuardianInfo = {
   guardian_name: '',
   guardian_relationship: '',
   guardian_phone: '',
+  guardian_email: '',
 };
 
 export function RegistrationPage() {

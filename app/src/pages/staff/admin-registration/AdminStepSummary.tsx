@@ -15,7 +15,7 @@ import { normalizeChildContacts, normalizeGuardianContacts } from '../../registr
 type Props = {
   sessionName: string;
   sessionId: number;
-  guardian: Pick<GuardianInfo, 'guardian_name' | 'guardian_relationship' | 'guardian_phone'>;
+  guardian: Pick<GuardianInfo, 'guardian_name' | 'guardian_relationship' | 'guardian_phone' | 'guardian_email'>;
   children: ChildForm[];
   levels: LevelOption[];
   onBack: () => void;
@@ -52,6 +52,7 @@ export function AdminStepSummary({
           guardian_name: guardianPayload.guardian_name,
           guardian_relationship: guardianPayload.guardian_relationship,
           guardian_phone: guardianPayload.guardian_phone,
+          guardian_email: guardianPayload.guardian_email,
           children: children.map((c) => {
             const child = normalizeChildContacts(c);
             return {
@@ -86,6 +87,7 @@ export function AdminStepSummary({
         <Typography variant="body2">Name: {guardian.guardian_name}</Typography>
         <Typography variant="body2">Relationship: {guardian.guardian_relationship}</Typography>
         <Typography variant="body2">Phone: {guardian.guardian_phone}</Typography>
+        <Typography variant="body2">Email: {guardian.guardian_email}</Typography>
       </Paper>
 
       <Divider />

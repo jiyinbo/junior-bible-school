@@ -33,6 +33,7 @@ class PublicRegistrationController extends Controller
             'guardian_name' => ['required', 'string', 'max:255'],
             'guardian_relationship' => ['required', 'string', 'max:120'],
             'guardian_phone' => ['required', 'string', 'regex:/^0\d{10}$/'],
+            'guardian_email' => ['required', 'email', 'max:255'],
             'children' => ['required', 'array', 'min:1'],
             'children.*.jbs_level_id' => ['required', 'integer', 'exists:jbs_levels,id'],
             'children.*.first_name' => ['required', 'string', 'max:120'],
@@ -62,6 +63,7 @@ class PublicRegistrationController extends Controller
             'guardian_name' => $data['guardian_name'],
             'guardian_relationship' => $data['guardian_relationship'],
             'guardian_phone' => $data['guardian_phone'],
+            'guardian_email' => $data['guardian_email'],
         ];
 
         try {
@@ -104,26 +106,30 @@ class PublicRegistrationController extends Controller
     }
 
     /**
-     * Send a confirmation email per registered child. A delivery failure must
-     * never fail the registration itself, so each send is isolated and logged.
+     * Send a confirmation email to each child and a copy to their parent / guardian.
+     * A delivery failure must never fail the registration itself, so each send is
+     * isolated and logged.
      *
      * @param  array<int, \App\Models\JbsStudentRegistration>  $registrations
      */
     private function sendConfirmationEmails(array $registrations): void
     {
         foreach ($registrations as $reg) {
-            if (empty($reg->email)) {
-                continue;
-            }
+            $recipients = array_values(array_unique(array_filter([
+                $reg->email,
+                $reg->guardian_email,
+            ])));
 
-            try {
-                Mail::to($reg->email)->send(new RegistrationConfirmationMail($reg));
-            } catch (Throwable $e) {
-                Log::error('Failed to send registration confirmation email', [
-                    'registration_number' => $reg->registration_number,
-                    'email' => $reg->email,
-                    'error' => $e->getMessage(),
-                ]);
+            foreach ($recipients as $email) {
+                try {
+                    Mail::to($email)->send(new RegistrationConfirmationMail($reg));
+                } catch (Throwable $e) {
+                    Log::error('Failed to send registration confirmation email', [
+                        'registration_number' => $reg->registration_number,
+                        'email' => $email,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
             }
         }
     }

@@ -147,6 +147,7 @@ class JbsRegistrationService
             'guardian_name' => trim($guardian['guardian_name']),
             'guardian_relationship' => trim($guardian['guardian_relationship']),
             'guardian_phone' => $this->validation->normalizeUkPhone($guardian['guardian_phone']),
+            'guardian_email' => $this->normalizeEmail($guardian['guardian_email']),
             'gender' => $data['gender'],
             'date_of_birth' => $data['date_of_birth'],
             'nationality' => trim($data['nationality']),
@@ -182,9 +183,13 @@ class JbsRegistrationService
             $data['email'] = $this->normalizeEmail($data['email']);
         }
 
+        if (isset($data['guardian_email'])) {
+            $data['guardian_email'] = $this->normalizeEmail($data['guardian_email']);
+        }
+
         $stringFields = [
             'first_name', 'last_name', 'phone', 'guardian_name', 'guardian_relationship',
-            'guardian_phone', 'gender', 'nationality', 'address', 'new_birth_location',
+            'guardian_phone', 'guardian_email', 'gender', 'nationality', 'address', 'new_birth_location',
             'place_of_worship', 'place_of_worship_address', 'pastor_name', 'activity_group',
             'current_school', 'current_school_year', 'next_of_kin_name',
         ];
