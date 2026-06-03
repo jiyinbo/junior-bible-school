@@ -73,6 +73,23 @@ Use **`.env.siteground.example`** → **`.env`** in **`api/`**. Run **`php artis
 | **`DB_PORT`** | **`3306`** |
 | **`DB_DATABASE`** / **`DB_USERNAME`** / **`DB_PASSWORD`** | From MySQL manager |
 
+### Email (Microsoft 365 SMTP)
+
+Registration confirmations are sent via Laravel mail. Configure these in **`api/.env`** (see **`.env.siteground.example`**):
+
+| Variable | Value |
+|----------|--------|
+| **`MAIL_MAILER`** | **`smtp`** |
+| **`MAIL_SCHEME`** | **`tls`** |
+| **`MAIL_HOST`** | **`smtp.office365.com`** |
+| **`MAIL_PORT`** | **`587`** |
+| **`MAIL_USERNAME`** | Dedicated M365 mailbox (e.g. `jbs-noreply@yourdomain.org.uk`) |
+| **`MAIL_PASSWORD`** | Mailbox password or app password |
+| **`MAIL_FROM_ADDRESS`** | Same as **`MAIL_USERNAME`** |
+| **`MAIL_FROM_NAME`** | **`${APP_NAME}`** |
+
+IT must enable **SMTP AUTH** on the sender mailbox. After changing mail settings, run **`php artisan config:cache`** (optional) and test by submitting a registration.
+
 ### Verify
 
 - **`GET /up`** — Laravel health.
