@@ -80,7 +80,7 @@ Registration confirmations are sent via Laravel mail. Configure these in **`api/
 | Variable | Value |
 |----------|--------|
 | **`MAIL_MAILER`** | **`smtp`** |
-| **`MAIL_SCHEME`** | **`tls`** |
+| **`MAIL_SCHEME`** | **`smtp`** (STARTTLS on port 587; not `tls`) |
 | **`MAIL_HOST`** | **`smtp.office365.com`** |
 | **`MAIL_PORT`** | **`587`** |
 | **`MAIL_USERNAME`** | Dedicated M365 mailbox (e.g. `jbs-noreply@yourdomain.org.uk`) |
