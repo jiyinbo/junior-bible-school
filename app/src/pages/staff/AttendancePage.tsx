@@ -16,6 +16,11 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import {
+  DetailRow,
+  ListCard,
+  ResponsiveTableLayout,
+} from '../../components/ResponsiveTableLayout';
 import { toastSuccess } from '../../feedback/toast';
 import { apiJson, parseApiError } from '../../api/http';
 import { PageHeader } from '../../staff/PageHeader';
@@ -41,6 +46,31 @@ function formatRecordedAt(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleString();
+}
+
+function AttendanceLogCard({ row }: { row: LogRow }) {
+  return (
+    <ListCard>
+      <Typography fontWeight={600}>{row.student_name}</Typography>
+      <Typography variant="caption" color="text.secondary" display="block">
+        {row.registration_number}
+      </Typography>
+      <Stack spacing={0.25} sx={{ mt: 1.5 }}>
+        <DetailRow label="Recorded">
+          <Typography variant="body2">{formatRecordedAt(row.recorded_at)}</Typography>
+        </DetailRow>
+        <DetailRow label="Session">
+          <Typography variant="body2">{row.session}</Typography>
+        </DetailRow>
+        <DetailRow label="Tier">
+          <Typography variant="body2">{row.level}</Typography>
+        </DetailRow>
+        <DetailRow label="By">
+          <Typography variant="body2">{row.recorded_by}</Typography>
+        </DetailRow>
+      </Stack>
+    </ListCard>
+  );
 }
 
 export function AttendancePage() {
@@ -152,7 +182,8 @@ export function AttendancePage() {
             value={sessionFilter}
             onChange={(e) => setSessionFilter(e.target.value === '' ? '' : Number(e.target.value))}
             size="small"
-            sx={{ mb: 2, minWidth: 220 }}
+            fullWidth
+            sx={{ mb: 2, maxWidth: { md: 320 } }}
           >
             <MenuItem value="">All sessions</MenuItem>
             {sessions.map((s) => (
@@ -161,31 +192,44 @@ export function AttendancePage() {
               </MenuItem>
             ))}
           </TextField>
-          <Paper>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Recorded</TableCell>
-                  <TableCell>Student</TableCell>
-                  <TableCell>Reg #</TableCell>
-                  <TableCell>Session</TableCell>
-                  <TableCell>Tier</TableCell>
-                  <TableCell>By</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {logs.map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell>{formatRecordedAt(row.recorded_at)}</TableCell>
-                    <TableCell>{row.student_name}</TableCell>
-                    <TableCell>{row.registration_number}</TableCell>
-                    <TableCell>{row.session}</TableCell>
-                    <TableCell>{row.level}</TableCell>
-                    <TableCell>{row.recorded_by}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+          <Paper sx={{ p: { xs: 2, md: 0 }, overflow: 'hidden' }}>
+            <ResponsiveTableLayout
+              isEmpty={logs.length === 0}
+              empty={
+                <Typography color="text.secondary" sx={{ py: 2 }}>
+                  No attendance records match this filter.
+                </Typography>
+              }
+              table={
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Recorded</TableCell>
+                      <TableCell>Student</TableCell>
+                      <TableCell>Reg #</TableCell>
+                      <TableCell>Session</TableCell>
+                      <TableCell>Tier</TableCell>
+                      <TableCell>By</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {logs.map((row) => (
+                      <TableRow key={row.id}>
+                        <TableCell>{formatRecordedAt(row.recorded_at)}</TableCell>
+                        <TableCell>{row.student_name}</TableCell>
+                        <TableCell>{row.registration_number}</TableCell>
+                        <TableCell>{row.session}</TableCell>
+                        <TableCell>{row.level}</TableCell>
+                        <TableCell>{row.recorded_by}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              }
+              cards={logs.map((row) => (
+                <AttendanceLogCard key={row.id} row={row} />
+              ))}
+            />
           </Paper>
         </Box>
       )}

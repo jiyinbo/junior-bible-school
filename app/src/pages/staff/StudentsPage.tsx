@@ -8,6 +8,7 @@ import {
   Chip,
   MenuItem,
   Paper,
+  Stack,
   Table,
   TableBody,
   TableCell,
@@ -16,6 +17,11 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import {
+  DetailRow,
+  ListCard,
+  ResponsiveTableLayout,
+} from '../../components/ResponsiveTableLayout';
 import { apiJson, downloadCsvGet, parseApiError } from '../../api/http';
 import { PageHeader } from '../../staff/PageHeader';
 import { useStaffAuth } from '../../staff/StaffAuthContext';
@@ -37,6 +43,65 @@ type StudentRow = {
   tests_passed: number;
   tests_total: number;
 };
+
+function StudentCard({ row }: { row: StudentRow }) {
+  return (
+    <ListCard
+      action={
+        <Typography
+          component={RouterLink}
+          to={`/staff/students/${row.id}`}
+          variant="body2"
+          sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}
+        >
+          View
+        </Typography>
+      }
+    >
+      <Typography fontWeight={600}>{row.full_name}</Typography>
+      <Typography variant="caption" color="text.secondary" display="block">
+        {row.email}
+      </Typography>
+      <Stack spacing={0.25} sx={{ mt: 1.5 }}>
+        <DetailRow label="Reg #">
+          <Typography variant="body2">{row.registration_number}</Typography>
+        </DetailRow>
+        <DetailRow label="Tier">
+          <Typography variant="body2">{row.level_name}</Typography>
+        </DetailRow>
+        <DetailRow label="Session">
+          <Typography variant="body2">{row.session_name}</Typography>
+        </DetailRow>
+        <DetailRow label="Allergies / medical">
+          {row.allergies ? (
+            <Typography variant="body2" color="error.main">
+              {row.allergies}
+            </Typography>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              —
+            </Typography>
+          )}
+        </DetailRow>
+        <DetailRow label="Attendance">
+          <Typography variant="body2">{row.attendance_days}</Typography>
+        </DetailRow>
+        <DetailRow label="Tests">
+          <Typography variant="body2">
+            {row.tests_passed}/{row.tests_taken} of {row.tests_total}
+          </Typography>
+        </DetailRow>
+        <DetailRow label="Status">
+          <Chip
+            size="small"
+            label={row.level_completed ? 'Completed' : 'In progress'}
+            color={row.level_completed ? 'success' : 'default'}
+          />
+        </DetailRow>
+      </Stack>
+    </ListCard>
+  );
+}
 
 export function StudentsPage() {
   const { isAdmin } = useStaffAuth();
@@ -214,81 +279,85 @@ export function StudentsPage() {
         </Box>
       </Paper>
 
-      <Paper sx={{ overflowX: 'auto' }}>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Student</TableCell>
-              <TableCell>Reg #</TableCell>
-              <TableCell>Tier</TableCell>
-              <TableCell>Allergies / medical</TableCell>
-              <TableCell align="center">Attendance</TableCell>
-              <TableCell align="center">Tests</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell align="right" />
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {rows.map((row) => (
-              <TableRow key={row.id} hover>
-                <TableCell>
-                  <Typography fontWeight={600}>{row.full_name}</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {row.email}
-                  </Typography>
-                </TableCell>
-                <TableCell>{row.registration_number}</TableCell>
-                <TableCell>
-                  {row.level_name}
-                  <Typography variant="caption" display="block" color="text.secondary">
-                    {row.session_name}
-                  </Typography>
-                </TableCell>
-                <TableCell sx={{ maxWidth: 240 }}>
-                  {row.allergies ? (
-                    <Typography variant="body2" color="error.main">
-                      {row.allergies}
-                    </Typography>
-                  ) : (
-                    <Typography variant="caption" color="text.secondary">
-                      —
-                    </Typography>
-                  )}
-                </TableCell>
-                <TableCell align="center">{row.attendance_days}</TableCell>
-                <TableCell align="center">
-                  {row.tests_passed}/{row.tests_taken} of {row.tests_total}
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    size="small"
-                    label={row.level_completed ? 'Completed' : 'In progress'}
-                    color={row.level_completed ? 'success' : 'default'}
-                  />
-                </TableCell>
-                <TableCell align="right">
-                  <Typography
-                    component={RouterLink}
-                    to={`/staff/students/${row.id}`}
-                    variant="body2"
-                    sx={{ fontWeight: 600 }}
-                  >
-                    View
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            ))}
-            {rows.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={8}>
-                  <Typography color="text.secondary" sx={{ py: 2 }}>
-                    No students match your filters.
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+      <Paper sx={{ p: { xs: 2, md: 0 }, overflow: 'hidden' }}>
+        <ResponsiveTableLayout
+          isEmpty={rows.length === 0}
+          empty={
+            <Typography color="text.secondary" sx={{ py: 2 }}>
+              No students match your filters.
+            </Typography>
+          }
+          table={
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Student</TableCell>
+                  <TableCell>Reg #</TableCell>
+                  <TableCell>Tier</TableCell>
+                  <TableCell>Allergies / medical</TableCell>
+                  <TableCell align="center">Attendance</TableCell>
+                  <TableCell align="center">Tests</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell align="right" />
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {rows.map((row) => (
+                  <TableRow key={row.id} hover>
+                    <TableCell>
+                      <Typography fontWeight={600}>{row.full_name}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {row.email}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>{row.registration_number}</TableCell>
+                    <TableCell>
+                      {row.level_name}
+                      <Typography variant="caption" display="block" color="text.secondary">
+                        {row.session_name}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ maxWidth: 240 }}>
+                      {row.allergies ? (
+                        <Typography variant="body2" color="error.main">
+                          {row.allergies}
+                        </Typography>
+                      ) : (
+                        <Typography variant="caption" color="text.secondary">
+                          —
+                        </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell align="center">{row.attendance_days}</TableCell>
+                    <TableCell align="center">
+                      {row.tests_passed}/{row.tests_taken} of {row.tests_total}
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        size="small"
+                        label={row.level_completed ? 'Completed' : 'In progress'}
+                        color={row.level_completed ? 'success' : 'default'}
+                      />
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography
+                        component={RouterLink}
+                        to={`/staff/students/${row.id}`}
+                        variant="body2"
+                        sx={{ fontWeight: 600 }}
+                      >
+                        View
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          }
+          cards={rows.map((row) => (
+            <StudentCard key={row.id} row={row} />
+          ))}
+        />
       </Paper>
     </>
   );

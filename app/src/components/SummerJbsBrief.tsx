@@ -5,7 +5,6 @@ import {
   AccordionDetails,
   AccordionSummary,
   Box,
-  Chip,
   List,
   ListItem,
   ListItemText,
@@ -16,16 +15,31 @@ import {
   Typography,
 } from '@mui/material';
 
-export const SUMMER_JBS_INTRO =
-  'The Summer Junior Bible School is organised by the Word of Faith Bible Institute and designed for pre-teens and teenagers to help deepen their understanding of the Bible, strengthen their faith, and connect with peers who share a similar passion for God. It provides a unique opportunity for young people to explore the Bible in an engaging and spiritually enriching environment during the summer holiday.';
+export const SUMMER_JBS_INTRO_PARAS = [
+  'The Summer Junior Bible School is organised by the Word of Faith Bible Institute and designed for pre-teens and teenagers to help deepen their understanding of the Bible, strengthen their faith and connect with their peers who share similar passion for God.',
+  'The Bible School provides a unique opportunity for young people to explore the Bible in an engaging and spiritually enriching environment during the summer holiday.',
+] as const;
+
+const SCHEDULE_INTRO = 'The schedule for our 2026 edition is below:';
 
 const SCHEDULE = {
-  dates: 'Monday 27 July to Friday 31 July 2026',
+  date: 'Monday 27 July to Friday 31 July 2026',
   graduation: 'Sunday 2 August 2026 (during the 3rd service in the Main Church)',
   venue: 'Winners Chapel International, 1 Churchill Close, Green Street Green Road, Dartford DA1 1QE',
-  time: '9am to 4pm',
-  registration: 'All students must be on campus by 8:45am at the latest for registration.',
+  time: '9am to 4pm (All students must be on campus latest by for registration 8:45am)',
 } as const;
+
+const TIERS_INTRO =
+  'The Summer Junior Bible School offers 3 distinct Tiers: Basic, Advanced and Masterclass. These tiers are designed to cater to the varying degrees of knowledge and understanding of the students, providing a structured and progressive learning experience. By starting with the foundational principles in the Basic Class and moving to more complex and practical applications in the Advanced Class, students are equipped with a robust understanding of the Bible and its application in everyday life. The Masterclass is an intensive, high-level track for advanced students, focusing on depth, leadership training, and independent scriptural study.';
+
+const BASIC_INTRO =
+  'The Basic Class serves as the introductory level of the Summer Junior Bible School. The curriculum is designed to be accessible and engaging, ensuring that all participants, regardless of their prior knowledge, can grasp the essential concepts. This tier is divided into 2 streams depending on the age of the students i.e., 10-12 and Teens. The Basic class explores the following courses:';
+
+const ADVANCED_INTRO =
+  'The Advanced Class is designed for students who have completed the Basic Class. This level builds on the knowledge acquired in the Basic Class and delves deeper into other topics including practical applications of faith. The Advanced Class explores the following courses:';
+
+const MASTERCLASS_INTRO =
+  'The Masterclass is the highest tier of the Summer Junior Bible School, intended for students who have already completed the Basic and Advanced tiers and demonstrate a strong foundational knowledge of scripture. This tier focuses on theological depth, independent study, and leadership development. Through advanced discussions, research assignments, and guided projects, students are challenged to move from being learners to becoming disciple-makers, equipping them to live out their faith with conviction and influence.';
 
 const BASIC_COURSES = [
   'Acceptable Christian Service',
@@ -69,53 +83,49 @@ const MASTERCLASS_COURSES = [
 ] as const;
 
 const BENEFITS = [
-  {
-    title: 'Spiritual Development',
-    body: 'Grow in your relationship with God and deepen your faith.',
-  },
-  {
-    title: "Deep Insight into God's Word",
-    body: 'Gain a richer, more meaningful understanding of the Bible.',
-  },
-  {
-    title: 'Personal Growth',
-    body: "Learn to apply God's Word practically in everyday life.",
-  },
-  {
-    title: 'Discover Your Purpose',
-    body: "Uncover God's plan for your life and pursue your dreams with confidence.",
-  },
-  {
-    title: 'Receive Wisdom',
-    body: 'Acquire biblical wisdom to live a fulfilled and purpose-driven life.',
-  },
+  'Spiritual Development - Grow in your relationship with God and deepen your faith.',
+  "Deep Insight into God's Word - Gain a richer, more meaningful understanding of the Bible.",
+  "Personal Growth - Learn to apply God's Word practically in everyday life.",
+  "Discover Your Purpose - Uncover God's plan for your life and pursue your dreams with confidence.",
+  'Receive Wisdom - Acquire biblical wisdom to live a fulfilled and purpose-driven life.',
 ] as const;
 
 const ACTIVITIES = [
   'Interactive exploration of the Word of God',
   'Networking and fellowship with like-minded teenagers',
-  'Q&A sessions with seasoned lecturers to get answers to questions on the Christian faith',
+  'Q&A sessions with seasoned lecturers to get answers to bugging questions on the Christian faith',
 ] as const;
 
 const AUDIENCE = [
   {
-    tier: 'Basic (10–12)',
-    detail: 'All children aged 10–12 must register for this class, whether or not they have attended JBS before.',
+    tier: 'Basic (10-12)',
+    detail:
+      'All children aged 10-12 have to register for this class irrespective of whether they have attended JBS before',
   },
   {
     tier: 'Basic (Teens)',
-    detail: 'Teenagers (13–15 years) who have not attended JBS before.',
+    detail: 'Teenagers (13 - 15 years) who have not attended JBS before',
   },
   {
     tier: 'Advanced',
     detail:
-      'Teenagers who have completed Basic (Teens), or who are 15 years and above and have not attended JBS before.',
+      "Teenagers who have attended the Basic (Teens) Class or are 15 years and above and haven't attended JBS before.",
   },
   {
     tier: 'Masterclass',
-    detail: 'Teenagers (15 years and above) who have completed the Advanced Class.',
+    detail: 'Teenagers (15 years and above) who have attended the Advanced Class.',
   },
 ] as const;
+
+const GRADUATION_PARAS = [
+  'At the end of the Summer Junior Bible School, a grand graduation ceremony is held in the Main Church during the 3rd service on Sunday. This ceremony is a significant and joyous occasion, marking the culmination of the students\' hard work, dedication, and spiritual growth throughout the programme.',
+  'All participants don graduation gowns, adding to the formality and significance of the event. This attire symbolizes their successful completion of the program and their readiness to apply the lessons learned in their daily lives. The sight of students in their gowns is a proud and memorable moment for parents and the entire church community.',
+  'During the graduation ceremony, outstanding students from both the Basic, Advanced and Masterclass tiers are recognized for their exceptional achievements. The ceremony also includes a special segment where the Resident Pastor prays over the graduates, asking for God\'s continued guidance and blessings as they move forward in their faith journey. This underscores the church\'s support for the students\' ongoing growth and development.',
+  'The graduation ceremony is a major highlight of the Summer Junior Bible School. It not only celebrates the students\' accomplishments but also reinforces their commitment to living out the biblical principles they have learned. This event is a testament to the students\' dedication and the church\'s investment in nurturing the next generation of leaders.',
+] as const;
+
+const IMPARTATION =
+  'The teachings culminate in a powerful time of impartation, where students receive spiritual reinforcement and prayer for personal growth. On the final day of lectures i.e., Friday afternoon, attendees will have the opportunity to be baptised in the Holy Spirit, as well as to publicly declare their faith through water baptism by immersion, sealing their experience with a tangible step of spiritual commitment.';
 
 type TierTab = 'basic' | 'advanced' | 'masterclass';
 
@@ -134,18 +144,24 @@ function CourseList({ courses }: { courses: readonly string[] }) {
   );
 }
 
+function BodyText({ children }: { children: ReactNode }) {
+  return (
+    <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7 }}>
+      {children}
+    </Typography>
+  );
+}
+
 function BriefAccordion({
   id,
   title,
-  subtitle,
-  defaultExpanded = false,
   children,
+  defaultExpanded = false,
 }: {
   id: string;
   title: string;
-  subtitle?: string;
-  defaultExpanded?: boolean;
   children: ReactNode;
+  defaultExpanded?: boolean;
 }) {
   return (
     <Accordion
@@ -162,14 +178,9 @@ function BriefAccordion({
       }}
     >
       <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ px: { xs: 2, sm: 3 } }}>
-        <Box sx={{ minWidth: 0 }}>
-          <Typography fontWeight={600}>{title}</Typography>
-          {subtitle && (
-            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.25 }}>
-              {subtitle}
-            </Typography>
-          )}
-        </Box>
+        <Typography fontWeight={600} sx={{ pr: 1 }}>
+          {title}
+        </Typography>
       </AccordionSummary>
       <AccordionDetails sx={{ px: { xs: 2, sm: 3 }, pt: 0, pb: 3 }}>{children}</AccordionDetails>
     </Accordion>
@@ -183,21 +194,11 @@ export function SummerJbsBrief() {
     <Box
       id="summer-jbs"
       component="section"
-      aria-labelledby="programme-overview-heading"
       sx={{ mt: { xs: 4, md: 5 }, pb: { xs: 4, md: 6 } }}
     >
-      <Typography
-        id="programme-overview-heading"
-        variant="h2"
-        sx={{ fontSize: { xs: '1.15rem', sm: '1.35rem' } }}
-      >
-        Programme overview
-      </Typography>
-
       <Paper
         variant="outlined"
         sx={{
-          mt: 3,
           p: { xs: 2, sm: 2.5 },
           borderRadius: 2,
           bgcolor: 'background.paper',
@@ -206,14 +207,15 @@ export function SummerJbsBrief() {
         }}
       >
         <Typography variant="subtitle1" fontWeight={700} gutterBottom>
-          2026 programme schedule
+          Programme Schedule:
         </Typography>
-        <Stack spacing={1.25}>
+        <BodyText>{SCHEDULE_INTRO}</BodyText>
+        <Stack spacing={1.25} sx={{ mt: 2 }}>
           <Box>
             <Typography variant="caption" color="text.secondary" fontWeight={600}>
-              Dates
+              Date
             </Typography>
-            <Typography variant="body2">{SCHEDULE.dates}</Typography>
+            <Typography variant="body2">{SCHEDULE.date}</Typography>
           </Box>
           <Box>
             <Typography variant="caption" color="text.secondary" fontWeight={600}>
@@ -229,32 +231,22 @@ export function SummerJbsBrief() {
           </Box>
           <Box>
             <Typography variant="caption" color="text.secondary" fontWeight={600}>
-              Daily time
+              Time
             </Typography>
-            <Typography variant="body2">
-              {SCHEDULE.time}. {SCHEDULE.registration}
-            </Typography>
+            <Typography variant="body2">{SCHEDULE.time}</Typography>
           </Box>
         </Stack>
       </Paper>
 
       <Stack spacing={1.5} sx={{ mt: 3 }}>
-        <BriefAccordion
-          id="tiers-curriculum"
-          title="Tiers & curriculum"
-          subtitle="Basic, Advanced, and Masterclass — progressive tracks"
-        >
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.7 }}>
-            Three tiers cater to different levels of knowledge: foundational principles in Basic,
-            deeper practical application in Advanced, and an intensive Masterclass for leadership,
-            independent study, and scriptural depth.
-          </Typography>
+        <BriefAccordion id="tiers-curriculum" title="Tiers">
+          <BodyText>{TIERS_INTRO}</BodyText>
           <Tabs
             value={tierTab}
             onChange={(_, v: TierTab) => setTierTab(v)}
             variant="scrollable"
             scrollButtons="auto"
-            sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}
+            sx={{ borderBottom: 1, borderColor: 'divider', my: 2 }}
           >
             <Tab label="Basic" value="basic" />
             <Tab label="Advanced" value="advanced" />
@@ -263,76 +255,71 @@ export function SummerJbsBrief() {
 
           {tierTab === 'basic' && (
             <Box>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, lineHeight: 1.7 }}>
-                The introductory level, accessible to all participants. Split into two streams by
-                age: <strong>10–12</strong> and <strong>Teens</strong>. Both streams cover the same
-                core courses.
-              </Typography>
-              <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
-                <Chip size="small" label="Ages 10–12" />
-                <Chip size="small" label="Teens stream" />
-              </Stack>
-              <CourseList courses={BASIC_COURSES} />
+              <BodyText>{BASIC_INTRO}</BodyText>
+              <Box sx={{ mt: 1.5 }}>
+                <CourseList courses={BASIC_COURSES} />
+              </Box>
             </Box>
           )}
 
           {tierTab === 'advanced' && (
             <Box>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, lineHeight: 1.7 }}>
-                For students who have completed the Basic Class. Builds on foundational knowledge
-                with deeper topics and practical applications of faith.
-              </Typography>
-              <CourseList courses={ADVANCED_COURSES} />
+              <BodyText>{ADVANCED_INTRO}</BodyText>
+              <Box sx={{ mt: 1.5 }}>
+                <CourseList courses={ADVANCED_COURSES} />
+              </Box>
             </Box>
           )}
 
           {tierTab === 'masterclass' && (
             <Box>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, lineHeight: 1.7 }}>
-                The highest tier for students who have completed Basic and Advanced and demonstrate
-                strong scriptural foundation. Focuses on theological depth, independent study, and
-                leadership — moving from learners to disciple-makers through discussions, research,
-                and guided projects.
-              </Typography>
-              <CourseList courses={MASTERCLASS_COURSES} />
+              <BodyText>{MASTERCLASS_INTRO}</BodyText>
+              <Box sx={{ mt: 1.5 }}>
+                <CourseList courses={MASTERCLASS_COURSES} />
+              </Box>
             </Box>
           )}
         </BriefAccordion>
 
-        <BriefAccordion id="who-should-register" title="Who should register?">
+        <BriefAccordion id="who-should-register" title="Who are the target audience for this event?">
           <Stack spacing={2}>
             {AUDIENCE.map((row) => (
               <Box key={row.tier}>
                 <Typography variant="subtitle2" fontWeight={600}>
-                  {row.tier}
+                  {row.tier}:
                 </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, lineHeight: 1.65 }}>
-                  {row.detail}
-                </Typography>
+                <BodyText>{row.detail}</BodyText>
               </Box>
             ))}
           </Stack>
         </BriefAccordion>
 
-        <BriefAccordion id="benefits" title="Benefits">
-          <Stack spacing={2}>
+        <BriefAccordion
+          id="benefits"
+          title="What are some benefits of the Summer Junior Bible School?"
+        >
+          <Stack spacing={1.25} component="ul" sx={{ m: 0, pl: 2.5 }}>
             {BENEFITS.map((item) => (
-              <Box key={item.title}>
-                <Typography variant="subtitle2" fontWeight={600}>
-                  {item.title}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, lineHeight: 1.65 }}>
-                  {item.body}
-                </Typography>
-              </Box>
+              <Typography
+                key={item}
+                component="li"
+                variant="body2"
+                color="text.secondary"
+                sx={{ lineHeight: 1.65, py: 0.25 }}
+              >
+                {item}
+              </Typography>
             ))}
           </Stack>
         </BriefAccordion>
 
-        <BriefAccordion id="activities" title="Activities during the programme">
-          <List dense disablePadding>
+        <BriefAccordion
+          id="activities"
+          title="Activities that will take place during the Summer Junior Bible School:"
+        >
+          <List dense disablePadding component="ul" sx={{ listStyleType: 'disc', pl: 2.5, m: 0 }}>
             {ACTIVITIES.map((activity) => (
-              <ListItem key={activity} disableGutters sx={{ alignItems: 'flex-start', py: 0.5 }}>
+              <ListItem key={activity} disablePadding sx={{ display: 'list-item', py: 0.35 }}>
                 <ListItemText
                   primary={activity}
                   primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
@@ -342,48 +329,31 @@ export function SummerJbsBrief() {
           </List>
         </BriefAccordion>
 
-        <BriefAccordion id="feeding" title="Feeding arrangement">
+        <BriefAccordion id="feeding" title="Feeding Arrangement:">
           <Stack spacing={1.5}>
-            <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.65 }}>
-              <strong>Breakfast:</strong> Students should have breakfast at home before arriving.
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.65 }}>
-              <strong>Lunch & snacks:</strong> General lunch and snacks will be provided on campus.
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.65 }}>
-              <strong>Special dietary needs:</strong> Parents must provide a lunch pack for any
-              child with special dietary requirements or allergies, as we are unable to cater to
-              individual needs.
-            </Typography>
+            <BodyText>
+              <strong>Breakfast:</strong> Students are to have breakfast at home before arriving.
+            </BodyText>
+            <BodyText>
+              <strong>Lunch & Snacks:</strong> General lunch and snacks will be provided.
+            </BodyText>
+            <BodyText>
+              <strong>Special Dietary Needs:</strong> Parents must provide a lunch pack for any child
+              with special dietary requirements or allergies, as we are unable to cater to individual
+              needs.
+            </BodyText>
           </Stack>
         </BriefAccordion>
 
-        <BriefAccordion id="impartation" title="Impartation & baptisms">
-          <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7 }}>
-            Teachings culminate in a powerful time of impartation, with spiritual reinforcement and
-            prayer for personal growth. On the final afternoon of lectures (Friday), attendees may
-            be baptised in the Holy Spirit and publicly declare their faith through water baptism by
-            immersion — a tangible step of spiritual commitment.
-          </Typography>
+        <BriefAccordion id="impartation" title="Impartation:">
+          <BodyText>{IMPARTATION}</BodyText>
         </BriefAccordion>
 
-        <BriefAccordion id="graduation" title="Graduation ceremony">
+        <BriefAccordion id="graduation" title="Graduation:">
           <Stack spacing={1.5}>
-            <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7 }}>
-              A grand graduation is held in the Main Church during the 3rd service on Sunday,
-              marking the culmination of students&apos; dedication and spiritual growth throughout
-              the programme.
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7 }}>
-              All participants wear graduation gowns, symbolising successful completion and
-              readiness to apply what they have learned. Outstanding students from Basic, Advanced,
-              and Masterclass tiers are recognised for exceptional achievement.
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7 }}>
-              The Resident Pastor prays over the graduates, asking for God&apos;s continued
-              guidance as they move forward — underscoring the church&apos;s support for the next
-              generation of leaders.
-            </Typography>
+            {GRADUATION_PARAS.map((para) => (
+              <BodyText key={para.slice(0, 40)}>{para}</BodyText>
+            ))}
           </Stack>
         </BriefAccordion>
       </Stack>

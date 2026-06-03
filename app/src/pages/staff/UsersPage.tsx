@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import {
   Alert,
+  Box,
   Button,
+  Chip,
   Collapse,
   Dialog,
   DialogActions,
@@ -21,6 +23,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import { ResponsiveTableLayout } from '../../components/ResponsiveTableLayout';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { FormRowButton, InlineFormRow } from '../../components/InlineFormRow';
@@ -32,14 +35,106 @@ import { useStaffAuth } from '../../staff/StaffAuthContext';
 type StaffUser = { id: number; name: string; email: string; role: string };
 type StaffRole = 'admin' | 'teacher' | 'assistant';
 
+function StaffUserEditForm({
+  name,
+  setName,
+  email,
+  setEmail,
+  role,
+  setRole,
+  password,
+  setPassword,
+  saving,
+  onSave,
+}: {
+  name: string;
+  setName: (v: string) => void;
+  email: string;
+  setEmail: (v: string) => void;
+  role: StaffRole;
+  setRole: (v: StaffRole) => void;
+  password: string;
+  setPassword: (v: string) => void;
+  saving: boolean;
+  onSave: () => void;
+}) {
+  return (
+    <Stack spacing={1.5} sx={{ py: 2 }}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+        <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} size="small" fullWidth />
+        <TextField label="Email" value={email} onChange={(e) => setEmail(e.target.value)} size="small" fullWidth />
+      </Stack>
+      <InlineFormRow>
+        <TextField
+          select
+          label="Role"
+          value={role}
+          onChange={(e) => setRole(e.target.value as StaffRole)}
+          size="small"
+          sx={{ minWidth: 140 }}
+        >
+          <MenuItem value="teacher">Teacher</MenuItem>
+          <MenuItem value="assistant">Assistant</MenuItem>
+          <MenuItem value="admin">Admin</MenuItem>
+        </TextField>
+        <TextField
+          label="New password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          size="small"
+          placeholder="Leave blank to keep"
+          sx={{ flex: 1, minWidth: 160 }}
+        />
+        <FormRowButton disabled={saving} onClick={() => void onSave()}>
+          {saving ? 'Saving…' : 'Save changes'}
+        </FormRowButton>
+      </InlineFormRow>
+    </Stack>
+  );
+}
+
+function StaffUserActions({
+  isSelf,
+  onEdit,
+  onDelete,
+}: {
+  isSelf: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+      <IconButton size="small" onClick={onEdit} aria-label="Edit user">
+        <EditIcon fontSize="small" />
+      </IconButton>
+      <Tooltip title={isSelf ? 'You cannot delete your own account' : 'Delete user'}>
+        <span>
+          <IconButton
+            size="small"
+            color="error"
+            disabled={isSelf}
+            onClick={onDelete}
+            aria-label="Delete user"
+          >
+            <DeleteOutlineIcon fontSize="small" />
+          </IconButton>
+        </span>
+      </Tooltip>
+    </Stack>
+  );
+}
+
 function StaffUserRow({
   user,
   isSelf,
+  layout,
   onUpdated,
   onError,
 }: {
   user: StaffUser;
   isSelf: boolean;
+  layout: 'table' | 'card';
   onUpdated: () => void;
   onError: (msg: string) => void;
 }) {
@@ -99,6 +194,75 @@ function StaffUserRow({
     }
   };
 
+  const editForm = (
+    <StaffUserEditForm
+      name={name}
+      setName={setName}
+      email={email}
+      setEmail={setEmail}
+      role={role}
+      setRole={setRole}
+      password={password}
+      setPassword={setPassword}
+      saving={saving}
+      onSave={save}
+    />
+  );
+
+  const deleteDialog = (
+    <Dialog open={confirmOpen} onClose={() => (deleting ? undefined : setConfirmOpen(false))} maxWidth="xs" fullWidth>
+      <DialogTitle>Delete staff account</DialogTitle>
+      <DialogContent>
+        <DialogContentText>
+          Delete <strong>{user.name}</strong> ({user.email})? This cannot be undone.
+        </DialogContentText>
+        {deleteError && (
+          <Alert severity="warning" sx={{ mt: 2 }}>
+            {deleteError}
+          </Alert>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={() => setConfirmOpen(false)} disabled={deleting}>
+          Cancel
+        </Button>
+        <Button color="error" variant="contained" onClick={() => void remove()} disabled={deleting}>
+          {deleting ? 'Deleting…' : 'Delete'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+
+  const openDelete = () => {
+    setDeleteError(null);
+    setConfirmOpen(true);
+  };
+
+  if (layout === 'card') {
+    return (
+      <>
+        <Paper variant="outlined" sx={{ p: 2 }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={1}>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography fontWeight={600}>{user.name}</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ wordBreak: 'break-word' }}>
+                {user.email}
+              </Typography>
+              <Chip size="small" label={user.role} sx={{ mt: 1 }} />
+            </Box>
+            <StaffUserActions
+              isSelf={isSelf}
+              onEdit={() => setOpen((o) => !o)}
+              onDelete={openDelete}
+            />
+          </Stack>
+          <Collapse in={open}>{editForm}</Collapse>
+        </Paper>
+        {deleteDialog}
+      </>
+    );
+  }
+
   return (
     <>
       <TableRow hover>
@@ -106,86 +270,19 @@ function StaffUserRow({
         <TableCell>{user.email}</TableCell>
         <TableCell>{user.role}</TableCell>
         <TableCell align="right" width={96}>
-          <IconButton size="small" onClick={() => setOpen((o) => !o)} aria-label="Edit user">
-            <EditIcon fontSize="small" />
-          </IconButton>
-          <Tooltip title={isSelf ? 'You cannot delete your own account' : 'Delete user'}>
-            <span>
-              <IconButton
-                size="small"
-                color="error"
-                disabled={isSelf}
-                onClick={() => {
-                  setDeleteError(null);
-                  setConfirmOpen(true);
-                }}
-                aria-label="Delete user"
-              >
-                <DeleteOutlineIcon fontSize="small" />
-              </IconButton>
-            </span>
-          </Tooltip>
+          <StaffUserActions
+            isSelf={isSelf}
+            onEdit={() => setOpen((o) => !o)}
+            onDelete={openDelete}
+          />
         </TableCell>
       </TableRow>
       <TableRow>
         <TableCell colSpan={4} sx={{ py: 0, borderBottom: open ? undefined : 0 }}>
-          <Collapse in={open}>
-            <Stack spacing={1.5} sx={{ py: 2 }}>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-                <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} size="small" fullWidth />
-                <TextField label="Email" value={email} onChange={(e) => setEmail(e.target.value)} size="small" fullWidth />
-              </Stack>
-              <InlineFormRow>
-                <TextField
-                  select
-                  label="Role"
-                  value={role}
-                  onChange={(e) => setRole(e.target.value as StaffRole)}
-                  size="small"
-                  sx={{ minWidth: 140 }}
-                >
-                  <MenuItem value="teacher">Teacher</MenuItem>
-                  <MenuItem value="assistant">Assistant</MenuItem>
-                  <MenuItem value="admin">Admin</MenuItem>
-                </TextField>
-                <TextField
-                  label="New password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  size="small"
-                  placeholder="Leave blank to keep"
-                  sx={{ flex: 1, minWidth: 160 }}
-                />
-                <FormRowButton disabled={saving} onClick={() => void save()}>
-                  {saving ? 'Saving…' : 'Save changes'}
-                </FormRowButton>
-              </InlineFormRow>
-            </Stack>
-          </Collapse>
+          <Collapse in={open}>{editForm}</Collapse>
         </TableCell>
       </TableRow>
-      <Dialog open={confirmOpen} onClose={() => (deleting ? undefined : setConfirmOpen(false))} maxWidth="xs" fullWidth>
-        <DialogTitle>Delete staff account</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Delete <strong>{user.name}</strong> ({user.email})? This cannot be undone.
-          </DialogContentText>
-          {deleteError && (
-            <Alert severity="warning" sx={{ mt: 2 }}>
-              {deleteError}
-            </Alert>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmOpen(false)} disabled={deleting}>
-            Cancel
-          </Button>
-          <Button color="error" variant="contained" onClick={() => void remove()} disabled={deleting}>
-            {deleting ? 'Deleting…' : 'Delete'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {deleteDialog}
     </>
   );
 }
@@ -286,28 +383,44 @@ export function UsersPage() {
           Password must be at least 8 characters.
         </Typography>
       </Paper>
-      <Paper sx={{ p: 2 }}>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Name</TableCell>
-              <TableCell>Email</TableCell>
-              <TableCell>Role</TableCell>
-              <TableCell align="right" />
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {staff.map((u) => (
-              <StaffUserRow
-                key={u.id}
-                user={u}
-                isSelf={u.id === currentUser?.id}
-                onUpdated={load}
-                onError={setError}
-              />
-            ))}
-          </TableBody>
-        </Table>
+      <Paper sx={{ p: { xs: 2, md: 2 }, overflow: 'hidden' }}>
+        <ResponsiveTableLayout
+          isEmpty={staff.length === 0}
+          table={
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Name</TableCell>
+                  <TableCell>Email</TableCell>
+                  <TableCell>Role</TableCell>
+                  <TableCell align="right" />
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {staff.map((u) => (
+                  <StaffUserRow
+                    key={u.id}
+                    layout="table"
+                    user={u}
+                    isSelf={u.id === currentUser?.id}
+                    onUpdated={load}
+                    onError={setError}
+                  />
+                ))}
+              </TableBody>
+            </Table>
+          }
+          cards={staff.map((u) => (
+            <StaffUserRow
+              key={u.id}
+              layout="card"
+              user={u}
+              isSelf={u.id === currentUser?.id}
+              onUpdated={load}
+              onError={setError}
+            />
+          ))}
+        />
       </Paper>
     </>
   );

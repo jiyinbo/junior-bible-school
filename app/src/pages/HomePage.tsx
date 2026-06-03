@@ -8,7 +8,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { SUMMER_JBS_INTRO, SummerJbsBrief } from "../components/SummerJbsBrief";
+import { SUMMER_JBS_INTRO_PARAS, SummerJbsBrief } from "../components/SummerJbsBrief";
 import { usePublicRegistrationOpen } from "../hooks/usePublicRegistrationOpen";
 import { PublicHeader } from "../layout/PublicHeader";
 
@@ -116,17 +116,30 @@ export function HomePage() {
             {PAGE_TITLE}
           </Typography>
           <Typography
-            variant="body1"
-            color="text.secondary"
+            variant="h2"
             sx={{
-              mt: { xs: 1.5, md: 2 },
+              fontSize: { xs: "1.15rem", sm: "1.35rem" },
+              mt: { xs: 2, md: 2.5 },
               maxWidth: 720,
-              fontSize: { xs: "1rem", sm: "1.0625rem" },
-              lineHeight: 1.65,
             }}
           >
-            {SUMMER_JBS_INTRO}
+            What is the Summer Junior Bible School?
           </Typography>
+          <Stack spacing={1.5} sx={{ mt: 1.5, maxWidth: 720 }}>
+            {SUMMER_JBS_INTRO_PARAS.map((para) => (
+              <Typography
+                key={para.slice(0, 32)}
+                variant="body1"
+                color="text.secondary"
+                sx={{
+                  fontSize: { xs: "1rem", sm: "1.0625rem" },
+                  lineHeight: 1.65,
+                }}
+              >
+                {para}
+              </Typography>
+            ))}
+          </Stack>
 
           <Box
             sx={{ mt: { xs: 3, md: 3.5 }, maxWidth: { xs: "100%", sm: 480 } }}
