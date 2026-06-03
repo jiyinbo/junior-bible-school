@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import {
   Box,
   FormControl,
+  IconButton,
   InputLabel,
   MenuItem,
   Paper,
@@ -9,6 +11,7 @@ import {
   Stack,
   TableCell,
   TableRow,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { InlineFieldSave } from './InlineFieldSave';
@@ -30,6 +33,8 @@ type Props = {
   assigningModuleId: number | null;
   onUpdateModule: (moduleId: number, patch: { name?: string; code?: string }) => void | Promise<void>;
   onAssignTeacher: (moduleId: number, teacherId: number) => void | Promise<void>;
+  onDelete?: (moduleId: number, moduleName: string) => void;
+  deletingModuleId?: number | null;
   testButton: ReactNode;
   readOnly?: boolean;
 };
@@ -76,6 +81,30 @@ function TeacherSelect({
   );
 }
 
+function DeleteModuleButton({
+  mod,
+  onDelete,
+  deletingModuleId,
+}: Pick<Props, 'mod' | 'onDelete' | 'deletingModuleId'>) {
+  if (!onDelete) return null;
+
+  return (
+    <Tooltip title="Delete module">
+      <span>
+        <IconButton
+          size="small"
+          color="error"
+          aria-label={`Delete ${mod.name}`}
+          disabled={deletingModuleId === mod.id}
+          onClick={() => onDelete(mod.id, mod.name)}
+        >
+          <DeleteOutlineIcon fontSize="small" />
+        </IconButton>
+      </span>
+    </Tooltip>
+  );
+}
+
 export function LevelModuleRow({
   mod,
   layout,
@@ -83,6 +112,8 @@ export function LevelModuleRow({
   assigningModuleId,
   onUpdateModule,
   onAssignTeacher,
+  onDelete,
+  deletingModuleId = null,
   testButton,
   readOnly = false,
 }: Props) {
@@ -117,21 +148,24 @@ export function LevelModuleRow({
           {readOnly ? (
             moduleName
           ) : (
-            <>
-              <InlineFieldSave
-                label="Module"
-                value={mod.name}
-                onSave={(name) => onUpdateModule(mod.id, { name })}
-                fullWidth
-              />
-              <InlineFieldSave
-                label="Short code"
-                value={mod.code ?? ''}
-                onSave={(code) => onUpdateModule(mod.id, { code })}
-                fullWidth
-                allowEmpty
-              />
-            </>
+            <Stack direction="row" spacing={0.5} alignItems="flex-start">
+              <Stack spacing={1} sx={{ flex: 1, minWidth: 0 }}>
+                <InlineFieldSave
+                  label="Module"
+                  value={mod.name}
+                  onSave={(name) => onUpdateModule(mod.id, { name })}
+                  fullWidth
+                />
+                <InlineFieldSave
+                  label="Short code"
+                  value={mod.code ?? ''}
+                  onSave={(code) => onUpdateModule(mod.id, { code })}
+                  fullWidth
+                  allowEmpty
+                />
+              </Stack>
+              <DeleteModuleButton mod={mod} onDelete={onDelete} deletingModuleId={deletingModuleId} />
+            </Stack>
           )}
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ sm: 'flex-end' }}>
             <Box sx={{ flexShrink: 0 }}>{testButton}</Box>
@@ -150,19 +184,22 @@ export function LevelModuleRow({
         {readOnly ? (
           moduleName
         ) : (
-          <Stack spacing={1}>
-            <InlineFieldSave
-              value={mod.name}
-              onSave={(name) => onUpdateModule(mod.id, { name })}
-              fullWidth
-            />
-            <InlineFieldSave
-              label="Short code"
-              value={mod.code ?? ''}
-              onSave={(code) => onUpdateModule(mod.id, { code })}
-              fullWidth
-              allowEmpty
-            />
+          <Stack direction="row" spacing={0.5} alignItems="flex-start">
+            <Stack spacing={1} sx={{ flex: 1, minWidth: 0 }}>
+              <InlineFieldSave
+                value={mod.name}
+                onSave={(name) => onUpdateModule(mod.id, { name })}
+                fullWidth
+              />
+              <InlineFieldSave
+                label="Short code"
+                value={mod.code ?? ''}
+                onSave={(code) => onUpdateModule(mod.id, { code })}
+                fullWidth
+                allowEmpty
+              />
+            </Stack>
+            <DeleteModuleButton mod={mod} onDelete={onDelete} deletingModuleId={deletingModuleId} />
           </Stack>
         )}
       </TableCell>

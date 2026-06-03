@@ -99,6 +99,26 @@ class LevelModuleController extends Controller
         return response()->json(['data' => $fresh]);
     }
 
+    public function destroyModule(Request $request, JbsModule $jbs_module): JsonResponse
+    {
+        $snapshot = $this->audit()->snapshot($jbs_module, ['id', 'jbs_level_id', 'name', 'code', 'sort_order']);
+        $label = $jbs_module->name;
+        $levelId = $jbs_module->jbs_level_id;
+
+        $jbs_module->delete();
+
+        $this->audit()->record(
+            'module.deleted',
+            $request,
+            subject: null,
+            subjectLabel: $label,
+            oldValues: $snapshot,
+            metadata: ['level_id' => $levelId],
+        );
+
+        return response()->json(['message' => 'Module deleted.']);
+    }
+
     private function normalizeCode(?string $code): ?string
     {
         if ($code === null) {

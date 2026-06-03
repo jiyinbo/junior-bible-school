@@ -79,6 +79,7 @@ Route::prefix('v1')->group(function (): void {
             Route::patch('levels/{jbs_level}', [LevelModuleController::class, 'updateLevel']);
             Route::post('levels/{jbs_level}/modules', [LevelModuleController::class, 'storeModule']);
             Route::patch('modules/{jbs_module}', [LevelModuleController::class, 'updateModule']);
+            Route::delete('modules/{jbs_module}', [LevelModuleController::class, 'destroyModule']);
 
             Route::post('modules/{jbs_module}/assignment', [AssignmentController::class, 'store']);
 

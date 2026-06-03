@@ -5,6 +5,11 @@ import {
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   FormControlLabel,
   Grid,
   MenuItem,
@@ -165,6 +170,11 @@ export function SessionDetailPage() {
   const [assigningModuleId, setAssigningModuleId] = useState<number | null>(
     null,
   );
+  const [modulePendingDelete, setModulePendingDelete] = useState<{
+    id: number;
+    name: string;
+  } | null>(null);
+  const [deletingModuleId, setDeletingModuleId] = useState<number | null>(null);
 
   const [levelName, setLevelName] = useState("");
   const [levelPrefix, setLevelPrefix] = useState("");
@@ -359,6 +369,24 @@ export function SessionDetailPage() {
       setError(parseApiError(e));
     } finally {
       setAssigningModuleId(null);
+    }
+  };
+
+  const confirmDeleteModule = async () => {
+    if (!modulePendingDelete) return;
+    setDeletingModuleId(modulePendingDelete.id);
+    setError(null);
+    try {
+      await apiJson(`/api/v1/admin/modules/${modulePendingDelete.id}`, {
+        method: "DELETE",
+      });
+      toastSuccess("Module deleted.");
+      setModulePendingDelete(null);
+      loadSession();
+    } catch (e) {
+      setError(parseApiError(e));
+    } finally {
+      setDeletingModuleId(null);
     }
   };
 
@@ -701,6 +729,13 @@ export function SessionDetailPage() {
                             assigningModuleId={assigningModuleId}
                             onUpdateModule={updateModule}
                             onAssignTeacher={assignTeacher}
+                            onDelete={
+                              canManage
+                                ? (id, name) =>
+                                    setModulePendingDelete({ id, name })
+                                : undefined
+                            }
+                            deletingModuleId={deletingModuleId}
                             testButton={
                               <TestManageButton
                                 moduleId={mod.id}
@@ -756,6 +791,13 @@ export function SessionDetailPage() {
                                 assigningModuleId={assigningModuleId}
                                 onUpdateModule={updateModule}
                                 onAssignTeacher={assignTeacher}
+                                onDelete={
+                                  canManage
+                                    ? (id, name) =>
+                                        setModulePendingDelete({ id, name })
+                                    : undefined
+                                }
+                                deletingModuleId={deletingModuleId}
                                 testButton={
                                   <TestManageButton
                                     moduleId={mod.id}
@@ -837,6 +879,40 @@ export function SessionDetailPage() {
           />
         </Paper>
       )}
+
+      <Dialog
+        open={modulePendingDelete !== null}
+        onClose={() =>
+          deletingModuleId === null && setModulePendingDelete(null)
+        }
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Delete module</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Delete <strong>{modulePendingDelete?.name}</strong> from this tier?
+            This removes its test, teacher assignment, timetable slots, and any
+            recorded scores. This cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setModulePendingDelete(null)}
+            disabled={deletingModuleId !== null}
+          >
+            Cancel
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={() => void confirmDeleteModule()}
+            disabled={deletingModuleId !== null}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

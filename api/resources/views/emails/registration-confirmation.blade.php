@@ -12,58 +12,79 @@
                 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px; width:100%; background-color:#ffffff; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.08);">
                     <tr>
                         <td style="background-color:#1e3a8a; padding:28px 32px;">
-                            <h1 style="margin:0; color:#ffffff; font-size:20px; font-weight:700;">{{ config('app.name') }}</h1>
+                            <h1 style="margin:0; color:#ffffff; font-size:20px; font-weight:700;">Summer Junior Bible School</h1>
                         </td>
                     </tr>
                     <tr>
                         <td style="padding:32px;">
-                            <h2 style="margin:0 0 16px; font-size:22px; color:#111827;">Registration confirmed</h2>
-                            <p style="margin:0 0 16px; font-size:15px; line-height:1.6;">
-                                Dear {{ $guardianName }},
+                            <p style="margin:0 0 16px; font-size:15px; line-height:1.65;">
+                                Dear Student,
                             </p>
-                            <p style="margin:0 0 24px; font-size:15px; line-height:1.6;">
-                                We're pleased to confirm that <strong>{{ $participantName }}</strong> has been successfully
-                                registered for <strong>{{ $sessionName }}</strong>. Please keep the registration number
-                                below safe &mdash; it will be needed throughout the programme.
+                            <p style="margin:0 0 16px; font-size:15px; line-height:1.65;">
+                                Congratulations and thank you for registering for the 2026 Summer Junior Bible School. We believe God is ready to transform your life through the instrument of His Word, and we are confident that you will never be the same in Jesus&rsquo; name.
+                            </p>
+                            <p style="margin:0 0 12px; font-size:15px; line-height:1.65;">
+                                Please keep the following details for your records:
                             </p>
 
-                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f9fafb; border:1px solid #e5e7eb; border-radius:10px; margin:0 0 24px;">
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:15px; line-height:1.65; margin:0 0 20px;">
                                 <tr>
-                                    <td style="padding:18px 20px;">
-                                        <p style="margin:0 0 8px; font-size:13px; color:#6b7280; text-transform:uppercase; letter-spacing:0.05em;">Registration Number</p>
-                                        <p style="margin:0; font-size:24px; font-weight:700; color:#1e3a8a; letter-spacing:0.02em;">{{ $registrationNumber }}</p>
-                                    </td>
+                                    <td style="padding:4px 0; color:#6b7280; width:42%; vertical-align:top;">Registration Number</td>
+                                    <td style="padding:4px 0; font-weight:700; color:#1e3a8a;">{{ $registrationNumber }}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:4px 0; color:#6b7280; vertical-align:top;">Tier</td>
+                                    <td style="padding:4px 0; font-weight:600;">{{ $levelName }}</td>
                                 </tr>
                             </table>
 
-                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:15px; line-height:1.6;">
+                            <p style="margin:0 0 8px; font-size:15px; line-height:1.65; font-weight:600;">
+                                Programme Schedule:
+                            </p>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:15px; line-height:1.65; margin:0 0 20px;">
                                 <tr>
-                                    <td style="padding:6px 0; color:#6b7280; width:40%;">Participant</td>
-                                    <td style="padding:6px 0; font-weight:600;">{{ $participantName }}</td>
+                                    <td style="padding:4px 0; color:#6b7280; width:28%; vertical-align:top;">Date</td>
+                                    <td style="padding:4px 0;">Monday 27 July to Friday 31 July 2026</td>
                                 </tr>
                                 <tr>
-                                    <td style="padding:6px 0; color:#6b7280;">Level</td>
-                                    <td style="padding:6px 0; font-weight:600;">{{ $levelName }}</td>
+                                    <td style="padding:4px 0; color:#6b7280; vertical-align:top;">Graduation</td>
+                                    <td style="padding:4px 0;">Sunday 2 August 2026 (during the 3rd service in the Main Church)</td>
                                 </tr>
                                 <tr>
-                                    <td style="padding:6px 0; color:#6b7280;">Session</td>
-                                    <td style="padding:6px 0; font-weight:600;">{{ $sessionName }}</td>
+                                    <td style="padding:4px 0; color:#6b7280; vertical-align:top;">Venue</td>
+                                    <td style="padding:4px 0;">Winners Chapel International, 1 Churchill Close, Green Street Green Road, Dartford DA1 1QE</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:4px 0; color:#6b7280; vertical-align:top;">Time</td>
+                                    <td style="padding:4px 0;">9am to 4pm (All students must be on campus by 8:45am at the latest for registration)</td>
                                 </tr>
                             </table>
 
-                            <p style="margin:24px 0 0; font-size:15px; line-height:1.6;">
-                                If you have any questions, simply reply to this email and our team will be happy to help.
+                            <p style="margin:0 0 16px; font-size:15px; line-height:1.65;">
+                                Our dedicated Student Portal contains more information about the programme, including details about your modules, ID card, timetable, and more. Please note that some of these details will become available closer to the start date. You can access the Student Portal using the link below:
                             </p>
-                            <p style="margin:24px 0 0; font-size:15px; line-height:1.6;">
-                                Warm regards,<br>
-                                The {{ config('app.name') }} Team
+                            <p style="margin:0 0 20px; font-size:15px; line-height:1.65;">
+                                <a href="{{ $studentPortalUrl }}" style="color:#1e3a8a; font-weight:600;">{{ $studentPortalUrl }}</a>
+                            </p>
+
+                            <p style="margin:0 0 16px; font-size:15px; line-height:1.65;">
+                                Further information will be sent closer to the start date. In the meantime, if you have any questions, please email us at
+                                <a href="mailto:{{ $contactEmail }}" style="color:#1e3a8a;">{{ $contactEmail }}</a>
+                                or visit us on Sunday in the Teens Church for a chat.
+                            </p>
+                            <p style="margin:0 0 16px; font-size:15px; line-height:1.65;">
+                                We can&rsquo;t wait for all that God has in store for us at JBS. Congratulations once again!
+                            </p>
+                            <p style="margin:24px 0 0; font-size:15px; line-height:1.65;">
+                                Warm regards,<br><br>
+                                The Summer Junior Bible School Team
                             </p>
                         </td>
                     </tr>
                     <tr>
                         <td style="background-color:#f9fafb; padding:20px 32px; border-top:1px solid #e5e7eb;">
                             <p style="margin:0; font-size:12px; color:#9ca3af;">
-                                This is an automated message confirming a registration. Please do not share your registration number publicly.
+                                This is an automated message confirming your registration. Please do not share your registration number publicly.
                             </p>
                         </td>
                     </tr>

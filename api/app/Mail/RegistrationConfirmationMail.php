@@ -20,7 +20,7 @@ class RegistrationConfirmationMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Registration confirmed - '.$this->registration->session->name,
+            subject: 'Registration confirmed – 2026 Summer Junior Bible School',
         );
     }
 
@@ -29,11 +29,10 @@ class RegistrationConfirmationMail extends Mailable
         return new Content(
             view: 'emails.registration-confirmation',
             with: [
-                'participantName' => $this->registration->fullName(),
                 'registrationNumber' => $this->registration->registration_number,
-                'sessionName' => $this->registration->session->name,
                 'levelName' => $this->registration->level->name,
-                'guardianName' => $this->registration->guardian_name,
+                'studentPortalUrl' => rtrim((string) config('jbs.student_portal_url'), '/'),
+                'contactEmail' => (string) config('jbs.contact_email'),
             ],
         );
     }
