@@ -34,9 +34,13 @@ export function isValidEmail(value: string): boolean {
   return trimmed.length > 0 && trimmed.length <= 255 && EMAIL_PATTERN.test(trimmed);
 }
 
-export function ukPhoneError(value: string, label = 'Phone number'): string | undefined {
+export function ukPhoneError(
+  value: string,
+  label = 'Phone number',
+  required = true,
+): string | undefined {
   const trimmed = value.trim();
-  if (!trimmed) return `${label} is required`;
+  if (!trimmed) return required ? `${label} is required` : undefined;
   const normalized = normalizeUkPhone(trimmed);
   if (!UK_PHONE_PATTERN.test(normalized)) {
     return `${label} must be a valid UK number (11 digits starting with 0)`;
@@ -44,9 +48,9 @@ export function ukPhoneError(value: string, label = 'Phone number'): string | un
   return undefined;
 }
 
-export function emailError(value: string, label = 'Email'): string | undefined {
+export function emailError(value: string, label = 'Email', required = true): string | undefined {
   const trimmed = value.trim();
-  if (!trimmed) return `${label} is required`;
+  if (!trimmed) return required ? `${label} is required` : undefined;
   if (trimmed.length > 255) return `${label} must be 255 characters or fewer`;
   if (!EMAIL_PATTERN.test(trimmed)) return 'Enter a valid email address';
   return undefined;

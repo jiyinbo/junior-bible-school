@@ -37,6 +37,8 @@ class DuplicateSessionRegistrationTest extends TestCase
             'current_school' => 'Test School',
             'current_school_year' => 'Year 9',
             'next_of_kin_name' => 'Guardian Test',
+            'next_of_kin_phone' => '07987654321',
+            'next_of_kin_email' => 'kin@example.com',
         ];
     }
 
@@ -123,6 +125,43 @@ class DuplicateSessionRegistrationTest extends TestCase
         $this->assertDatabaseHas('jbs_student_registrations', [
             'email' => 'child2@example.com',
             'guardian_email' => 'jane.parent@example.com',
+        ]);
+    }
+
+    public function test_child_phone_and_email_are_optional(): void
+    {
+        $session = JbsSession::query()->create([
+            'name' => 'Summer 2026',
+            'slug' => 'summer-2026-opt',
+            'is_past' => false,
+        ]);
+
+        $level = JbsLevel::query()->create([
+            'jbs_session_id' => $session->id,
+            'name' => 'Basic (10-12)',
+            'placement_group' => JbsRegistrationValidationService::PLACEMENT_BASIC_10_12,
+            'registration_prefix' => 'L2',
+            'next_sequence' => 0,
+        ]);
+
+        $child = $this->childPayload($level->id, '');
+        $child['phone'] = '';
+        $child['email'] = '';
+
+        $response = $this->postJson('/api/v1/public/registrations', [
+            'session_slug' => $session->slug,
+            'guardian_name' => 'Jane Parent',
+            'guardian_relationship' => 'Mother',
+            'guardian_phone' => '07123456781',
+            'guardian_email' => 'jane.parent2@example.com',
+            'children' => [$child],
+        ]);
+
+        $response->assertCreated();
+        $this->assertDatabaseHas('jbs_student_registrations', [
+            'email' => null,
+            'phone' => null,
+            'guardian_email' => 'jane.parent2@example.com',
         ]);
     }
 }

@@ -47,8 +47,8 @@ class JbsRegistrationValidationService
             'date_of_birth' => ['required', 'date', 'before:today'],
             'nationality' => ['required', 'string', 'max:120'],
             'address' => ['required', 'string', 'max:500'],
-            'phone' => ['required', 'string', 'regex:'.self::UK_PHONE_PATTERN],
-            'email' => ['required', 'email', 'max:255'],
+            'phone' => ['nullable', 'string', 'regex:'.self::UK_PHONE_PATTERN],
+            'email' => ['nullable', 'email', 'max:255'],
             'born_again' => ['required', 'boolean'],
             'date_of_new_birth' => ['nullable', 'date', 'before_or_equal:today'],
             'new_birth_location' => ['nullable', 'string', 'max:255'],
@@ -60,6 +60,8 @@ class JbsRegistrationValidationService
             'current_school_year' => ['required', 'string', 'max:80'],
             'allergies' => ['nullable', 'string', 'max:500'],
             'next_of_kin_name' => ['required', 'string', 'max:255'],
+            'next_of_kin_phone' => ['required', 'string', 'regex:'.self::UK_PHONE_PATTERN],
+            'next_of_kin_email' => ['nullable', 'email', 'max:255'],
         ];
     }
 
@@ -90,12 +92,7 @@ class JbsRegistrationValidationService
         }
 
         foreach ($children as $index => $child) {
-            if (isset($child['phone']) && is_string($child['phone'])) {
-                $child['phone'] = $this->normalizeUkPhone($child['phone']);
-            }
-            if (isset($child['email']) && is_string($child['email'])) {
-                $child['email'] = strtolower(trim($child['email']));
-            }
+            $child = $this->normalizeOptionalChildContacts($child);
 
             $validator = Validator::make($child, $this->childRules(), $this->validationMessages());
             $validator->validate();
@@ -154,6 +151,34 @@ class JbsRegistrationValidationService
     }
 
     /**
+     * @param  array<string, mixed>  $child
+     * @return array<string, mixed>
+     */
+    public function normalizeOptionalChildContacts(array $child): array
+    {
+        if (isset($child['phone']) && is_string($child['phone'])) {
+            $phone = $this->normalizeUkPhone($child['phone']);
+            $child['phone'] = $phone !== '' ? $phone : null;
+        }
+
+        if (isset($child['email']) && is_string($child['email'])) {
+            $email = strtolower(trim($child['email']));
+            $child['email'] = $email !== '' ? $email : null;
+        }
+
+        if (isset($child['next_of_kin_phone']) && is_string($child['next_of_kin_phone'])) {
+            $child['next_of_kin_phone'] = $this->normalizeUkPhone($child['next_of_kin_phone']);
+        }
+
+        if (isset($child['next_of_kin_email']) && is_string($child['next_of_kin_email'])) {
+            $email = strtolower(trim($child['next_of_kin_email']));
+            $child['next_of_kin_email'] = $email !== '' ? $email : null;
+        }
+
+        return $child;
+    }
+
+    /**
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
@@ -180,13 +205,7 @@ class JbsRegistrationValidationService
                 if (! is_array($child)) {
                     continue;
                 }
-                if (isset($child['phone']) && is_string($child['phone'])) {
-                    $child['phone'] = $this->normalizeUkPhone($child['phone']);
-                }
-                if (isset($child['email']) && is_string($child['email'])) {
-                    $child['email'] = strtolower(trim($child['email']));
-                }
-                $payload['children'][$index] = $child;
+                $payload['children'][$index] = $this->normalizeOptionalChildContacts($child);
             }
         }
 
@@ -199,6 +218,13 @@ class JbsRegistrationValidationService
     public function validationMessages(): array
     {
         return [
+            'guardian_name.required' => 'The parent / guardian full name is required.',
+            'next_of_kin_name.required' => 'The next of kin full name is required.',
+            'children.*.next_of_kin_name.required' => 'The next of kin full name is required for each student.',
+            'next_of_kin_phone.regex' => 'The next of kin phone must be a valid UK number (11 digits starting with 0).',
+            'children.*.next_of_kin_phone.regex' => 'The next of kin phone must be a valid UK number (11 digits starting with 0).',
+            'next_of_kin_email.email' => 'Enter a valid next of kin email address.',
+            'children.*.next_of_kin_email.email' => 'Enter a valid next of kin email address for each student.',
             'guardian_phone.regex' => 'The parent or guardian phone must be a valid UK number (11 digits starting with 0).',
             'guardian_email.email' => 'Enter a valid parent or guardian email address.',
             'phone.regex' => 'The phone number must be a valid UK number (11 digits starting with 0).',

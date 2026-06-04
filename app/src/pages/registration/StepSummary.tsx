@@ -84,7 +84,7 @@ export function StepSummary({
           Parent / guardian
         </Typography>
         <Typography variant="body2">Session: {sessionName}</Typography>
-        <Typography variant="body2">Name: {guardian.guardian_name}</Typography>
+        <Typography variant="body2">Full name: {guardian.guardian_name}</Typography>
         <Typography variant="body2">Relationship: {guardian.guardian_relationship}</Typography>
         <Typography variant="body2">Phone: {guardian.guardian_phone}</Typography>
         <Typography variant="body2">Email: {guardian.guardian_email}</Typography>
@@ -93,7 +93,7 @@ export function StepSummary({
       <Divider />
 
       {children.map((child, idx) => (
-        <Paper key={`${child.email}-${idx}`} variant="outlined" sx={{ p: 2 }}>
+        <Paper key={`${child.email || 'child'}-${idx}`} variant="outlined" sx={{ p: 2 }}>
           <Typography variant="subtitle2" gutterBottom>
             Child {idx + 1}: {child.first_name} {child.last_name}
           </Typography>
@@ -101,9 +101,14 @@ export function StepSummary({
           <Typography variant="body2">
             DOB: {child.date_of_birth ? new Date(child.date_of_birth + 'T12:00:00').toLocaleDateString() : '—'}
           </Typography>
-          <Typography variant="body2">Email: {child.email}</Typography>
-          <Typography variant="body2">Phone: {child.phone}</Typography>
+          <Typography variant="body2">Email: {child.email.trim() || '—'}</Typography>
+          <Typography variant="body2">Phone: {child.phone.trim() || '—'}</Typography>
           <Typography variant="body2">School: {child.current_school} ({child.current_school_year})</Typography>
+          <Typography variant="body2">Next of kin: {child.next_of_kin_name}</Typography>
+          <Typography variant="body2">Next of kin phone: {child.next_of_kin_phone}</Typography>
+          <Typography variant="body2">
+            Next of kin email: {child.next_of_kin_email.trim() || '—'}
+          </Typography>
           {child.allergies && (
             <Typography variant="body2">Allergies / medical: {child.allergies}</Typography>
           )}

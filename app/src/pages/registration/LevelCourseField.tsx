@@ -3,10 +3,22 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import type { LevelOption } from './types';
 
 const PLACEMENT_RULES: { tier: string; rule: string }[] = [
-  { tier: 'Basic (10–12)', rule: 'Ages 10–12 (required even if attended before).' },
-  { tier: 'Basic (Teens)', rule: 'Age 13+ who have not attended JBS before.' },
-  { tier: 'Advanced', rule: 'Age 13+ who completed Basic.' },
-  { tier: 'Teens Masterclass', rule: 'Age 13+ who completed Advanced.' },
+  {
+    tier: 'Basic (10-12)',
+    rule: 'All children aged 10-12 have to register for this class irrespective of whether they have attended JBS before',
+  },
+  {
+    tier: 'Basic (Teens)',
+    rule: 'Teenagers (13 - 15 years) who have not attended JBS before',
+  },
+  {
+    tier: 'Advanced',
+    rule: "Teenagers who have attended the Basic (Teens) Class or are 15 years and above and haven't attended JBS before.",
+  },
+  {
+    tier: 'Teens Masterclass',
+    rule: 'Teenagers (15 years and above) who have attended the Advanced Class.',
+  },
 ];
 
 /** Visible guidance, shown at the top of the form, on which tier a child can apply for. */
@@ -28,7 +40,7 @@ export function TierPlacementGuide() {
 type Props = {
   levels: LevelOption[];
   value: number | '';
-  onChange: (levelId: number) => void;
+  onChange: (levelId: number | '') => void;
   error?: string;
   disabled?: boolean;
   label?: string;
@@ -46,16 +58,23 @@ export function LevelCourseField({
     <TextField
       select
       label={label}
-      value={value}
-      onChange={(e) => onChange(Number(e.target.value))}
+      value={value === '' ? '' : String(value)}
+      onChange={(e) => {
+        const raw = e.target.value;
+        onChange(raw === '' ? '' : Number(raw));
+      }}
       error={Boolean(error)}
       helperText={error}
       required
       fullWidth
       disabled={disabled}
+      SelectProps={{ displayEmpty: true }}
     >
+      <MenuItem value="" disabled>
+        Select a course
+      </MenuItem>
       {levels.map((l) => (
-        <MenuItem key={l.id} value={l.id}>
+        <MenuItem key={l.id} value={String(l.id)}>
           {l.name}
         </MenuItem>
       ))}

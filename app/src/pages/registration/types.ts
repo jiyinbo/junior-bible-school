@@ -41,6 +41,8 @@ export type ChildForm = {
   current_school_year: string;
   allergies: string;
   next_of_kin_name: string;
+  next_of_kin_phone: string;
+  next_of_kin_email: string;
 };
 
 export type RegistrationPayload = GuardianInfo & {
@@ -75,4 +77,6 @@ export const emptyChild = (levelId: number | '' = ''): ChildForm => ({
   current_school_year: '',
   allergies: '',
   next_of_kin_name: '',
+  next_of_kin_phone: '',
+  next_of_kin_email: '',
 });

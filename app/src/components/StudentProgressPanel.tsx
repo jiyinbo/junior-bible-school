@@ -246,10 +246,84 @@ function ModuleResultReadOnlyRow({
   );
 }
 
+type StudentModulesTableProps = {
+  progress: StudentProgressData;
+  variant?: 'student' | 'staff';
+  moduleRows?: ReactNode;
+  showAdminColumn?: boolean;
+  adminColumnFooter?: ReactNode;
+};
+
+export function StudentModulesTable({
+  progress,
+  variant = 'student',
+  moduleRows,
+  showAdminColumn = false,
+  adminColumnFooter,
+}: StudentModulesTableProps) {
+  const isStudent = variant === 'student';
+  const modules = progress.modules ?? [];
+
+  return (
+    <Box sx={{ overflowX: 'auto' }}>
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell>Module</TableCell>
+            {isStudent ? (
+              <TableCell>Status</TableCell>
+            ) : (
+              <>
+                <TableCell>Score</TableCell>
+                <TableCell>%</TableCell>
+                <TableCell>Grade</TableCell>
+                <TableCell>Source</TableCell>
+                <TableCell>Status</TableCell>
+              </>
+            )}
+            {showAdminColumn && <TableCell align="right" />}
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {moduleRows ??
+            modules.map((m) => (
+              <ModuleResultReadOnlyRow key={m.module_id} module={m} variant={variant} />
+            ))}
+        </TableBody>
+      </Table>
+      {adminColumnFooter}
+    </Box>
+  );
+}
+
+export function GradingScaleDetails({ variant }: { variant: 'student' | 'staff' }) {
+  const isStudent = variant === 'student';
+
+  return (
+    <>
+      <Typography variant="subtitle2" gutterBottom>
+        {isStudent ? 'Overall grading scale' : 'Overall'}
+      </Typography>
+      <GradingKeyTable scale={OVERALL_GRADING_SCALE} compact variant="overall" />
+      <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+        {isStudent ? 'Module grading scale' : 'Per module'}
+      </Typography>
+      <GradingKeyTable scale={MODULE_GRADING_SCALE} compact variant="module" />
+      <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+        {isStudent
+          ? `Students who miss more than ${GRADUATION_MAX_MISSED_TESTS} tests (3 or more) are not presented for graduation.`
+          : 'Miss 3 or more tests → not presented for graduation.'}
+      </Typography>
+    </>
+  );
+}
+
 type StudentProgressPanelProps = {
   progress: StudentProgressData;
   programmePhase?: string;
   variant?: 'student' | 'staff';
+  /** Per-module table; off on student portal (timetable lists courses; summary strip shows X/Y completed). */
+  showModuleTable?: boolean;
   moduleRows?: ReactNode;
   showGradingScales?: boolean;
   showAdminColumn?: boolean;
@@ -260,6 +334,7 @@ export function StudentProgressPanel({
   progress,
   programmePhase,
   variant = 'staff',
+  showModuleTable,
   moduleRows,
   showGradingScales,
   showAdminColumn = false,
@@ -268,108 +343,60 @@ export function StudentProgressPanel({
   const p = progress;
   const isStudent = variant === 'student';
   const showScales = showGradingScales ?? true;
+  const showModules = showModuleTable ?? !isStudent;
   const stats = studentProgressStats(p, programmePhase);
-  const modules = p.modules ?? [];
   const summaryItems = buildSummaryItems(p, variant, stats);
 
   return (
     <>
       <ProgressSummaryStrip items={summaryItems} />
 
-      <Paper variant="outlined" sx={{ overflowX: 'auto' }}>
-        <Box
-          sx={{
-            px: 2,
-            py: 1.5,
-            borderBottom: 1,
-            borderColor: 'divider',
-            bgcolor: 'grey.50',
-          }}
-        >
-          <Typography variant="subtitle1" fontWeight={600}>
-            {isStudent ? 'Modules' : 'Module results'}
-          </Typography>
-          {isStudent && (
-            <Typography variant="caption" color="text.secondary">
-              Completion only — scores are not shown to students.
-            </Typography>
-          )}
-        </Box>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Module</TableCell>
-              {isStudent ? (
-                <TableCell>Status</TableCell>
-              ) : (
-                <>
-                  <TableCell>Score</TableCell>
-                  <TableCell>%</TableCell>
-                  <TableCell>Grade</TableCell>
-                  <TableCell>Source</TableCell>
-                  <TableCell>Status</TableCell>
-                </>
-              )}
-              {showAdminColumn && <TableCell align="right" />}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {moduleRows ??
-              modules.map((m) => (
-                <ModuleResultReadOnlyRow key={m.module_id} module={m} variant={variant} />
-              ))}
-          </TableBody>
-        </Table>
-        {adminColumnFooter}
-      </Paper>
-
-      {showScales &&
-        (isStudent ? (
-          <Paper variant="outlined" sx={{ mt: 2, p: 2 }}>
-            <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-              Grading scale
-            </Typography>
-            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
-              How your overall average and each module test are graded. Your own scores are not shown
-              here.
-            </Typography>
-            <Typography variant="subtitle2" gutterBottom>
-              Overall grading scale
-            </Typography>
-            <GradingKeyTable scale={OVERALL_GRADING_SCALE} compact variant="overall" />
-            <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
-              Module grading scale
-            </Typography>
-            <GradingKeyTable scale={MODULE_GRADING_SCALE} compact variant="module" />
-            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-              Students who miss more than {GRADUATION_MAX_MISSED_TESTS} tests (3 or more) are not
-              presented for graduation.
-            </Typography>
-          </Paper>
-        ) : (
-          <Accordion
-            disableGutters
-            elevation={0}
-            sx={{ mt: 2, border: 1, borderColor: 'divider', '&:before': { display: 'none' } }}
+      {showModules && (
+        <Paper variant="outlined" sx={{ overflowX: 'auto' }}>
+          <Box
+            sx={{
+              px: 2,
+              py: 1.5,
+              borderBottom: 1,
+              borderColor: 'divider',
+              bgcolor: 'grey.50',
+            }}
           >
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Typography variant="subtitle2">Grading scales (reference)</Typography>
-            </AccordionSummary>
-            <AccordionDetails sx={{ pt: 0 }}>
-              <Typography variant="subtitle2" gutterBottom>
-                Overall
+            <Typography variant="subtitle1" fontWeight={600}>
+              {isStudent ? 'Modules' : 'Module results'}
+            </Typography>
+            {isStudent && (
+              <Typography variant="caption" color="text.secondary">
+                Completion only — scores are not shown to students.
               </Typography>
-              <GradingKeyTable scale={OVERALL_GRADING_SCALE} compact variant="overall" />
-              <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
-                Per module
-              </Typography>
-              <GradingKeyTable scale={MODULE_GRADING_SCALE} compact variant="module" />
-              <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-                Miss 3 or more tests → not presented for graduation.
-              </Typography>
-            </AccordionDetails>
-          </Accordion>
-        ))}
+            )}
+          </Box>
+          <Box sx={{ px: 2 }}>
+            <StudentModulesTable
+              progress={p}
+              variant={variant}
+              moduleRows={moduleRows}
+              showAdminColumn={showAdminColumn}
+              adminColumnFooter={adminColumnFooter}
+            />
+          </Box>
+        </Paper>
+      )}
+
+      {showScales && !isStudent && (
+        <Accordion
+          disableGutters
+          elevation={0}
+          sx={{ mt: 2, border: 1, borderColor: 'divider', '&:before': { display: 'none' } }}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="subtitle2">Grading scales (reference)</Typography>
+          </AccordionSummary>
+          <AccordionDetails sx={{ pt: 0 }}>
+            <GradingScaleDetails variant="staff" />
+          </AccordionDetails>
+        </Accordion>
+      )}
     </>
   );
 }

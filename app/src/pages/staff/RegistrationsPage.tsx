@@ -142,8 +142,8 @@ export function RegistrationsPage() {
         {step === 1 && (
           <StepChildInfo
             levels={levels}
-            children={children}
-            onChildrenChange={setChildren}
+            addedChildren={children}
+            onAddedChildrenChange={setChildren}
             onBack={() => setStep(0)}
             onNext={() => setStep(2)}
           />

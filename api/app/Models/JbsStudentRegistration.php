@@ -37,6 +37,8 @@ class JbsStudentRegistration extends Model
         'current_school_year',
         'allergies',
         'next_of_kin_name',
+        'next_of_kin_phone',
+        'next_of_kin_email',
         'registered_after_close',
         'level_completed',
         'level_completed_at',

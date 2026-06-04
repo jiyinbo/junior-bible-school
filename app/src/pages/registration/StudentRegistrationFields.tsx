@@ -7,7 +7,12 @@ import {
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import dayjs, { type Dayjs } from 'dayjs';
 import { EmailTextField, UkPhoneTextField } from './ContactFields';
-import { NATIONALITIES } from './constants';
+import {
+  LABEL_NEXT_OF_KIN_EMAIL,
+  LABEL_NEXT_OF_KIN_FULL_NAME,
+  LABEL_NEXT_OF_KIN_PHONE,
+  NATIONALITIES,
+} from './constants';
 import { FormRow, FormSection } from './FormLayout';
 import type { ChildForm } from './types';
 
@@ -32,6 +37,8 @@ export type StudentFieldValues = Pick<
   | 'current_school_year'
   | 'allergies'
   | 'next_of_kin_name'
+  | 'next_of_kin_phone'
+  | 'next_of_kin_email'
 >;
 
 type Props = {
@@ -87,12 +94,14 @@ export function StudentRegistrationFields({ values, errors, onChange }: Props) {
             value={dateValue(values.date_of_birth)}
             onChange={(v) => onChange({ date_of_birth: v ? v.format('YYYY-MM-DD') : '' })}
             maxDate={dayjs()}
+            format="DD/MM/YYYY"
             slotProps={{
               textField: {
                 fullWidth: true,
                 required: true,
                 error: Boolean(errors.date_of_birth),
                 helperText: errors.date_of_birth,
+                placeholder: 'DD/MM/YYYY',
               },
             }}
           />
@@ -127,20 +136,20 @@ export function StudentRegistrationFields({ values, errors, onChange }: Props) {
         />
         <FormRow>
           <UkPhoneTextField
-            label="Child phone"
+            label="Child phone (optional)"
             fieldLabel="Child phone"
             value={values.phone}
             onChange={(phone) => onChange({ phone })}
             error={errors.phone}
-            required
+            helperText={errors.phone ? undefined : 'Leave blank if the child has no phone'}
           />
           <EmailTextField
-            label="Child email"
+            label="Child email (optional)"
             fieldLabel="Child email"
             value={values.email}
             onChange={(email) => onChange({ email })}
             error={errors.email}
-            required
+            helperText={errors.email ? undefined : 'Leave blank if the child has no email'}
           />
         </FormRow>
       </FormSection>
@@ -161,8 +170,11 @@ export function StudentRegistrationFields({ values, errors, onChange }: Props) {
             value={dateValue(values.date_of_new_birth)}
             onChange={(v) => onChange({ date_of_new_birth: v ? v.format('YYYY-MM-DD') : '' })}
             maxDate={dayjs()}
+            format="DD/MM/YYYY"
             disabled={!values.born_again}
-            slotProps={{ textField: { fullWidth: true } }}
+            slotProps={{
+              textField: { fullWidth: true, placeholder: 'DD/MM/YYYY' },
+            }}
           />
           <TextField
             label="New birth location"
@@ -238,21 +250,38 @@ export function StudentRegistrationFields({ values, errors, onChange }: Props) {
             fullWidth
           />
         </FormRow>
+        <TextField
+          label="Allergies / medical conditions (optional)"
+          value={values.allergies}
+          onChange={(e) => onChange({ allergies: e.target.value })}
+          fullWidth
+        />
+        <TextField
+          label={LABEL_NEXT_OF_KIN_FULL_NAME}
+          placeholder="First name and surname"
+          value={values.next_of_kin_name}
+          onChange={(e) => onChange({ next_of_kin_name: e.target.value })}
+          error={Boolean(errors.next_of_kin_name)}
+          helperText={errors.next_of_kin_name}
+          required
+          fullWidth
+        />
         <FormRow>
-          <TextField
-            label="Allergies / medical conditions (optional)"
-            value={values.allergies}
-            onChange={(e) => onChange({ allergies: e.target.value })}
-            fullWidth
-          />
-          <TextField
-            label="Next of kin name"
-            value={values.next_of_kin_name}
-            onChange={(e) => onChange({ next_of_kin_name: e.target.value })}
-            error={Boolean(errors.next_of_kin_name)}
-            helperText={errors.next_of_kin_name}
+          <UkPhoneTextField
+            label={LABEL_NEXT_OF_KIN_PHONE}
+            fieldLabel="Next of kin phone"
+            value={values.next_of_kin_phone}
+            onChange={(phone) => onChange({ next_of_kin_phone: phone })}
+            error={errors.next_of_kin_phone}
             required
-            fullWidth
+          />
+          <EmailTextField
+            label={LABEL_NEXT_OF_KIN_EMAIL}
+            fieldLabel="Next of kin email"
+            value={values.next_of_kin_email}
+            onChange={(email) => onChange({ next_of_kin_email: email })}
+            error={errors.next_of_kin_email}
+            helperText={errors.next_of_kin_email ? undefined : 'Leave blank if not available'}
           />
         </FormRow>
       </FormSection>

@@ -19,7 +19,7 @@ export function validateAdminGuardian(
   const g = normalizeGuardianContacts(data);
   const errors: Record<string, string> = {};
   if (sessionId === '') errors.session = 'Session is required';
-  if (!g.guardian_name.trim()) errors.guardian_name = 'Parent or guardian name is required';
+  if (!g.guardian_name.trim()) errors.guardian_name = 'Parent / guardian full name is required';
   if (!g.guardian_relationship.trim()) {
     errors.guardian_relationship = 'Relationship to child is required';
   }
@@ -34,7 +34,7 @@ export function validateGuardian(data: GuardianInfo): Record<string, string> {
   const g = normalizeGuardianContacts(data);
   const errors: Record<string, string> = {};
   if (!data.session_slug) errors.session_slug = 'Session is required';
-  if (!g.guardian_name.trim()) errors.guardian_name = 'Parent or guardian name is required';
+  if (!g.guardian_name.trim()) errors.guardian_name = 'Parent / guardian full name is required';
   if (!g.guardian_relationship.trim()) {
     errors.guardian_relationship = 'Relationship to child is required';
   }
@@ -56,11 +56,15 @@ export function normalizeGuardianContacts<
   };
 }
 
-export function normalizeChildContacts<T extends Pick<ChildForm, 'phone' | 'email'>>(child: T): T {
+export function normalizeChildContacts<
+  T extends Pick<ChildForm, 'phone' | 'email' | 'next_of_kin_phone' | 'next_of_kin_email'>,
+>(child: T): T {
   return {
     ...child,
     phone: normalizeUkPhone(child.phone),
     email: normalizeEmail(child.email),
+    next_of_kin_phone: normalizeUkPhone(child.next_of_kin_phone),
+    next_of_kin_email: normalizeEmail(child.next_of_kin_email),
   };
 }
 
@@ -98,9 +102,9 @@ export function validateChild(
 
   if (!c.nationality.trim()) errors.nationality = 'Nationality is required';
   if (!c.address.trim()) errors.address = 'Address is required';
-  const phoneErr = ukPhoneError(c.phone, 'Phone number');
+  const phoneErr = ukPhoneError(c.phone, 'Child phone', false);
   if (phoneErr) errors.phone = phoneErr;
-  const emailErr = emailError(c.email);
+  const emailErr = emailError(c.email, 'Child email', false);
   if (emailErr) errors.email = emailErr;
   if (!c.place_of_worship.trim()) errors.place_of_worship = 'Place of worship is required';
   if (!c.place_of_worship_address.trim()) {
@@ -110,7 +114,11 @@ export function validateChild(
   if (!c.activity_group.trim()) errors.activity_group = 'Activity group is required';
   if (!c.current_school.trim()) errors.current_school = 'Current school is required';
   if (!c.current_school_year.trim()) errors.current_school_year = 'Current school year is required';
-  if (!c.next_of_kin_name.trim()) errors.next_of_kin_name = 'Next of kin is required';
+  if (!c.next_of_kin_name.trim()) errors.next_of_kin_name = 'Next of kin full name is required';
+  const kinPhoneErr = ukPhoneError(c.next_of_kin_phone, 'Next of kin phone');
+  if (kinPhoneErr) errors.next_of_kin_phone = kinPhoneErr;
+  const kinEmailErr = emailError(c.next_of_kin_email, 'Next of kin email', false);
+  if (kinEmailErr) errors.next_of_kin_email = kinEmailErr;
 
   return errors;
 }

@@ -1,3 +1,8 @@
+export const LABEL_GUARDIAN_FULL_NAME = 'Parent / guardian full name';
+export const LABEL_NEXT_OF_KIN_FULL_NAME = 'Next of kin full name';
+export const LABEL_NEXT_OF_KIN_PHONE = 'Next of kin phone';
+export const LABEL_NEXT_OF_KIN_EMAIL = 'Next of kin email (optional)';
+
 export const GUARDIAN_RELATIONSHIPS = [
   'Mother',
   'Father',

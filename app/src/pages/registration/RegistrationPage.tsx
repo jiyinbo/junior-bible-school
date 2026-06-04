@@ -12,8 +12,6 @@ import {
   Stepper,
   Typography,
 } from '@mui/material';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { apiJson } from '../../api/http';
 import { usePublicRegistrationOpen } from '../../hooks/usePublicRegistrationOpen';
 import { StepParentInfo } from './StepParentInfo';
@@ -101,7 +99,6 @@ export function RegistrationPage() {
   };
 
   return (
-    <LocalizationProvider dateAdapter={AdapterDayjs}>
       <Container maxWidth="md" sx={{ py: 6, px: { xs: 2, sm: 3 } }}>
         <Button component={RouterLink} to="/" sx={{ mb: 2 }}>
           ← Home
@@ -168,8 +165,8 @@ export function RegistrationPage() {
           {step === 1 && (
             <StepChildInfo
               levels={levels}
-              children={children}
-              onChildrenChange={setChildren}
+              addedChildren={children}
+              onAddedChildrenChange={setChildren}
               onBack={() => setStep(0)}
               onNext={() => setStep(2)}
             />
@@ -192,6 +189,5 @@ export function RegistrationPage() {
         </Paper>
         )}
       </Container>
-    </LocalizationProvider>
   );
 }

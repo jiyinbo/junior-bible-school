@@ -19,11 +19,35 @@ class JbsRegistrationService
         return strtolower(trim($email));
     }
 
+    private function optionalEmail(mixed $email): ?string
+    {
+        if (! is_string($email) || trim($email) === '') {
+            return null;
+        }
+
+        return $this->normalizeEmail($email);
+    }
+
+    private function optionalPhone(mixed $phone): ?string
+    {
+        if (! is_string($phone) || trim($phone) === '') {
+            return null;
+        }
+
+        $normalized = $this->validation->normalizeUkPhone($phone);
+
+        return $normalized !== '' ? $normalized : null;
+    }
+
     public function assertNotAlreadyRegisteredInSession(
         int $sessionId,
-        string $email,
+        ?string $email,
         ?int $exceptRegistrationId = null,
     ): void {
+        if ($email === null || trim($email) === '') {
+            return;
+        }
+
         $normalized = $this->normalizeEmail($email);
 
         $query = JbsStudentRegistration::query()
@@ -142,8 +166,8 @@ class JbsRegistrationService
             'registration_number' => $registrationNumber,
             'first_name' => trim($data['first_name']),
             'last_name' => trim($data['last_name']),
-            'email' => $this->normalizeEmail($data['email']),
-            'phone' => $this->validation->normalizeUkPhone($data['phone']),
+            'email' => $this->optionalEmail($data['email'] ?? null),
+            'phone' => $this->optionalPhone($data['phone'] ?? null),
             'guardian_name' => trim($guardian['guardian_name']),
             'guardian_relationship' => trim($guardian['guardian_relationship']),
             'guardian_phone' => $this->validation->normalizeUkPhone($guardian['guardian_phone']),
@@ -165,6 +189,8 @@ class JbsRegistrationService
                 ? trim((string) $data['allergies'])
                 : null,
             'next_of_kin_name' => trim($data['next_of_kin_name']),
+            'next_of_kin_phone' => $this->validation->normalizeUkPhone($data['next_of_kin_phone']),
+            'next_of_kin_email' => $this->optionalEmail($data['next_of_kin_email'] ?? null),
             'registered_after_close' => $afterClose,
         ]);
     }
@@ -174,13 +200,16 @@ class JbsRegistrationService
      */
     public function updateStudent(JbsStudentRegistration $registration, array $data): JbsStudentRegistration
     {
-        if (isset($data['email'])) {
+        if (array_key_exists('email', $data)) {
+            $email = is_string($data['email']) && trim($data['email']) !== ''
+                ? $this->normalizeEmail($data['email'])
+                : null;
             $this->assertNotAlreadyRegisteredInSession(
                 $registration->jbs_session_id,
-                $data['email'],
+                $email,
                 $registration->id,
             );
-            $data['email'] = $this->normalizeEmail($data['email']);
+            $data['email'] = $email;
         }
 
         if (isset($data['guardian_email'])) {
@@ -191,7 +220,7 @@ class JbsRegistrationService
             'first_name', 'last_name', 'phone', 'guardian_name', 'guardian_relationship',
             'guardian_phone', 'guardian_email', 'gender', 'nationality', 'address', 'new_birth_location',
             'place_of_worship', 'place_of_worship_address', 'pastor_name', 'activity_group',
-            'current_school', 'current_school_year', 'next_of_kin_name',
+            'current_school', 'current_school_year', 'next_of_kin_name', 'next_of_kin_phone', 'next_of_kin_email',
         ];
 
         foreach ($stringFields as $field) {

@@ -23,6 +23,7 @@ export function DatePickerField({ label, value, onChange, minDate, maxDate, size
         textField: {
           fullWidth: true,
           size,
+          placeholder: 'DD/MM/YYYY',
         },
         field: { clearable: true },
       }}

@@ -1,6 +1,6 @@
 import { MenuItem, TextField } from '@mui/material';
 import { EmailTextField, UkPhoneTextField } from './ContactFields';
-import { GUARDIAN_RELATIONSHIPS } from './constants';
+import { GUARDIAN_RELATIONSHIPS, LABEL_GUARDIAN_FULL_NAME } from './constants';
 import { FormRow, FormSection } from './FormLayout';
 import type { GuardianInfo } from './types';
 
@@ -15,7 +15,8 @@ export function GuardianRegistrationFields({ values, errors, onChange }: Props) 
     <FormSection title="Parent / guardian">
       <FormRow>
         <TextField
-          label="Parent / guardian name"
+          label={LABEL_GUARDIAN_FULL_NAME}
+          placeholder="First name and surname"
           value={values.guardian_name}
           onChange={(e) => onChange({ guardian_name: e.target.value })}
           error={Boolean(errors.guardian_name)}

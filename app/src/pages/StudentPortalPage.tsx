@@ -16,6 +16,8 @@ import {
 import { FormRowButton, InlineFormRow } from '../components/InlineFormRow';
 import { PortalSection } from '../components/PortalSection';
 import {
+  GradingScaleDetails,
+  StudentModulesTable,
   StudentProgressPanel,
   type StudentProgressData,
 } from '../components/StudentProgressPanel';
@@ -24,7 +26,7 @@ import { apiJson, downloadPdf } from '../api/http';
 
 const STUDENT_REG_KEY = 'jbs_student_reg';
 
-type SectionId = 'timetable' | 'openTests' | 'documents';
+type SectionId = 'gradingScale' | 'modules' | 'timetable' | 'openTests' | 'documents';
 
 type OpenTest = { test_id: number; module_id: number; module_name: string };
 
@@ -59,6 +61,8 @@ function programmePhaseMessage(lookup: LookupData): string | null {
 
 function defaultExpandedSections(lookup: LookupData): Record<SectionId, boolean> {
   return {
+    gradingScale: false,
+    modules: false,
     timetable: lookup.programme_phase === 'ongoing',
     openTests: lookup.open_tests.length > 0,
     documents: false,
@@ -74,6 +78,8 @@ export function StudentPortalPage() {
   const [lookup, setLookup] = useState<LookupData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<SectionId, boolean>>({
+    gradingScale: false,
+    modules: false,
     timetable: false,
     openTests: true,
     documents: false,
@@ -178,7 +184,7 @@ export function StudentPortalPage() {
             variant="student"
             progress={lookup.progress}
             programmePhase={lookup.programme_phase}
-            showGradingScales
+            showModuleTable={false}
           />
 
           <PortalSection
@@ -203,6 +209,15 @@ export function StudentPortalPage() {
                 The timetable for your tier has not been set up yet.
               </Typography>
             )}
+          </PortalSection>
+
+          <PortalSection
+            title="Modules"
+            subtitle={`${lookup.progress.tests_taken} / ${lookup.progress.tests_total} submitted — scores are not shown`}
+            expanded={expanded.modules}
+            onExpandedChange={(open) => setSectionExpanded('modules', open)}
+          >
+            <StudentModulesTable progress={lookup.progress} variant="student" />
           </PortalSection>
 
           <PortalSection
@@ -235,6 +250,15 @@ export function StudentPortalPage() {
                 ))}
               </List>
             )}
+          </PortalSection>
+
+          <PortalSection
+            title="Grading scale"
+            subtitle="How overall and module tests are graded — your scores are not shown here"
+            expanded={expanded.gradingScale}
+            onExpandedChange={(open) => setSectionExpanded('gradingScale', open)}
+          >
+            <GradingScaleDetails variant="student" />
           </PortalSection>
 
           <PortalSection

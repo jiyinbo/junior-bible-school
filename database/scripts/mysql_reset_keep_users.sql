@@ -15,8 +15,9 @@
 -- Registration contact fields (public + admin wizards):
 --   - UK phone: 11 digits including leading 0 (e.g. 07123456789); +44 accepted
 --     in the app and normalized before save.
---   - Email: valid format, max 255 chars; unique per session (jbs_session_id + email).
---   - Parent / guardian email: captured on registration step 1; stored lowercase on each child row.
+--   - Child email: optional (nullable); unique per session when provided (jbs_session_id + email).
+--   - Parent / guardian email: required on registration step 1; stored lowercase on each child row.
+--   - Next of kin: full name + UK phone required in app; email optional (next_of_kin_* columns).
 --   - Full student/guardian profile columns on jbs_student_registrations (see below).
 --   - jbs_levels.placement_group: basic_10_12 | basic_teens | advanced |
 --     teens_masterclass (NULL = no placement rule).
@@ -278,8 +279,8 @@ CREATE TABLE `jbs_student_registrations` (
   `registration_number` varchar(255) NOT NULL,
   `first_name` varchar(120) NOT NULL,
   `last_name` varchar(120) NOT NULL,
-  `email` varchar(255) NOT NULL COMMENT 'Unique per session; stored lowercase',
-  `phone` varchar(11) DEFAULT NULL COMMENT 'UK: 0 + 10 digits',
+  `email` varchar(255) DEFAULT NULL COMMENT 'Optional; unique per session when set; stored lowercase',
+  `phone` varchar(11) DEFAULT NULL COMMENT 'UK: 0 + 10 digits (optional)',
   `guardian_name` varchar(255) DEFAULT NULL,
   `guardian_relationship` varchar(120) DEFAULT NULL,
   `guardian_phone` varchar(11) DEFAULT NULL COMMENT 'UK: 0 + 10 digits',
@@ -299,6 +300,8 @@ CREATE TABLE `jbs_student_registrations` (
   `current_school_year` varchar(80) DEFAULT NULL,
   `allergies` text,
   `next_of_kin_name` varchar(255) DEFAULT NULL,
+  `next_of_kin_phone` varchar(20) DEFAULT NULL COMMENT 'UK: 0 + 10 digits',
+  `next_of_kin_email` varchar(255) DEFAULT NULL COMMENT 'Optional; stored lowercase',
   `registered_after_close` tinyint(1) NOT NULL DEFAULT 0,
   `level_completed` tinyint(1) NOT NULL DEFAULT 0,
   `level_completed_at` timestamp NULL DEFAULT NULL,
@@ -313,7 +316,8 @@ CREATE TABLE `jbs_student_registrations` (
   CONSTRAINT `jbs_student_registrations_jbs_level_id_foreign` FOREIGN KEY (`jbs_level_id`) REFERENCES `jbs_levels` (`id`) ON DELETE CASCADE,
   CONSTRAINT `jbs_student_registrations_level_completed_by_user_id_foreign` FOREIGN KEY (`level_completed_by_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
   CONSTRAINT `jbs_student_registrations_phone_uk_chk` CHECK (`phone` IS NULL OR `phone` REGEXP '^0[0-9]{10}$'),
-  CONSTRAINT `jbs_student_registrations_guardian_phone_uk_chk` CHECK (`guardian_phone` IS NULL OR `guardian_phone` REGEXP '^0[0-9]{10}$')
+  CONSTRAINT `jbs_student_registrations_guardian_phone_uk_chk` CHECK (`guardian_phone` IS NULL OR `guardian_phone` REGEXP '^0[0-9]{10}$'),
+  CONSTRAINT `jbs_student_registrations_kin_phone_uk_chk` CHECK (`next_of_kin_phone` IS NULL OR `next_of_kin_phone` REGEXP '^0[0-9]{10}$')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `jbs_attendance_logs` (
@@ -449,4 +453,6 @@ INSERT INTO `migrations` (`migration`, `batch`) VALUES
 ('2026_05_31_120200_create_jbs_timetable_entries_table', 1),
 ('2026_05_31_140000_add_duration_minutes_to_jbs_tests', 1),
 ('2026_05_31_150000_remove_schedule_from_jbs_modules', 1),
-('2026_05_31_160000_add_guardian_email_to_jbs_student_registrations', 1);
+('2026_05_31_160000_add_guardian_email_to_jbs_student_registrations', 1),
+('2026_06_04_120000_make_jbs_student_email_nullable', 1),
+('2026_06_04_130000_add_next_of_kin_contact_to_jbs_student_registrations', 1);

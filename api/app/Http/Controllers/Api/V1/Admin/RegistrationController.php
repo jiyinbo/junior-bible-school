@@ -42,8 +42,8 @@ class RegistrationController extends Controller
             'children.*.date_of_birth' => ['required', 'date', 'before:today'],
             'children.*.nationality' => ['required', 'string', 'max:120'],
             'children.*.address' => ['required', 'string', 'max:500'],
-            'children.*.phone' => ['required', 'string', 'regex:/^0\d{10}$/'],
-            'children.*.email' => ['required', 'email', 'max:255'],
+            'children.*.phone' => ['nullable', 'string', 'regex:/^0\d{10}$/'],
+            'children.*.email' => ['nullable', 'email', 'max:255'],
             'children.*.born_again' => ['required', 'boolean'],
             'children.*.date_of_new_birth' => ['nullable', 'date', 'before_or_equal:today'],
             'children.*.new_birth_location' => ['nullable', 'string', 'max:255'],
@@ -55,6 +55,8 @@ class RegistrationController extends Controller
             'children.*.current_school_year' => ['required', 'string', 'max:80'],
             'children.*.allergies' => ['nullable', 'string', 'max:500'],
             'children.*.next_of_kin_name' => ['required', 'string', 'max:255'],
+            'children.*.next_of_kin_phone' => ['required', 'string', 'regex:/^0\d{10}$/'],
+            'children.*.next_of_kin_email' => ['nullable', 'email', 'max:255'],
         ], $this->validationService->validationMessages());
 
         $session = JbsSession::query()->findOrFail($data['jbs_session_id']);
