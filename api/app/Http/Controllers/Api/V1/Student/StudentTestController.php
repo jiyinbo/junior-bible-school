@@ -8,17 +8,12 @@ use App\Models\JbsModuleScoreOutcome;
 use App\Models\JbsQuestion;
 use App\Models\JbsStudentRegistration;
 use App\Models\JbsTest;
-use App\Services\JbsGradingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class StudentTestController extends Controller
 {
-    public function __construct(
-        private JbsGradingService $grading,
-    ) {}
-
     private function resolveRegistration(Request $request): JbsStudentRegistration
     {
         $num = trim((string) $request->input('registration_number'));
@@ -118,15 +113,7 @@ class StudentTestController extends Controller
      */
     private function attemptResult(JbsAttempt $attempt, string $moduleName): array
     {
-        $score = (int) round((float) $attempt->score);
-        $maxScore = (int) round((float) $attempt->max_score);
-        $grade = $this->grading->gradeForScores((float) $attempt->score, (float) $attempt->max_score);
-
         return [
-            'score' => $score,
-            'max_score' => $maxScore,
-            'percent' => $grade['percent'],
-            'passed' => $grade['passed'],
             'module_name' => $moduleName,
             'submitted_at' => $attempt->submitted_at?->toIso8601String(),
         ];

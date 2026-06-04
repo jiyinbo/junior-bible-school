@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api\V1\Student;
 use App\Http\Controllers\Controller;
 use App\Models\JbsAttempt;
 use App\Models\JbsStudentRegistration;
-use App\Services\JbsGradingService;
 use App\Services\JbsStudentProgressService;
 use App\Services\JbsTimetableGridService;
 use Illuminate\Http\JsonResponse;
@@ -15,7 +14,6 @@ class StudentLookupController extends Controller
 {
     public function __construct(
         private JbsStudentProgressService $progress,
-        private JbsGradingService $grading,
         private JbsTimetableGridService $timetableGrid,
     ) {}
 
@@ -50,17 +48,10 @@ class StudentLookupController extends Controller
 
             $attempt = $submittedByTestId->get($test->id);
             if ($attempt) {
-                $score = (int) round((float) $attempt->score);
-                $maxScore = (int) round((float) $attempt->max_score);
-                $grade = $this->grading->gradeForScores((float) $attempt->score, (float) $attempt->max_score);
                 $completedTests[] = [
                     'test_id' => $test->id,
                     'module_id' => $module->id,
                     'module_name' => $module->name,
-                    'score' => $score,
-                    'max_score' => $maxScore,
-                    'percent' => $grade['percent'],
-                    'passed' => $grade['passed'],
                     'submitted_at' => $attempt->submitted_at?->toIso8601String(),
                 ];
 
@@ -78,7 +69,7 @@ class StudentLookupController extends Controller
             }
         }
 
-        $summary = $this->progress->summary($reg);
+        $summary = $this->progress->studentPortalSummary($reg);
         $completed = $summary['level_completed'];
         $session = $reg->session;
         $this->timetableGrid->ensureDays($session);

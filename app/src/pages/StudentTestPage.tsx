@@ -38,10 +38,6 @@ type Question = {
 };
 
 type TestResult = {
-  score: number;
-  max_score: number;
-  percent?: number;
-  passed: boolean;
   module_name: string;
   submitted_at?: string;
   correct_count?: number;
@@ -290,8 +286,8 @@ export function StudentTestPage() {
                   {meta?.already_submitted ? 'Test already completed' : 'Test submitted'}
                 </Typography>
                 <Typography color="text.secondary" sx={{ maxWidth: 420, lineHeight: 1.6 }}>
-                  Your answers have been recorded. Results are not shown here — your scores will appear on
-                  your statement of result once your tier is complete.
+                  Your answers have been recorded. Your module will show as completed in the portal —
+                  results are not displayed here.
                 </Typography>
                 <Button
                   component={RouterLink}

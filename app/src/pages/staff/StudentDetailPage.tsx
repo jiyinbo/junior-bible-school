@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link as RouterLink, useParams } from 'react-router-dom';
 import {
   Alert,
-  Box,
   Button,
   Chip,
   FormControlLabel,
@@ -22,33 +21,16 @@ import {
 import EditIcon from '@mui/icons-material/Edit';
 import { toastSuccess } from '../../feedback/toast';
 import { apiJson, downloadPdfGet, parseApiError } from '../../api/http';
-import { GradingKeyTable } from '../../components/GradingKeyTable';
-import { MetricCard } from '../../staff/MetricCard';
+import {
+  StudentProgressPanel,
+  type StudentProgressData,
+  type StudentProgressModule,
+} from '../../components/StudentProgressPanel';
 import { PageHeader } from '../../staff/PageHeader';
 import { useStaffAuth } from '../../staff/StaffAuthContext';
-import type { GradingBand } from '../../utils/grading';
+import { formatModuleGrade, gradeChipColor } from '../../utils/grading';
 
-type Progress = {
-  attendance_days: number;
-  tests_total: number;
-  tests_taken: number;
-  tests_passed: number;
-  level_completed: boolean;
-  modules: {
-    module_id: number;
-    module_name: string;
-    test_taken: boolean;
-    test_passed: boolean;
-    score: number | null;
-    max_score: number | null;
-    percent: number | null;
-    source: string | null;
-  }[];
-  overall_percent: number | null;
-  overall_grade_label: string | null;
-  overall_grade_short: string | null;
-  grading_scale: GradingBand[];
-};
+type Progress = StudentProgressData;
 
 type StudentDetail = {
   id: number;
@@ -67,7 +49,7 @@ type StudentDetail = {
 
 type TierOption = { id: number; name: string };
 
-type ProgressModule = Progress['modules'][number];
+type ProgressModule = StudentProgressModule;
 
 function ModuleResultRow({
   studentId,
@@ -166,11 +148,24 @@ function ModuleResultRow({
         </TableCell>
       )}
       <TableCell>{module.test_taken && module.percent != null ? `${module.percent}%` : '—'}</TableCell>
+      <TableCell>
+        {module.test_taken && module.grade_short ? (
+          <Chip
+            size="small"
+            label={formatModuleGrade(module)}
+            color={gradeChipColor(module.test_passed, module.grade_short, 'module')}
+          />
+        ) : (
+          '—'
+        )}
+      </TableCell>
       <TableCell>{module.source ?? '—'}</TableCell>
       <TableCell>
         {!module.test_taken && <Chip size="small" label="Not taken" />}
-        {module.test_taken && module.test_passed && <Chip size="small" color="success" label="Passed" />}
-        {module.test_taken && !module.test_passed && <Chip size="small" color="error" label="Fail" />}
+        {module.test_taken && module.test_passed && <Chip size="small" color="success" label="Credit (D+)" />}
+        {module.test_taken && !module.test_passed && (
+          <Chip size="small" color="error" label={module.grade_short === 'NS' ? 'No show' : 'Below credit'} />
+        )}
       </TableCell>
       {isAdmin && (
         <TableCell align="right">
@@ -327,34 +322,6 @@ export function StudentDetailPage() {
         subtitle={`${student.registration_number} · ${student.session.name} · ${student.level.name}`}
       />
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid size={{ xs: 6, sm: 3 }}>
-          <MetricCard label="Attendance days" value={p.attendance_days} />
-        </Grid>
-        <Grid size={{ xs: 6, sm: 3 }}>
-          <MetricCard label="Tests taken" value={`${p.tests_taken}/${p.tests_total}`} />
-        </Grid>
-        <Grid size={{ xs: 6, sm: 3 }}>
-          <MetricCard label="Tests passed" value={p.tests_passed} hint="≥40% (Pass grade)" color="success" />
-        </Grid>
-        {p.overall_grade_label != null && p.overall_percent != null && (
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <MetricCard
-              label="Overall grade"
-              value={p.overall_grade_label}
-              hint={`${p.overall_percent}% average`}
-              color="primary"
-            />
-          </Grid>
-        )}
-        <Grid size={{ xs: 6, sm: 3 }}>
-          <MetricCard
-            label="Tier status"
-            value={p.level_completed ? 'Completed' : 'In progress'}
-            color={p.level_completed ? 'success' : 'default'}
-          />
-        </Grid>
-      </Grid>
 
       <Grid container spacing={2}>
         <Grid size={{ xs: 12, md: 6 }}>
@@ -477,48 +444,30 @@ export function StudentDetailPage() {
         </Grid>
         )}
         <Grid size={{ xs: 12 }}>
-          <Paper sx={{ p: 2, overflowX: 'auto' }}>
-            <Typography variant="h6" gutterBottom sx={{ px: 1 }}>
-              Module results
-            </Typography>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Module</TableCell>
-                  <TableCell>Score</TableCell>
-                  <TableCell>%</TableCell>
-                  <TableCell>Source</TableCell>
-                  <TableCell>Status</TableCell>
-                  {isAdmin && <TableCell align="right" />}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {p.modules.map((m) => (
-                  <ModuleResultRow
-                    key={m.module_id}
-                    studentId={studentId ?? ''}
-                    module={m}
-                    isAdmin={isAdmin}
-                    onSaved={load}
-                    onError={setError}
-                  />
-                ))}
-              </TableBody>
-            </Table>
-            {isAdmin && (
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', px: 1, mt: 1 }}>
-                Edit a score to correct a mistake made when it was recorded. Changes are logged in the audit trail.
-              </Typography>
-            )}
-            {(p.grading_scale ?? []).length > 0 && (
-              <Box sx={{ mt: 3 }}>
-                <Typography variant="subtitle2" gutterBottom>
-                  Overall grading scale
+          <StudentProgressPanel
+            variant="staff"
+            progress={p}
+            programmePhase={p.programme_phase}
+            showAdminColumn={isAdmin}
+            moduleRows={p.modules.map((m) => (
+              <ModuleResultRow
+                key={m.module_id}
+                studentId={studentId ?? ''}
+                module={m}
+                isAdmin={isAdmin}
+                onSaved={load}
+                onError={setError}
+              />
+            ))}
+            adminColumnFooter={
+              isAdmin ? (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', px: 1, mt: 1 }}>
+                  Edit a score to correct a mistake made when it was recorded. Changes are logged in the audit
+                  trail.
                 </Typography>
-                <GradingKeyTable scale={p.grading_scale} compact />
-              </Box>
-            )}
-          </Paper>
+              ) : null
+            }
+          />
         </Grid>
       </Grid>
     </>

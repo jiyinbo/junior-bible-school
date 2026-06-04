@@ -461,7 +461,7 @@ class RegistrationAdminController extends Controller
 
     public function statement(Request $request, JbsStudentRegistration $jbs_student_registration): Response
     {
-        $reg = $jbs_student_registration->load(['session', 'level']);
+        $reg = $jbs_student_registration->load(['session', 'level.modules']);
         $this->progress->assertDocumentsAllowed($reg);
 
         $this->audit()->record('registration.document_downloaded', $request, $reg, metadata: ['document' => 'statement']);

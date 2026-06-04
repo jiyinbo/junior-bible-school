@@ -1,6 +1,15 @@
 import type { ReactNode } from 'react';
 import { Box, Paper, Stack, Typography } from '@mui/material';
 
+/** Horizontal padding when parent Paper uses `p: { xs: 2, md: 0 }` (desktop table flush to edge). */
+export function EmptyTableMessage({ children }: { children: ReactNode }) {
+  return (
+    <Typography color="text.secondary" sx={{ px: { xs: 0, md: 2 }, py: 2.5 }}>
+      {children}
+    </Typography>
+  );
+}
+
 type ResponsiveTableLayoutProps = {
   table: ReactNode;
   cards: ReactNode;

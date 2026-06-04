@@ -42,11 +42,39 @@ class JbsStudentProgressService
     }
 
     /**
+     * Progress payload for the student portal — completion counts only, no scores or grades.
+     *
+     * @return array<string, mixed>
+     */
+    public function studentPortalSummary(JbsStudentRegistration $registration): array
+    {
+        $summary = $this->summary($registration);
+
+        $modules = array_map(static fn (array $row): array => [
+            'module_id' => $row['module_id'],
+            'module_name' => $row['module_name'],
+            'test_taken' => $row['test_taken'],
+        ], $summary['modules']);
+
+        return [
+            'attendance_days' => $summary['attendance_days'],
+            'tests_total' => $summary['tests_total'],
+            'tests_taken' => $summary['tests_taken'],
+            'tests_missed' => $summary['tests_missed'],
+            'programme_phase' => $summary['programme_phase'],
+            'graduation_pending' => $summary['graduation_pending'],
+            'eligible_for_graduation' => $summary['eligible_for_graduation'],
+            'level_completed' => $summary['level_completed'],
+            'modules' => $modules,
+        ];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function summary(JbsStudentRegistration $registration): array
     {
-        $registration->loadMissing(['session', 'level.modules']);
+        $registration->loadMissing(['session', 'level.modules.test']);
 
         $outcomes = JbsModuleScoreOutcome::query()
             ->where('jbs_student_registration_id', $registration->id)
@@ -74,14 +102,18 @@ class JbsStudentProgressService
                 'score' => null,
                 'max_score' => null,
                 'percent' => null,
+                'grade_label' => null,
+                'grade_short' => null,
                 'source' => $outcome?->source,
             ];
 
             if ($outcome !== null) {
-                $grade = $this->grading->gradeForScores((float) $outcome->score, (float) $outcome->max_score);
+                $grade = $this->grading->moduleGradeForScores((float) $outcome->score, (float) $outcome->max_score);
                 $row['score'] = (int) round((float) $outcome->score);
                 $row['max_score'] = (int) round((float) $outcome->max_score);
                 $row['percent'] = $grade['percent'];
+                $row['grade_label'] = $grade['grade_label'];
+                $row['grade_short'] = $grade['grade_short'];
                 $row['test_passed'] = $grade['passed'];
                 if ($grade['passed']) {
                     $testsPassed++;
@@ -93,16 +125,22 @@ class JbsStudentProgressService
 
         $testsTotal = $registration->level->modules->count();
         $attendanceDays = $this->distinctAttendanceDays($registration);
+        $programmePhase = $registration->session->programmePhase();
+        $graduationPending = $this->isGraduationPending($programmePhase, $testsTaken);
+        $testsMissed = $graduationPending
+            ? 0
+            : $this->countMissedTests($registration, $outcomes, $programmePhase);
+        $eligibleForGraduation = $graduationPending
+            ? null
+            : $testsMissed < JbsGradingService::MAX_MISSED_TESTS_FOR_GRADUATION;
 
         $scoredPercents = array_values(array_filter(
             array_column($modules, 'percent'),
             fn ($p) => $p !== null,
         ));
-        $overallPercent = count($scoredPercents) > 0
-            ? (int) round(array_sum($scoredPercents) / count($scoredPercents))
-            : null;
+        $overallPercent = $this->grading->overallAveragePercent($scoredPercents);
         $overallGrade = $overallPercent !== null
-            ? $this->grading->gradeForPercent($overallPercent)
+            ? $this->grading->overallGradeForPercent($overallPercent)
             : null;
 
         return [
@@ -110,6 +148,10 @@ class JbsStudentProgressService
             'tests_total' => $testsTotal,
             'tests_taken' => $testsTaken,
             'tests_passed' => $testsPassed,
+            'tests_missed' => $testsMissed,
+            'programme_phase' => $programmePhase,
+            'graduation_pending' => $graduationPending,
+            'eligible_for_graduation' => $eligibleForGraduation,
             'level_completed' => $this->isLevelCompleted($registration),
             'level_completed_at' => $registration->level_completed_at,
             'modules' => $modules,
@@ -117,6 +159,60 @@ class JbsStudentProgressService
             'overall_grade_label' => $overallGrade['grade_label'] ?? null,
             'overall_grade_short' => $overallGrade['grade_short'] ?? null,
             'grading_scale' => $this->grading->gradingKey(),
+            'module_grading_scale' => $this->grading->moduleGradingKey(),
         ];
+    }
+
+    /**
+     * Graduation is not assessed until the programme is under way and at least one module is completed.
+     */
+    private function isGraduationPending(string $programmePhase, int $testsTaken): bool
+    {
+        if ($programmePhase === 'upcoming') {
+            return true;
+        }
+
+        if ($testsTaken === 0 && ! in_array($programmePhase, ['ended', 'past'], true)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Tests count as missed only after the programme has started and the test window is closed
+     * (or the session has ended) without a recorded result.
+     *
+     * @param  \Illuminate\Support\Collection<int, JbsModuleScoreOutcome>  $outcomes
+     */
+    private function countMissedTests(
+        JbsStudentRegistration $registration,
+        $outcomes,
+        string $programmePhase,
+    ): int {
+        if ($programmePhase === 'upcoming') {
+            return 0;
+        }
+
+        $missed = 0;
+
+        foreach ($registration->level->modules as $module) {
+            $test = $module->test;
+            if ($test === null || ! $test->questions()->exists()) {
+                continue;
+            }
+
+            if ($outcomes->has($module->id)) {
+                continue;
+            }
+
+            $test->refreshAndCloseIfExpired();
+
+            if (in_array($programmePhase, ['ended', 'past'], true) || ! $test->isOpen()) {
+                $missed++;
+            }
+        }
+
+        return $missed;
     }
 }

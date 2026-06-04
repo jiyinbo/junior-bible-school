@@ -22,6 +22,7 @@ import { DatePickerField } from '../../components/DatePickerField';
 import {
   DetailRow,
   ListCard,
+  EmptyTableMessage,
   ResponsiveTableLayout,
 } from '../../components/ResponsiveTableLayout';
 import { apiJson, parseApiError } from '../../api/http';
@@ -337,9 +338,7 @@ export function AuditLogsPage() {
 
       <Paper sx={{ p: { xs: 2, md: 0 }, overflow: 'hidden' }}>
         {!showList ? (
-          <Typography color="text.secondary" sx={{ py: 2 }}>
-            {emptyMessage}
-          </Typography>
+          <EmptyTableMessage>{emptyMessage}</EmptyTableMessage>
         ) : (
           <ResponsiveTableLayout
             table={

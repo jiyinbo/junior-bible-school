@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Alert,
@@ -14,37 +14,19 @@ import {
   Typography,
 } from '@mui/material';
 import { FormRowButton, InlineFormRow } from '../components/InlineFormRow';
-import { GradingKeyTable } from '../components/GradingKeyTable';
 import { PortalSection } from '../components/PortalSection';
+import {
+  StudentProgressPanel,
+  type StudentProgressData,
+} from '../components/StudentProgressPanel';
 import { TimetableGrid, type TimetableGridData } from '../components/TimetableGrid';
 import { apiJson, downloadPdf } from '../api/http';
-import type { GradingBand } from '../utils/grading';
 
 const STUDENT_REG_KEY = 'jbs_student_reg';
 
-type SectionId = 'timetable' | 'openTests' | 'completedTests' | 'gradingKey' | 'documents';
-
-type Progress = {
-  attendance_days: number;
-  tests_total: number;
-  tests_taken: number;
-  tests_passed: number;
-  level_completed: boolean;
-  overall_percent: number | null;
-  overall_grade_label: string | null;
-  overall_grade_short: string | null;
-  grading_scale: GradingBand[];
-};
+type SectionId = 'timetable' | 'openTests' | 'documents';
 
 type OpenTest = { test_id: number; module_id: number; module_name: string };
-
-type CompletedTest = OpenTest & {
-  score: number;
-  max_score: number;
-  percent: number;
-  passed: boolean;
-  submitted_at: string | null;
-};
 
 type LookupData = {
   registration_number: string;
@@ -56,10 +38,9 @@ type LookupData = {
   programme_phase: 'upcoming' | 'ongoing' | 'ended' | 'past';
   timetable_grid: TimetableGridData;
   open_tests: OpenTest[];
-  completed_tests: CompletedTest[];
   level_completed: boolean;
   documents_available: boolean;
-  progress: Progress;
+  progress: StudentProgressData;
   completion_message: string | null;
 };
 
@@ -77,14 +58,9 @@ function programmePhaseMessage(lookup: LookupData): string | null {
 }
 
 function defaultExpandedSections(lookup: LookupData): Record<SectionId, boolean> {
-  const completed = (lookup.completed_tests ?? []).length;
-  const open = lookup.open_tests.length;
-
   return {
     timetable: lookup.programme_phase === 'ongoing',
-    openTests: open > 0,
-    completedTests: completed > 0 && open === 0,
-    gradingKey: false,
+    openTests: lookup.open_tests.length > 0,
     documents: false,
   };
 }
@@ -100,8 +76,6 @@ export function StudentPortalPage() {
   const [expanded, setExpanded] = useState<Record<SectionId, boolean>>({
     timetable: false,
     openTests: true,
-    completedTests: true,
-    gradingKey: false,
     documents: false,
   });
 
@@ -154,7 +128,6 @@ export function StudentPortalPage() {
     }
   };
 
-  const completedTests = useMemo(() => lookup?.completed_tests ?? [], [lookup]);
   const phaseMessage = lookup ? programmePhaseMessage(lookup) : null;
 
   return (
@@ -187,31 +160,26 @@ export function StudentPortalPage() {
       )}
 
       {lookup && (
-        <Stack spacing={1.5}>
+        <Stack spacing={2}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6">{lookup.full_name}</Typography>
             <Typography color="text.secondary">
               {lookup.session_name} · {lookup.level_name}
             </Typography>
             <Typography sx={{ mt: 1 }}>Reg: {lookup.registration_number}</Typography>
-            <Stack direction="row" spacing={1} sx={{ mt: 2 }} flexWrap="wrap" useFlexGap>
-              <Chip size="small" label={`Attendance: ${lookup.progress.attendance_days} days`} />
-              <Chip
-                size="small"
-                label={`Tests completed: ${lookup.progress.tests_taken}/${lookup.progress.tests_total}`}
-              />
-              <Chip
-                size="small"
-                color={lookup.level_completed ? 'success' : 'default'}
-                label={lookup.level_completed ? 'Tier completed' : 'Tier in progress'}
-              />
-            </Stack>
             {lookup.completion_message && (
               <Alert severity="info" sx={{ mt: 2 }}>
                 {lookup.completion_message}
               </Alert>
             )}
           </Paper>
+
+          <StudentProgressPanel
+            variant="student"
+            progress={lookup.progress}
+            programmePhase={lookup.programme_phase}
+            showGradingScales
+          />
 
           <PortalSection
             title={`Timetable — ${lookup.level_name}`}
@@ -268,46 +236,6 @@ export function StudentPortalPage() {
               </List>
             )}
           </PortalSection>
-
-          {completedTests.length > 0 && (
-            <PortalSection
-              title="Completed tests"
-              subtitle="Tests you have submitted · results appear on your statement of result"
-              expanded={expanded.completedTests}
-              onExpandedChange={(open) => setSectionExpanded('completedTests', open)}
-              trailing={<Chip size="small" label={String(completedTests.length)} />}
-            >
-              <List disablePadding>
-                {completedTests.map((t) => (
-                  <ListItem
-                    key={t.test_id}
-                    disableGutters
-                    secondaryAction={<Chip size="small" color="success" label="Completed" />}
-                  >
-                    <ListItemText
-                      primary={t.module_name}
-                      secondary={
-                        t.submitted_at
-                          ? `Submitted ${new Date(t.submitted_at).toLocaleString()}`
-                          : undefined
-                      }
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            </PortalSection>
-          )}
-
-          {(lookup.progress.grading_scale ?? []).length > 0 && (
-            <PortalSection
-              title="Grading scale"
-              subtitle="How your overall average maps to grades"
-              expanded={expanded.gradingKey}
-              onExpandedChange={(open) => setSectionExpanded('gradingKey', open)}
-            >
-              <GradingKeyTable scale={lookup.progress.grading_scale} compact />
-            </PortalSection>
-          )}
 
           <PortalSection
             title="Documents (PDF)"

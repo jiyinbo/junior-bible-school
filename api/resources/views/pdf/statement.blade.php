@@ -1,13 +1,45 @@
 @php
     use App\Services\JbsGradingService;
+    use App\Services\JbsStudentProgressService;
 
     $grading = app(JbsGradingService::class);
-    $outcomes = $registration->scoreOutcomes;
-    $moduleCount = $outcomes->count();
-    $percents = $outcomes->map(fn ($o) => $grading->gradeForScores((float) $o->score, (float) $o->max_score)['percent']);
-    $averagePercent = $moduleCount > 0 ? (int) round($percents->avg()) : 0;
-    $overallGrade = $grading->gradeForPercent($averagePercent);
-    $passedCount = $outcomes->filter(fn ($o) => $grading->gradeForScores((float) $o->score, (float) $o->max_score)['passed'])->count();
+    $progress = app(JbsStudentProgressService::class)->summary($registration);
+    $registration->loadMissing(['level.modules', 'scoreOutcomes.module']);
+    $outcomesByModule = $registration->scoreOutcomes->keyBy('jbs_module_id');
+    $moduleRows = $registration->level->modules->map(function ($module) use ($outcomesByModule, $grading) {
+        $outcome = $outcomesByModule->get($module->id);
+        if ($outcome) {
+            $grade = $grading->moduleGradeForScores((float) $outcome->score, (float) $outcome->max_score);
+
+            return [
+                'name' => $module->name,
+                'score' => (int) round((float) $outcome->score),
+                'max' => (int) round((float) $outcome->max_score),
+                'percent' => $grade['percent'],
+                'grade_short' => $grade['grade_short'],
+                'taken' => true,
+            ];
+        }
+
+        return [
+            'name' => $module->name,
+            'score' => null,
+            'max' => null,
+            'percent' => null,
+            'grade_short' => '—',
+            'taken' => false,
+        ];
+    });
+    $takenPercents = $moduleRows->filter(fn ($r) => $r['taken'])->pluck('percent')->all();
+    $averagePercent = $grading->overallAveragePercent($takenPercents) ?? 0;
+    $overallGrade = $grading->overallGradeForPercent($averagePercent);
+    $testsTaken = (int) ($progress['tests_taken'] ?? $moduleRows->filter(fn ($r) => $r['taken'])->count());
+    $testsMissed = (int) ($progress['tests_missed'] ?? 0);
+    $eligibleForGraduation = (bool) ($progress['eligible_for_graduation'] ?? false);
+    $graduationPending = (bool) ($progress['graduation_pending'] ?? false);
+    $creditCount = $moduleRows->filter(function ($r) use ($grading) {
+        return $r['taken'] && $r['percent'] !== null && $grading->moduleGradeForPercent($r['percent'])['passed'];
+    })->count();
     $issuedOn = now()->format('j F Y');
 @endphp
 <!DOCTYPE html>
@@ -78,29 +110,27 @@
             <table cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; border: 0.5pt solid #c5ced8; margin-bottom: 5mm;">
                 <thead>
                 <tr style="background: #1a3352; color: #fff;">
-                    <th style="padding: 3mm 3mm; text-align: left; font-size: 9pt; width: 38%;">Module</th>
+                    <th style="padding: 3mm 3mm; text-align: left; font-size: 9pt; width: 34%;">Module</th>
                     <th style="padding: 3mm; text-align: center; font-size: 9pt; width: 12%;">Score</th>
                     <th style="padding: 3mm; text-align: center; font-size: 9pt; width: 12%;">Max</th>
                     <th style="padding: 3mm; text-align: center; font-size: 9pt; width: 12%;">%</th>
-                    <th style="padding: 3mm; text-align: center; font-size: 9pt; width: 26%;">Status</th>
+                    <th style="padding: 3mm; text-align: center; font-size: 9pt; width: 14%;">Grade</th>
+                    <th style="padding: 3mm; text-align: center; font-size: 9pt; width: 16%;">Status</th>
                 </tr>
                 </thead>
                 <tbody>
-                @foreach($outcomes as $i => $o)
+                @foreach($moduleRows as $i => $row)
                     @php
-                        $score = (int) round((float) $o->score);
-                        $max = (int) round((float) $o->max_score);
-                        $grade = $grading->gradeForScores((float) $o->score, (float) $o->max_score);
-                        $pct = $grade['percent'];
                         $rowBg = $i % 2 === 0 ? '#ffffff' : '#f7f9fc';
                     @endphp
                     <tr style="background: {{ $rowBg }};">
-                        <td style="padding: 3.5mm; border-top: 0.5pt solid #dde3ea; font-size: 10pt;">{{ $o->module->name }}</td>
-                        <td style="padding: 3.5mm; border-top: 0.5pt solid #dde3ea; text-align: center; font-weight: bold;">{{ $score }}</td>
-                        <td style="padding: 3.5mm; border-top: 0.5pt solid #dde3ea; text-align: center;">{{ $max }}</td>
-                        <td style="padding: 3.5mm; border-top: 0.5pt solid #dde3ea; text-align: center; font-weight: bold;">{{ $pct }}%</td>
-                        <td style="padding: 3.5mm; border-top: 0.5pt solid #dde3ea; text-align: center; font-size: 9pt; font-weight: bold; color: {{ $grade['passed'] ? '#1b5e20' : '#b45309' }};">
-                            {{ $grade['passed'] ? 'Pass' : 'Fail' }}
+                        <td style="padding: 3.5mm; border-top: 0.5pt solid #dde3ea; font-size: 10pt;">{{ $row['name'] }}</td>
+                        <td style="padding: 3.5mm; border-top: 0.5pt solid #dde3ea; text-align: center; font-weight: bold;">{{ $row['taken'] ? $row['score'] : '—' }}</td>
+                        <td style="padding: 3.5mm; border-top: 0.5pt solid #dde3ea; text-align: center;">{{ $row['taken'] ? $row['max'] : '—' }}</td>
+                        <td style="padding: 3.5mm; border-top: 0.5pt solid #dde3ea; text-align: center; font-weight: bold;">{{ $row['taken'] ? $row['percent'].'%' : '—' }}</td>
+                        <td style="padding: 3.5mm; border-top: 0.5pt solid #dde3ea; text-align: center; font-weight: bold;">{{ $row['grade_short'] }}</td>
+                        <td style="padding: 3.5mm; border-top: 0.5pt solid #dde3ea; text-align: center; font-size: 9pt;">
+                            {{ $row['taken'] ? 'Taken' : 'Not taken' }}
                         </td>
                     </tr>
                 @endforeach
@@ -109,16 +139,27 @@
                 <tr style="background: #eef2f7;">
                     <td style="padding: 3.5mm; font-weight: bold; border-top: 1pt solid #1a3352; font-size: 10pt;">Overall</td>
                     <td colspan="2" style="padding: 3.5mm; text-align: center; border-top: 1pt solid #1a3352; font-size: 9pt;">
-                        {{ $passedCount }}/{{ $moduleCount }} passed (≥{{ JbsGradingService::PASS_PERCENT }}%)
+                        {{ $creditCount }}/{{ $testsTaken }} at grade D or above (≥{{ JbsGradingService::MODULE_CREDIT_PERCENT }}%)
                     </td>
-                    <td style="padding: 3.5mm; text-align: center; font-weight: bold; border-top: 1pt solid #1a3352; color: #1a3352;">{{ $averagePercent }}%</td>
-                    <td style="padding: 3.5mm; text-align: center; font-weight: bold; border-top: 1pt solid #1a3352; color: #1a3352; font-size: 10pt;">
+                    <td style="padding: 3.5mm; text-align: center; font-weight: bold; border-top: 1pt solid #1a3352; color: #1a3352;">{{ number_format($averagePercent, 2) }}%</td>
+                    <td colspan="2" style="padding: 3.5mm; text-align: center; font-weight: bold; border-top: 1pt solid #1a3352; color: #1a3352; font-size: 10pt;">
                         {{ $overallGrade['grade_label'] }}
                     </td>
                 </tr>
                 </tfoot>
             </table>
 
+            <div style="font-size: 9pt; color: #444; margin-bottom: 5mm; line-height: 1.45;">
+                Overall grade is the simple average of module percentages (2 decimal places).
+                Module grades: A ≥70%, B ≥60%, C ≥50%, D ≥40%, E ≥30%, F &lt;30%, NS = 0% (no show).
+                @if($graduationPending)
+                    <br/>Graduation requirements apply once the programme has started.
+                @elseif(!$eligibleForGraduation)
+                    <br/><strong style="color: #b45309;">Not presented for graduation:</strong> {{ $testsMissed }} test(s) missed (maximum {{ JbsGradingService::MAX_MISSED_TESTS_FOR_GRADUATION - 1 }} allowed).
+                @else
+                    <br/>Eligible for graduation presentation ({{ $testsMissed }} test(s) missed).
+                @endif
+            </div>
 
             <table cellpadding="0" cellspacing="0" style="width: 100%; margin-top: 8mm;">
                 <tr>

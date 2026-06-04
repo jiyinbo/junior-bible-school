@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\JbsLevel;
 use App\Models\JbsModule;
+use App\Models\JbsModuleScoreOutcome;
 use App\Models\JbsQuestion;
 use App\Models\JbsSession;
 use App\Models\JbsStudentRegistration;
@@ -59,6 +60,26 @@ class StudentTestScoringTest extends TestCase
         return [$test, $question];
     }
 
+    private function assertSubmitResponseHidesScores(\Illuminate\Testing\TestResponse $response): void
+    {
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.module_name', 'Course One')
+            ->assertJsonStructure(['data' => ['module_name', 'submitted_at']]);
+
+        $payload = $response->json('data');
+        $this->assertArrayNotHasKey('score', $payload);
+        $this->assertArrayNotHasKey('percent', $payload);
+        $this->assertArrayNotHasKey('grade_short', $payload);
+    }
+
+    private function assertStoredPercent(int $expectedPercent): void
+    {
+        $outcome = JbsModuleScoreOutcome::query()->first();
+        $this->assertNotNull($outcome);
+        $this->assertSame($expectedPercent, (int) round(100 * (float) $outcome->score / (float) $outcome->max_score));
+    }
+
     public function test_single_correct_answer_accepts_one_choice(): void
     {
         [$test, $question] = $this->openTestWithQuestion([2]);
@@ -70,10 +91,11 @@ class StudentTestScoringTest extends TestCase
             ->assertJsonPath('data.already_submitted', false)
             ->assertJsonPath('data.questions.0.selection_mode', 'single');
 
-        $this->postJson("/api/v1/student/tests/{$test->id}/submit", [
+        $this->assertSubmitResponseHidesScores($this->postJson("/api/v1/student/tests/{$test->id}/submit", [
             'registration_number' => 'BCC/0001',
             'answers' => [(string) $question->id => 2],
-        ])->assertOk()->assertJsonPath('data.score', 100);
+        ]));
+        $this->assertStoredPercent(100);
     }
 
     public function test_multiple_correct_requires_exact_set(): void
@@ -87,10 +109,11 @@ class StudentTestScoringTest extends TestCase
             ->assertJsonPath('data.already_submitted', false)
             ->assertJsonPath('data.questions.0.selection_mode', 'multiple');
 
-        $this->postJson("/api/v1/student/tests/{$test->id}/submit", [
+        $this->assertSubmitResponseHidesScores($this->postJson("/api/v1/student/tests/{$test->id}/submit", [
             'registration_number' => 'BCC/0001',
             'answers' => [(string) $question->id => [1, 2]],
-        ])->assertOk()->assertJsonPath('data.score', 100);
+        ]));
+        $this->assertStoredPercent(100);
     }
 
     public function test_score_is_rounded_to_nearest_whole_number(): void
@@ -119,22 +142,22 @@ class StudentTestScoringTest extends TestCase
             $answers[(string) $q->id] = $i === 0 ? 0 : 1;
         }
 
-        $this->postJson("/api/v1/student/tests/{$test->id}/submit", [
+        $this->assertSubmitResponseHidesScores($this->postJson("/api/v1/student/tests/{$test->id}/submit", [
             'registration_number' => 'BCC/0001',
             'answers' => $answers,
-        ])
-            ->assertOk()
-            ->assertJsonPath('data.score', 33);
+        ]));
+        $this->assertStoredPercent(33);
     }
 
     public function test_multiple_correct_partial_selection_is_wrong(): void
     {
         [$test, $question] = $this->openTestWithQuestion([1, 2]);
 
-        $this->postJson("/api/v1/student/tests/{$test->id}/submit", [
+        $this->assertSubmitResponseHidesScores($this->postJson("/api/v1/student/tests/{$test->id}/submit", [
             'registration_number' => 'BCC/0001',
             'answers' => [(string) $question->id => [2]],
-        ])->assertOk()->assertJsonPath('data.score', 0);
+        ]));
+        $this->assertStoredPercent(0);
     }
 
     public function test_student_cannot_submit_same_test_twice(): void
@@ -161,16 +184,21 @@ class StudentTestScoringTest extends TestCase
             'answers' => [(string) $question->id => 2],
         ])->assertOk();
 
-        $this->postJson('/api/v1/student/lookup', [
+        $response = $this->postJson('/api/v1/student/lookup', [
             'registration_number' => 'BCC/0001',
-        ])
-            ->assertOk()
+        ])->assertOk();
+
+        $response
             ->assertJsonPath('data.open_tests', [])
             ->assertJsonPath('data.completed_tests.0.test_id', $test->id)
-            ->assertJsonPath('data.completed_tests.0.score', 100);
+            ->assertJsonPath('data.progress.tests_taken', 1);
+
+        $completed = $response->json('data.completed_tests.0');
+        $this->assertArrayNotHasKey('score', $completed);
+        $this->assertArrayNotHasKey('percent', $completed);
     }
 
-    public function test_student_can_view_score_after_test_is_closed(): void
+    public function test_student_result_after_submit_does_not_expose_scores(): void
     {
         [$test, $question] = $this->openTestWithQuestion([2]);
 
@@ -181,12 +209,15 @@ class StudentTestScoringTest extends TestCase
 
         $test->update(['status' => 'closed', 'closed_at' => now()]);
 
-        $this->postJson("/api/v1/student/tests/{$test->id}/questions", [
+        $response = $this->postJson("/api/v1/student/tests/{$test->id}/questions", [
             'registration_number' => 'BCC/0001',
         ])
             ->assertOk()
-            ->assertJsonPath('data.already_submitted', true)
-            ->assertJsonPath('data.result.score', 100);
+            ->assertJsonPath('data.already_submitted', true);
+
+        $result = $response->json('data.result');
+        $this->assertSame('Course One', $result['module_name']);
+        $this->assertArrayNotHasKey('score', $result);
     }
 
     public function test_questions_endpoint_returns_existing_result_without_allowing_retake(): void
@@ -198,13 +229,14 @@ class StudentTestScoringTest extends TestCase
             'answers' => [(string) $question->id => 2],
         ])->assertOk();
 
-        $this->postJson("/api/v1/student/tests/{$test->id}/questions", [
+        $response = $this->postJson("/api/v1/student/tests/{$test->id}/questions", [
             'registration_number' => 'BCC/0001',
         ])
             ->assertOk()
             ->assertJsonPath('data.already_submitted', true)
-            ->assertJsonPath('data.questions', [])
-            ->assertJsonPath('data.result.score', 100);
+            ->assertJsonPath('data.questions', []);
+
+        $this->assertArrayNotHasKey('score', $response->json('data.result'));
     }
 
     public function test_expired_test_closes_automatically_and_rejects_new_attempts(): void
@@ -238,5 +270,29 @@ class StudentTestScoringTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.duration_minutes', 10)
             ->assertJsonStructure(['data' => ['closes_at', 'remaining_seconds', 'server_time']]);
+    }
+
+    public function test_student_portal_progress_hides_scores(): void
+    {
+        [$test, $question] = $this->openTestWithQuestion([2]);
+
+        $this->postJson("/api/v1/student/tests/{$test->id}/submit", [
+            'registration_number' => 'BCC/0001',
+            'answers' => [(string) $question->id => 2],
+        ])->assertOk();
+
+        $progress = $this->postJson('/api/v1/student/lookup', [
+            'registration_number' => 'BCC/0001',
+        ])
+            ->assertOk()
+            ->json('data.progress');
+
+        $this->assertSame(1, $progress['tests_taken']);
+        $this->assertArrayNotHasKey('overall_percent', $progress);
+        $this->assertArrayNotHasKey('tests_passed', $progress);
+        $this->assertFalse($progress['graduation_pending'] ?? true);
+        $this->assertTrue($progress['modules'][0]['test_taken']);
+        $this->assertArrayNotHasKey('score', $progress['modules'][0]);
+        $this->assertArrayNotHasKey('percent', $progress['modules'][0]);
     }
 }

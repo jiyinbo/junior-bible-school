@@ -20,6 +20,7 @@ import {
 import {
   DetailRow,
   ListCard,
+  EmptyTableMessage,
   ResponsiveTableLayout,
 } from '../../components/ResponsiveTableLayout';
 import { apiJson, downloadCsvGet, parseApiError } from '../../api/http';
@@ -282,11 +283,7 @@ export function StudentsPage() {
       <Paper sx={{ p: { xs: 2, md: 0 }, overflow: 'hidden' }}>
         <ResponsiveTableLayout
           isEmpty={rows.length === 0}
-          empty={
-            <Typography color="text.secondary" sx={{ py: 2 }}>
-              No students match your filters.
-            </Typography>
-          }
+          empty={<EmptyTableMessage>No students match your filters.</EmptyTableMessage>}
           table={
             <Table size="small">
               <TableHead>

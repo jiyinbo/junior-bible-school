@@ -15,6 +15,7 @@ import {
 import {
   DetailRow,
   ListCard,
+  EmptyTableMessage,
   ResponsiveTableLayout,
 } from '../../components/ResponsiveTableLayout';
 import { apiJson } from '../../api/http';
@@ -78,9 +79,7 @@ export function ModulesPage() {
   }, []);
 
   const empty = (
-    <Typography color="text.secondary" sx={{ py: 2 }}>
-      No modules yet. Ask an admin to assign you on a session.
-    </Typography>
+    <EmptyTableMessage>No modules yet. Ask an admin to assign you on a session.</EmptyTableMessage>
   );
 
   return (

@@ -19,6 +19,7 @@ import {
 import {
   DetailRow,
   ListCard,
+  EmptyTableMessage,
   ResponsiveTableLayout,
 } from '../../components/ResponsiveTableLayout';
 import { toastSuccess } from '../../feedback/toast';
@@ -196,9 +197,7 @@ export function AttendancePage() {
             <ResponsiveTableLayout
               isEmpty={logs.length === 0}
               empty={
-                <Typography color="text.secondary" sx={{ py: 2 }}>
-                  No attendance records match this filter.
-                </Typography>
+                <EmptyTableMessage>No attendance records match this filter.</EmptyTableMessage>
               }
               table={
                 <Table size="small">
