@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\Admin\AdminMailController;
 use App\Http\Controllers\Api\V1\Admin\AssignmentController;
 use App\Http\Controllers\Api\V1\Admin\AuditLogAdminController;
 use App\Http\Controllers\Api\V1\Admin\DashboardController as AdminDashboardController;
@@ -69,6 +70,11 @@ Route::prefix('v1')->group(function (): void {
 
             Route::get('audit-logs', [AuditLogAdminController::class, 'index']);
             Route::get('audit-logs/actions', [AuditLogAdminController::class, 'actions']);
+
+            Route::get('mail/options', [AdminMailController::class, 'options']);
+            Route::get('mail/registration-options', [AdminMailController::class, 'registrationOptions']);
+            Route::post('mail/recipients', [AdminMailController::class, 'recipients']);
+            Route::post('mail/send', [AdminMailController::class, 'send'])->middleware('throttle:10,1');
 
             Route::get('staff-users', [StaffUserAdminController::class, 'index']);
             Route::post('staff-users', [StaffUserAdminController::class, 'store']);

@@ -96,6 +96,20 @@ export async function apiJson<T>(path: string, init: ApiInit = {}): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+/** POST (or other) multipart form — do not set Content-Type; the browser adds the boundary. */
+export async function apiFormDataJson<T>(
+  path: string,
+  formData: FormData,
+  init: Omit<ApiInit, 'json' | 'body'> = {},
+): Promise<T> {
+  const res = await apiFetch(path, { ...init, method: init.method ?? 'POST', body: formData });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || res.statusText);
+  }
+  return res.json() as Promise<T>;
+}
+
 export async function downloadPdfGet(path: string, filename: string): Promise<void> {
   const res = await apiFetch(path);
   if (!res.ok) {

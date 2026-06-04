@@ -8,6 +8,7 @@ import GroupsIcon from '@mui/icons-material/Groups';
 import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import HistoryIcon from '@mui/icons-material/History';
+import EmailIcon from '@mui/icons-material/Email';
 import type { StaffUser } from '../api/http';
 
 export type NavSectionId = 'overview' | 'programme' | 'teaching' | 'students' | 'administration';
@@ -36,6 +37,7 @@ export const staffNavItems: NavItem[] = [
   { label: 'My modules', path: '/staff/modules', icon: MenuBookIcon, roles: ['admin', 'teacher'], section: 'teaching' },
   { label: 'Enter scores', path: '/staff/scores', icon: GradeIcon, roles: ['admin', 'teacher', 'assistant'], section: 'teaching' },
   { label: 'Students', path: '/staff/students', icon: GroupsIcon, roles: ['admin', 'assistant'], section: 'students' },
+  { label: 'Send email', path: '/staff/send-email', icon: EmailIcon, roles: ['admin'], section: 'administration' },
   { label: 'Staff users', path: '/staff/users', icon: PeopleIcon, roles: ['admin'], section: 'administration' },
   { label: 'Activity log', path: '/staff/audit-logs', icon: HistoryIcon, roles: ['admin'], section: 'administration' },
 ];
@@ -78,6 +80,7 @@ const dashboardLinkOrder = [
   '/staff/modules',
   '/staff/attendance',
   '/staff/scores',
+  '/staff/send-email',
   '/staff/users',
   '/staff/audit-logs',
 ] as const;

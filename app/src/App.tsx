@@ -23,6 +23,7 @@ import { StudentDetailPage } from './pages/staff/StudentDetailPage';
 import { AttendancePage } from './pages/staff/AttendancePage';
 import { RegistrationsPage } from './pages/staff/RegistrationsPage';
 import { AuditLogsPage } from './pages/staff/AuditLogsPage';
+import { SendEmailPage } from './pages/staff/SendEmailPage';
 
 function LegacyAdminSessionRedirect() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -58,6 +59,7 @@ export default function App() {
               <Route path="registrations" element={<RegistrationsPage />} />
             </Route>
             <Route element={<RequireAdmin />}>
+              <Route path="send-email" element={<SendEmailPage />} />
               <Route path="users" element={<UsersPage />} />
               <Route path="audit-logs" element={<AuditLogsPage />} />
             </Route>
