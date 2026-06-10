@@ -246,6 +246,13 @@ function ModuleResultReadOnlyRow({
   );
 }
 
+function studentModulesEmptyMessage(phase?: string): string {
+  if (phase === 'upcoming') {
+    return 'Your session has not started yet. Module tests will appear here once classes begin.';
+  }
+  return 'No modules have been set up for your tier yet.';
+}
+
 type StudentModulesTableProps = {
   progress: StudentProgressData;
   variant?: 'student' | 'staff';
@@ -263,6 +270,16 @@ export function StudentModulesTable({
 }: StudentModulesTableProps) {
   const isStudent = variant === 'student';
   const modules = progress.modules ?? [];
+
+  if (!moduleRows && modules.length === 0) {
+    return (
+      <Typography color="text.secondary">
+        {isStudent
+          ? studentModulesEmptyMessage(progress.programme_phase)
+          : 'No module results yet.'}
+      </Typography>
+    );
+  }
 
   return (
     <Box sx={{ overflowX: 'auto' }}>
