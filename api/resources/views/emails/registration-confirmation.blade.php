@@ -18,7 +18,7 @@
                     <tr>
                         <td style="padding:32px;">
                             <p style="margin:0 0 16px; font-size:15px; line-height:1.65;">
-                                Dear Student,
+                                Dear {{ $studentName }},
                             </p>
                             <p style="margin:0 0 16px; font-size:15px; line-height:1.65;">
                                 Congratulations and thank you for registering for the 2026 Summer Junior Bible School. We believe God is ready to transform your life through the instrument of His Word, and we are confident that you will never be the same in Jesus&rsquo; name.

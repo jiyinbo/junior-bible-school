@@ -180,7 +180,7 @@ function buildSummaryItems(
     {
       id: 'tier',
       label: 'Tier',
-      value: p.level_completed ? 'Completed' : 'In progress',
+      value: p.level_completed ? 'Completed' : phase === 'upcoming' ? 'Not started' : 'In progress',
       valueColor: p.level_completed ? 'success.main' : undefined,
     },
   );

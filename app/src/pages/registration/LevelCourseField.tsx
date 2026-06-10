@@ -52,7 +52,7 @@ export function LevelCourseField({
   onChange,
   error,
   disabled,
-  label = 'Tier / course',
+  label = 'Tier',
 }: Props) {
   return (
     <TextField
@@ -68,10 +68,11 @@ export function LevelCourseField({
       required
       fullWidth
       disabled={disabled}
+      InputLabelProps={{ shrink: true }}
       SelectProps={{ displayEmpty: true }}
     >
       <MenuItem value="" disabled>
-        Select a course
+        Select a tier
       </MenuItem>
       {levels.map((l) => (
         <MenuItem key={l.id} value={String(l.id)}>

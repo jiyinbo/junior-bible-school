@@ -49,10 +49,13 @@ function TeacherSelect({
 }: Pick<Props, 'mod' | 'teacherOptions' | 'assigningModuleId' | 'onAssignTeacher'>) {
   return (
     <FormControl size="small" fullWidth disabled={assigningModuleId === mod.id}>
-      <InputLabel id={`teacher-${mod.id}`}>Teacher</InputLabel>
+      <InputLabel id={`teacher-${mod.id}`} shrink>
+        Teacher
+      </InputLabel>
       <Select
         labelId={`teacher-${mod.id}`}
         label="Teacher"
+        notched
         value={mod.assigned_teacher?.id ?? ''}
         displayEmpty
         renderValue={(selected) => {

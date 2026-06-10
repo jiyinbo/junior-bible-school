@@ -49,7 +49,7 @@ function IdCardPreview({ participant: p }: { participant: EnrolledParticipant })
         boxShadow: 2,
       }}
     >
-      <Box sx={{ bgcolor: NAVY, color: '#fff', px: 1.5, py: 1, flexShrink: 0, textAlign: 'left' }}>
+      <Box sx={{ bgcolor: NAVY, color: '#fff', px: 1.5, py: 1, flexShrink: 0, textAlign: 'center' }}>
         <Typography
           sx={{
             display: 'block',
@@ -213,9 +213,19 @@ function IdCardActions({ registrationNumber }: { registrationNumber: string }) {
 export function StepIdCard({ enrolled, footer }: Props) {
   return (
     <Stack spacing={3} sx={{ width: '100%' }}>
-      <Typography variant="body1" color="text.secondary" textAlign="center">
-        Save each registration number or QR code. Download or print the official ID card to bring to JBS.
-      </Typography>
+      <Stack spacing={1.5} sx={{ maxWidth: 640, mx: 'auto' }}>
+        <Typography variant="h6" textAlign="center">
+          Congratulations! You are now registered.
+        </Typography>
+        <Typography variant="body2" color="text.secondary" textAlign="center">
+          Email confirmation has been sent to the email(s) provided. Please check your spam/junk in
+          case it lands there.
+        </Typography>
+        <Typography variant="body2" color="text.secondary" textAlign="center">
+          The student portal is now live. You will need your registration number to access the
+          portal where more information about the programme is available.
+        </Typography>
+      </Stack>
 
       <Grid container spacing={3} justifyContent="center" sx={{ width: '100%' }}>
         {enrolled.map((p) => (

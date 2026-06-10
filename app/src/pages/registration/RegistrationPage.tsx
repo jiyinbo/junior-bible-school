@@ -44,7 +44,15 @@ export function RegistrationPage() {
 
   useEffect(() => {
     apiJson<{ data: SessionOption[] }>('/api/v1/public/sessions')
-      .then((r) => setSessions(r.data))
+      .then((r) => {
+        setSessions(r.data);
+        const firstSelectable = r.data.find((s) => s.registration_is_open !== false);
+        if (firstSelectable) {
+          setGuardian((prev) =>
+            prev.session_slug ? prev : { ...prev, session_slug: firstSelectable.slug },
+          );
+        }
+      })
       .catch(() => setLoadError('Could not load sessions.'));
   }, []);
 

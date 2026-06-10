@@ -57,12 +57,31 @@ export function StepChildInfo({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [listError, setListError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  // Bumped whenever the draft is swapped out so the contact fields remount and
+  // drop their internal "touched" state — otherwise a fresh empty form would
+  // re-show blur validation errors (e.g. required next-of-kin phone) left over
+  // from the previous child.
+  const [formInstance, setFormInstance] = useState(0);
 
   const patchDraft = (patch: Partial<ChildForm>) => {
-    setDraft((prev) => ({ ...prev, ...patch }));
+    const nextDraft = { ...draft, ...patch };
+    setDraft(nextDraft);
     setErrors((prev) => {
       const next = { ...prev };
       Object.keys(patch).forEach((k) => delete next[k]);
+      // Tier and date of birth are interdependent (the under-13 placement rule).
+      // When either changes, refresh the partner field's error so a stale
+      // failure clears once the conflict is resolved — without introducing new
+      // errors for fields the user hasn't tried to submit yet.
+      if ('date_of_birth' in patch || 'jbs_level_id' in patch) {
+        const recomputed = validateChild(nextDraft, levels);
+        (['date_of_birth', 'jbs_level_id'] as const).forEach((key) => {
+          if (next[key]) {
+            if (recomputed[key]) next[key] = recomputed[key];
+            else delete next[key];
+          }
+        });
+      }
       return next;
     });
     setSaveMessage(null);
@@ -72,6 +91,7 @@ export function StepChildInfo({
     setDraft(emptyChild());
     setEditingIndex(null);
     setErrors({});
+    setFormInstance((n) => n + 1);
   };
 
   const saveChild = () => {
@@ -113,6 +133,7 @@ export function StepChildInfo({
     setErrors({});
     setListError(null);
     setSaveMessage(null);
+    setFormInstance((n) => n + 1);
     requestAnimationFrame(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   };
 
@@ -148,9 +169,64 @@ export function StepChildInfo({
     <Stack spacing={3}>
       <TierPlacementGuide />
 
+      <Box ref={formRef} key={formInstance}>
+        <Typography variant="subtitle2" sx={{ mb: 1 }}>
+          {editingIndex !== null
+            ? 'Edit child details'
+            : addedChildren.length > 0
+              ? 'Add another child'
+              : 'Add a child'}
+        </Typography>
+
+        <Stack spacing={3}>
+          <FormSection title="Tier">
+            <LevelCourseField
+              levels={levels}
+              value={draft.jbs_level_id}
+              onChange={(id) => patchDraft({ jbs_level_id: id })}
+              error={errors.jbs_level_id}
+              label="Tier"
+            />
+          </FormSection>
+
+          <StudentRegistrationFields values={draft} errors={errors} onChange={patchDraft} />
+
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
+            <Button type="button" variant="outlined" onClick={saveChild} disabled={levels.length === 0}>
+              {editingIndex !== null
+                ? 'Save changes'
+                : addedChildren.length > 0
+                  ? 'Add another child'
+                  : 'Add child'}
+            </Button>
+            {editingIndex !== null && (
+              <Button type="button" variant="text" onClick={cancelEdit}>
+                Cancel edit
+              </Button>
+            )}
+          </Box>
+        </Stack>
+      </Box>
+
+      {levels.length === 0 && (
+        <Alert severity="info">No tiers are available for this session. Go back and choose another session.</Alert>
+      )}
+
+      {saveMessage && (
+        <Alert severity="success" onClose={() => setSaveMessage(null)}>
+          {saveMessage}
+        </Alert>
+      )}
+
+      {listError && <Alert severity="warning">{listError}</Alert>}
+
       {addedChildren.length > 0 && (
         <Box ref={listRef}>
+          <Divider sx={{ mb: 2 }} />
           <Typography variant="subtitle2">Children added ({addedChildren.length})</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            Add another child above, or continue with Next when you're done.
+          </Typography>
           <List dense disablePadding sx={{ mt: 1 }}>
             {addedChildren.map((c, idx) => {
               const levelName = levels.find((l) => l.id === c.jbs_level_id)?.name ?? '—';
@@ -184,59 +260,15 @@ export function StepChildInfo({
                   }
                 >
                   <ListItemText
-                    primary={`${c.first_name} ${c.last_name}${isEditing ? ' (editing below)' : ''}`}
+                    primary={`${c.first_name} ${c.last_name}${isEditing ? ' (editing above)' : ''}`}
                     secondary={childListSecondary(c, levelName)}
                   />
                 </ListItem>
               );
             })}
           </List>
-          <Divider sx={{ mt: 2 }} />
         </Box>
       )}
-
-      <Box ref={formRef}>
-        <Typography variant="subtitle2" sx={{ mb: 1 }}>
-          {editingIndex !== null ? 'Edit child details' : 'Add a child'}
-        </Typography>
-
-        <Stack spacing={3}>
-          <FormSection title="Course">
-            <LevelCourseField
-              levels={levels}
-              value={draft.jbs_level_id}
-              onChange={(id) => patchDraft({ jbs_level_id: id })}
-              error={errors.jbs_level_id}
-              label="Course / tier"
-            />
-          </FormSection>
-
-          <StudentRegistrationFields values={draft} errors={errors} onChange={patchDraft} />
-
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
-            <Button type="button" variant="outlined" onClick={saveChild} disabled={levels.length === 0}>
-              {editingIndex !== null ? 'Save changes' : 'Add child'}
-            </Button>
-            {editingIndex !== null && (
-              <Button type="button" variant="text" onClick={cancelEdit}>
-                Cancel edit
-              </Button>
-            )}
-          </Box>
-        </Stack>
-      </Box>
-
-      {levels.length === 0 && (
-        <Alert severity="info">No courses are available for this session. Go back and choose another session.</Alert>
-      )}
-
-      {saveMessage && (
-        <Alert severity="success" onClose={() => setSaveMessage(null)}>
-          {saveMessage}
-        </Alert>
-      )}
-
-      {listError && <Alert severity="warning">{listError}</Alert>}
 
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
         <Button type="button" onClick={onBack}>

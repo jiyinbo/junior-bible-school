@@ -29,6 +29,7 @@ class RegistrationConfirmationMail extends Mailable
         return new Content(
             view: 'emails.registration-confirmation',
             with: [
+                'studentName' => $this->registration->fullName(),
                 'registrationNumber' => $this->registration->registration_number,
                 'levelName' => $this->registration->level->name,
                 'studentPortalUrl' => rtrim((string) config('jbs.student_portal_url'), '/'),

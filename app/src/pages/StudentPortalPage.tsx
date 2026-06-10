@@ -16,7 +16,6 @@ import {
 import { FormRowButton, InlineFormRow } from '../components/InlineFormRow';
 import { PortalSection } from '../components/PortalSection';
 import {
-  GradingScaleDetails,
   StudentModulesTable,
   StudentProgressPanel,
   type StudentProgressData,
@@ -26,7 +25,7 @@ import { apiJson, downloadPdf } from '../api/http';
 
 const STUDENT_REG_KEY = 'jbs_student_reg';
 
-type SectionId = 'gradingScale' | 'modules' | 'timetable' | 'openTests' | 'documents';
+type SectionId = 'modules' | 'timetable' | 'openTests' | 'documents';
 
 type OpenTest = { test_id: number; module_id: number; module_name: string };
 
@@ -61,7 +60,6 @@ function programmePhaseMessage(lookup: LookupData): string | null {
 
 function defaultExpandedSections(lookup: LookupData): Record<SectionId, boolean> {
   return {
-    gradingScale: false,
     modules: false,
     timetable: lookup.programme_phase === 'ongoing',
     openTests: lookup.open_tests.length > 0,
@@ -78,7 +76,6 @@ export function StudentPortalPage() {
   const [lookup, setLookup] = useState<LookupData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<SectionId, boolean>>({
-    gradingScale: false,
     modules: false,
     timetable: false,
     openTests: true,
@@ -173,11 +170,6 @@ export function StudentPortalPage() {
               {lookup.session_name} · {lookup.level_name}
             </Typography>
             <Typography sx={{ mt: 1 }}>Reg: {lookup.registration_number}</Typography>
-            {lookup.completion_message && (
-              <Alert severity="info" sx={{ mt: 2 }}>
-                {lookup.completion_message}
-              </Alert>
-            )}
           </Paper>
 
           <StudentProgressPanel
@@ -250,15 +242,6 @@ export function StudentPortalPage() {
                 ))}
               </List>
             )}
-          </PortalSection>
-
-          <PortalSection
-            title="Grading scale"
-            subtitle="How overall and module tests are graded — your scores are not shown here"
-            expanded={expanded.gradingScale}
-            onExpandedChange={(open) => setSectionExpanded('gradingScale', open)}
-          >
-            <GradingScaleDetails variant="student" />
           </PortalSection>
 
           <PortalSection

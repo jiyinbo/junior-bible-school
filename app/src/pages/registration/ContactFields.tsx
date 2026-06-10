@@ -28,7 +28,7 @@ export function UkPhoneTextField({
   ...rest
 }: UkPhoneTextFieldProps) {
   const [touched, setTouched] = useState(false);
-  const blurError = touched ? ukPhoneError(value, fieldLabel) : undefined;
+  const blurError = touched ? ukPhoneError(value, fieldLabel, Boolean(required)) : undefined;
   const displayError = error ?? blurError;
 
   return (
@@ -72,7 +72,7 @@ export function EmailTextField({
   ...rest
 }: EmailTextFieldProps) {
   const [touched, setTouched] = useState(false);
-  const blurError = touched ? emailError(value, fieldLabel) : undefined;
+  const blurError = touched ? emailError(value, fieldLabel, Boolean(required)) : undefined;
   const displayError = error ?? blurError;
 
   return (

@@ -45,7 +45,12 @@ export function RegistrationsPage() {
 
   useEffect(() => {
     apiJson<{ data: Session[] }>('/api/v1/admin/sessions')
-      .then((r) => setSessions(r.data))
+      .then((r) => {
+        setSessions(r.data);
+        if (r.data.length > 0) {
+          setSessionId((prev) => (prev === '' ? r.data[0].id : prev));
+        }
+      })
       .catch(() => setError('Could not load sessions.'));
   }, []);
 

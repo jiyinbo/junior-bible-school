@@ -75,7 +75,7 @@ export function validateChild(
   const c = normalizeChildContacts(child);
   const errors: Record<string, string> = {};
 
-  if (!c.jbs_level_id) errors.jbs_level_id = 'Course selection is required';
+  if (!c.jbs_level_id) errors.jbs_level_id = 'Tier selection is required';
   if (!c.last_name.trim()) errors.last_name = 'Surname is required';
   if (!c.first_name.trim()) errors.first_name = 'First name is required';
   if (!c.gender) errors.gender = 'Gender is required';

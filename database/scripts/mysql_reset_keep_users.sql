@@ -443,6 +443,7 @@ INSERT INTO `migrations` (`migration`, `batch`) VALUES
 ('2026_05_13_101000_create_jbs_module_score_outcomes_table', 1),
 ('2026_05_16_120000_add_level_completion_to_jbs_student_registrations', 1),
 ('2026_05_16_130000_add_session_dates_and_attendance_recorded_at', 1),
+('2026_05_16_140000_add_schedule_to_jbs_modules', 1),
 ('2026_05_16_150000_add_unique_session_email_to_jbs_student_registrations', 1),
 ('2026_05_16_160000_replace_correct_index_with_correct_indices_on_jbs_questions', 1),
 ('2026_05_16_160000_expand_jbs_registrations_and_level_placement', 1),

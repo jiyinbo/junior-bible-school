@@ -42,6 +42,20 @@ class IdCardPdfTest extends TestCase
         $this->assertEqualsWithDelta($paper[3], $box[3], 0.05);
     }
 
+    #[Test]
+    public function pdf_renders_on_a_single_page(): void
+    {
+        $reg = $this->sampleRegistration();
+        $qr = app(JbsQrService::class)->registrationNumberToDataUri($reg->registration_number);
+
+        $bytes = app(JbsIdCardPdfService::class)->make($reg, $qr)->output();
+
+        // Each rendered page emits a "/Type /Page" object (distinct from the
+        // "/Type /Pages" tree node). The card must never spill onto extra pages.
+        $pageCount = preg_match_all('/\/Type\s*\/Page(?![s])/', $bytes);
+        $this->assertSame(1, $pageCount, 'ID card PDF must be exactly one page.');
+    }
+
     private function sampleRegistration(): JbsStudentRegistration
     {
         $session = new JbsSession(['name' => 'Summer Bible School 2026']);
