@@ -20,7 +20,22 @@
     // kept compact so it always fits the body region without being clipped.
     $headerH = 12.5;
     $footerH = 6;
-    $qrMm = 15;
+    $qrBoxMm = 15;
+    $qrBorderMm = 0.4;
+    $qrImgMm = 16.2; // slightly overscaled inside the clipped box to fill the border
+    $qrImgOffsetMm = round(($qrBoxMm - $qrImgMm) / 2, 2);
+    $sepPad = 5; // horizontal inset shared by both separator rows
+    $logoW = 32;
+    $bodyH = $h - $headerH - $footerH;
+    $logoPadTop = round($bodyH * 0.28, 1); // fallback if logo dimensions are unavailable
+    $logoPath = resource_path('images/logo.png');
+    if (is_readable($logoPath)) {
+        $logoSize = @getimagesize($logoPath);
+        if ($logoSize) {
+            $logoH = $logoW * ($logoSize[1] / $logoSize[0]);
+            $logoPadTop = round(max(0, ($bodyH - $logoH) / 2), 1);
+        }
+    }
 @endphp
 <!DOCTYPE html>
 <html lang="en">
@@ -50,18 +65,15 @@
 <body>
 <div style="position:absolute;top:0;left:0;width:{{ $w }}mm;height:{{ $h }}mm;border:0.4mm solid {{ $navy }};border-radius:2.5mm;overflow:hidden;">
 
-    {{-- Header --}}
-    <div style="position:absolute;top:0;left:0;width:100%;height:{{ $headerH }}mm;background-color:{{ $navy }};color:#ffffff;overflow:hidden;">
-        <table cellpadding="0" cellspacing="0" style="width:100%;height:{{ $headerH }}mm;"><tr>
-            <td style="vertical-align:middle;text-align:center;padding:0 2mm;">
-                <div style="font-size:6.4pt;font-weight:bold;letter-spacing:0.6pt;line-height:1.15;text-transform:uppercase;">
-                    Junior Bible School
-                </div>
-                <div style="font-size:4.6pt;margin-top:0.5mm;line-height:1.15;opacity:0.95;">
-                    {{ $sessionSubtitle }}
-                </div>
-            </td>
-        </tr></table>
+    {{-- Header. DomPDF does not honour vertical-align:middle on table cells,
+         so the content is nudged down with padding to sit centred in the band. --}}
+    <div style="position:absolute;top:0;left:0;width:100%;height:{{ $headerH }}mm;background-color:{{ $navy }};color:#ffffff;overflow:hidden;text-align:center;padding-top:2.7mm;">
+        <div style="font-size:6.4pt;font-weight:bold;letter-spacing:0.6pt;line-height:1.15;text-transform:uppercase;">
+            Junior Bible School
+        </div>
+        <div style="font-size:4.6pt;margin-top:0.5mm;line-height:1.15;opacity:0.95;">
+            {{ $sessionSubtitle }}
+        </div>
     </div>
 
     {{-- Body. A wrapper table vertically centres the content block so the
@@ -69,8 +81,10 @@
          vertical gap so the rhythm around the separators is even. --}}
     <div style="position:absolute;top:{{ $headerH }}mm;bottom:{{ $footerH }}mm;left:0;width:100%;background-color:#ffffff;overflow:hidden;text-align:center;">
         @if(!empty($logoDataUri))
-            <div style="position:absolute;left:0;top:8mm;width:100%;text-align:center;">
-                <img src="{{ $logoDataUri }}" alt="" style="width:26mm;opacity:0.07;"/>
+            {{-- DomPDF ignores vertical-align:middle on table cells, so the logo is
+                 centred with a computed padding-top based on the body height. --}}
+            <div style="position:absolute;top:0;left:0;width:100%;height:100%;text-align:center;padding-top:{{ $logoPadTop }}mm;">
+                <img src="{{ $logoDataUri }}" alt="" style="width:{{ $logoW }}mm;opacity:0.07;display:inline-block;"/>
             </div>
         @endif
 
@@ -82,10 +96,13 @@
                     <div style="width:9mm;height:2mm;border:0.35mm solid #b8c0cc;border-radius:1mm;margin:0 auto;background-color:#eef1f5;"></div>
                 </td>
             </tr>
-            {{-- QR --}}
+            {{-- QR. Fixed-size bordered box; the PNG has no quiet zone and is
+                 scaled slightly past the clip so the modules fill the inner area. --}}
             <tr>
                 <td style="padding-bottom:2.5mm;text-align:center;">
-                    <img src="{{ $qrDataUri }}" alt="QR" style="width:{{ $qrMm }}mm;height:{{ $qrMm }}mm;border:0.4mm solid {{ $navy }};display:block;margin:0 auto;"/>
+                    <div style="display:inline-block;border:{{ $qrBorderMm }}mm solid {{ $navy }};width:{{ $qrBoxMm }}mm;height:{{ $qrBoxMm }}mm;overflow:hidden;line-height:0;font-size:0;">
+                        <img src="{{ $qrDataUri }}" alt="QR" style="width:{{ $qrImgMm }}mm;height:{{ $qrImgMm }}mm;margin:{{ $qrImgOffsetMm }}mm;display:block;"/>
+                    </div>
                 </td>
             </tr>
             {{-- Registration --}}
@@ -102,10 +119,10 @@
             </tr>
             {{-- Divider with a dot centred on the line --}}
             <tr>
-                <td style="padding:0 4mm 2.5mm;">
+                <td style="padding:0 {{ $sepPad }}mm 2.5mm;">
                     <table cellpadding="0" cellspacing="0" style="width:100%;"><tr>
                         <td style="width:42%;vertical-align:middle;"><div style="border-bottom:0.3mm solid {{ $navy }};font-size:0;line-height:0;height:0;">&nbsp;</div></td>
-                        <td style="width:16%;text-align:center;vertical-align:middle;font-size:7pt;color:{{ $navy }};line-height:0;">&#9679;</td>
+                        <td style="width:16%;text-align:center;vertical-align:middle;"><div style="width:1.7mm;height:1.7mm;background-color:{{ $navy }};border-radius:50%;margin:0 auto;"></div></td>
                         <td style="width:42%;vertical-align:middle;"><div style="border-bottom:0.3mm solid {{ $navy }};font-size:0;line-height:0;height:0;">&nbsp;</div></td>
                     </tr></table>
                 </td>
@@ -119,7 +136,7 @@
             </tr>
             {{-- Plain divider --}}
             <tr>
-                <td style="padding:0 5mm 2.5mm;">
+                <td style="padding:0 {{ $sepPad }}mm 2.5mm;">
                     <div style="border-bottom:0.3mm solid {{ $navy }};font-size:0;line-height:0;height:0;">&nbsp;</div>
                 </td>
             </tr>
@@ -138,12 +155,10 @@
     </div>
 
     {{-- Footer --}}
-    <div style="position:absolute;bottom:0;left:0;width:100%;height:{{ $footerH }}mm;background-color:{{ $navy }};color:#ffffff;overflow:hidden;">
-        <table cellpadding="0" cellspacing="0" style="width:100%;height:{{ $footerH }}mm;"><tr>
-            <td style="text-align:center;vertical-align:middle;font-size:11pt;font-weight:bold;letter-spacing:1pt;">
-                {{ $year }}
-            </td>
-        </tr></table>
+    <div style="position:absolute;bottom:0;left:0;width:100%;height:{{ $footerH }}mm;background-color:{{ $navy }};color:#ffffff;overflow:hidden;text-align:center;padding-top:1.2mm;">
+        <div style="font-size:11pt;font-weight:bold;letter-spacing:1pt;line-height:1;">
+            {{ $year }}
+        </div>
     </div>
 
 </div>

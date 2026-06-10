@@ -17,7 +17,9 @@ class JbsQrService
             'outputInterface' => QRGdImagePNG::class,
             'outputBase64' => true,
             'scale' => 8,
-            'margin' => 1,
+            // The ID card border/padding provides the quiet zone; no extra margin
+            // keeps the modules larger within the rendered square.
+            'margin' => 0,
         ]);
 
         /** @var string */

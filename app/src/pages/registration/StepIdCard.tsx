@@ -8,6 +8,7 @@ import type { EnrolledParticipant } from "./types";
 
 const NAVY = "#1a3352";
 const CARD_WIDTH = 240;
+const LOGO_WATERMARK_SRC = "/logo.png";
 
 type Props = {
   enrolled: EnrolledParticipant[];
@@ -81,7 +82,36 @@ function IdCardPreview({
         </Typography>
       </Box>
 
-      <Box sx={{ px: 1.5, py: 0.75, textAlign: "center", flexShrink: 0 }}>
+      <Box
+        sx={{
+          position: "relative",
+          px: 1.5,
+          py: 0.75,
+          textAlign: "center",
+          flexShrink: 0,
+        }}
+      >
+        <Box
+          aria-hidden
+          sx={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            pointerEvents: "none",
+            zIndex: 0,
+          }}
+        >
+          <Box
+            component="img"
+            src={LOGO_WATERMARK_SRC}
+            alt=""
+            sx={{ width: "59%", maxWidth: 142, opacity: 0.07 }}
+          />
+        </Box>
+
+        <Box sx={{ position: "relative", zIndex: 1 }}>
         <Box
           sx={{
             width: 32,
@@ -128,7 +158,7 @@ function IdCardPreview({
             display: "flex",
             alignItems: "center",
             gap: 0.5,
-            px: 1,
+            mx: 2,
             mb: 0.5,
           }}
         >
@@ -181,6 +211,7 @@ function IdCardPreview({
           <br />
           Dartford Campus
         </Typography>
+        </Box>
       </Box>
 
       <Box
