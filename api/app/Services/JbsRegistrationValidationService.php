@@ -55,7 +55,7 @@ class JbsRegistrationValidationService
             'place_of_worship' => ['required', 'string', 'max:255'],
             'place_of_worship_address' => ['required', 'string', 'max:255'],
             'pastor_name' => ['required', 'string', 'max:255'],
-            'activity_group' => ['required', 'string', 'max:120'],
+            'activity_group' => ['nullable', 'string', 'max:120'],
             'current_school' => ['required', 'string', 'max:255'],
             'current_school_year' => ['required', 'string', 'max:80'],
             'allergies' => ['nullable', 'string', 'max:500'],

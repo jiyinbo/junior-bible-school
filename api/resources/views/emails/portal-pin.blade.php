@@ -17,6 +17,7 @@
                     </tr>
                     <tr>
                         <td style="padding:32px;">
+                            @include('emails.partials.no-reply-banner')
                             <p style="margin:0 0 16px; font-size:15px; line-height:1.65;">
                                 Dear {{ $studentName }},
                             </p>

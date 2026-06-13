@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
+import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import {
   Alert,
   Box,
@@ -12,7 +12,7 @@ import {
   Typography,
 } from '@mui/material';
 import { QRCodeSVG } from 'qrcode.react';
-import { parseApiError, printPdf } from '../api/http';
+import { downloadPdf, parseApiError } from '../api/http';
 import type { EnrolledParticipant } from '../pages/registration/types';
 
 const NAVY = '#1a3352';
@@ -248,11 +248,15 @@ export function IdCardActions({
   const [error, setError] = useState<string | null>(null);
   const body = { registration_number: registrationNumber, pin };
 
-  const print = async () => {
+  const download = async () => {
     setBusy(true);
     setError(null);
     try {
-      await printPdf('/api/v1/student/documents/id-card', body);
+      await downloadPdf(
+        '/api/v1/student/documents/id-card',
+        body,
+        `jbs-id-card-${registrationNumber}.pdf`,
+      );
     } catch (e) {
       setError(parseApiError(e));
     } finally {
@@ -265,11 +269,11 @@ export function IdCardActions({
       <Button
         size="small"
         variant="outlined"
-        startIcon={<PrintOutlinedIcon />}
+        startIcon={<DownloadOutlinedIcon />}
         disabled={busy}
-        onClick={() => void print()}
+        onClick={() => void download()}
       >
-        {busy ? 'Preparing…' : 'Download / Print'}
+        {busy ? 'Preparing…' : 'Download ID card'}
       </Button>
       {error && (
         <Alert severity="error" sx={{ width: '100%' }}>

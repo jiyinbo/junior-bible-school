@@ -183,7 +183,9 @@ class JbsRegistrationService
             'place_of_worship' => trim($data['place_of_worship']),
             'place_of_worship_address' => trim($data['place_of_worship_address']),
             'pastor_name' => trim($data['pastor_name']),
-            'activity_group' => trim($data['activity_group']),
+            'activity_group' => isset($data['activity_group']) && trim((string) $data['activity_group']) !== ''
+                ? trim((string) $data['activity_group'])
+                : null,
             'current_school' => trim($data['current_school']),
             'current_school_year' => trim($data['current_school_year']),
             'allergies' => isset($data['allergies']) && $data['allergies'] !== ''

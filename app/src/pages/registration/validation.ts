@@ -111,7 +111,6 @@ export function validateChild(
     errors.place_of_worship_address = 'Worship address is required';
   }
   if (!c.pastor_name.trim()) errors.pastor_name = "Pastor's name is required";
-  if (!c.activity_group.trim()) errors.activity_group = 'Activity group is required';
   if (!c.current_school.trim()) errors.current_school = 'Current school is required';
   if (!c.current_school_year.trim()) errors.current_school_year = 'Current school year is required';
   if (!c.next_of_kin_name.trim()) errors.next_of_kin_name = 'Next of kin full name is required';

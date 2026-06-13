@@ -223,7 +223,6 @@ export function StudentRegistrationFields({ values, errors, onChange }: Props) {
             onChange={(e) => onChange({ activity_group: e.target.value })}
             error={Boolean(errors.activity_group)}
             helperText={errors.activity_group}
-            required
             fullWidth
           />
         </FormRow>

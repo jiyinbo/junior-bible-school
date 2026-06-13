@@ -50,7 +50,7 @@ class RegistrationController extends Controller
             'children.*.place_of_worship' => ['required', 'string', 'max:255'],
             'children.*.place_of_worship_address' => ['required', 'string', 'max:255'],
             'children.*.pastor_name' => ['required', 'string', 'max:255'],
-            'children.*.activity_group' => ['required', 'string', 'max:120'],
+            'children.*.activity_group' => ['nullable', 'string', 'max:120'],
             'children.*.current_school' => ['required', 'string', 'max:255'],
             'children.*.current_school_year' => ['required', 'string', 'max:80'],
             'children.*.allergies' => ['nullable', 'string', 'max:500'],
