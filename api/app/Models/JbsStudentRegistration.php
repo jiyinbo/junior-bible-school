@@ -8,12 +8,15 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class JbsStudentRegistration extends Model
 {
+    public ?string $portalPinPlain = null;
+
     protected $table = 'jbs_student_registrations';
 
     protected $fillable = [
         'jbs_session_id',
         'jbs_level_id',
         'registration_number',
+        'portal_pin_hash',
         'first_name',
         'last_name',
         'email',
@@ -43,6 +46,10 @@ class JbsStudentRegistration extends Model
         'level_completed',
         'level_completed_at',
         'level_completed_by_user_id',
+    ];
+
+    protected $hidden = [
+        'portal_pin_hash',
     ];
 
     protected function casts(): array

@@ -94,6 +94,7 @@ class RegistrationController extends Controller
                 'participant_name' => $reg->fullName(),
                 'session_name' => $session->name,
                 'level_name' => $reg->level->name,
+                'portal_pin' => $reg->portalPinPlain ?? '',
             ])->values(),
         ], 201);
     }
@@ -115,7 +116,10 @@ class RegistrationController extends Controller
 
             foreach ($recipients as $email) {
                 try {
-                    Mail::to($email)->send(new RegistrationConfirmationMail($reg));
+                    Mail::to($email)->send(new RegistrationConfirmationMail(
+                        $reg,
+                        $reg->portalPinPlain ?? '',
+                    ));
                 } catch (Throwable $e) {
                     Log::error('Failed to send registration confirmation email', [
                         'registration_number' => $reg->registration_number,

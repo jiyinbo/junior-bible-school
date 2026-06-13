@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Student;
 use App\Http\Controllers\Controller;
 use App\Models\JbsStudentRegistration;
 use App\Services\JbsIdCardPdfService;
+use App\Services\JbsStudentPortalPinService;
 use App\Services\JbsStudentProgressService;
 use App\Services\JbsQrService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -17,20 +18,12 @@ class StudentDocumentController extends Controller
         private JbsStudentProgressService $progress,
         private JbsQrService $qr,
         private JbsIdCardPdfService $idCardPdf,
+        private JbsStudentPortalPinService $portalPin,
     ) {}
 
     private function registration(Request $request): JbsStudentRegistration
     {
-        $data = $request->validate([
-            'registration_number' => ['required', 'string', 'max:191'],
-        ]);
-        $reg = JbsStudentRegistration::query()
-            ->where('registration_number', trim($data['registration_number']))
-            ->with(['session', 'level.modules'])
-            ->first();
-        abort_if(! $reg, 404, 'Registration not found.');
-
-        return $reg;
+        return $this->portalPin->resolveRegistration($request, ['session', 'level.modules']);
     }
 
     public function idCard(Request $request): Response

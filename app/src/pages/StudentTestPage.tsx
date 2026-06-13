@@ -26,8 +26,7 @@ import {
 } from '@mui/material';
 import { apiJson, parseApiError } from '../api/http';
 import { toastError } from '../feedback/toast';
-
-const STUDENT_REG_KEY = 'jbs_student_reg';
+import { getStudentPin, getStudentReg, setStudentSession, studentAuthBody } from '../student/studentSession';
 
 type Question = {
   id: number;
@@ -73,7 +72,8 @@ export function StudentTestPage() {
   const { testId } = useParams<{ testId: string }>();
   const [searchParams] = useSearchParams();
   const regFromUrl = searchParams.get('reg')?.trim() ?? '';
-  const [reg] = useState(() => regFromUrl || sessionStorage.getItem(STUDENT_REG_KEY) || '');
+  const [reg] = useState(() => regFromUrl || getStudentReg());
+  const [pin] = useState(() => getStudentPin());
 
   const [phase, setPhase] = useState<Phase>('loading');
   const [meta, setMeta] = useState<TestStart | null>(null);
@@ -91,8 +91,8 @@ export function StudentTestPage() {
   const portalHref = reg ? `/student?reg=${encodeURIComponent(reg)}` : '/student';
 
   const loadTest = useCallback(async () => {
-    if (!testId || !reg) {
-      setError('Registration number is required. Open this test from the student portal.');
+    if (!testId || !reg || pin.length !== 4) {
+      setError('Registration number and PIN are required. Open this test from the student portal.');
       setPhase('result');
       return;
     }
@@ -102,11 +102,11 @@ export function StudentTestPage() {
     try {
       const r = await apiJson<{ data: TestStart }>(`/api/v1/student/tests/${testId}/questions`, {
         method: 'POST',
-        json: { registration_number: reg },
+        json: studentAuthBody(reg, pin),
       });
       const data = r.data;
       setMeta(data);
-      sessionStorage.setItem(STUDENT_REG_KEY, reg);
+      setStudentSession(reg, pin);
 
       if (data.already_submitted && data.result) {
         setResult(data.result);
@@ -129,7 +129,7 @@ export function StudentTestPage() {
       setError(parseApiError(e));
       setPhase('result');
     }
-  }, [reg, testId]);
+  }, [pin, reg, testId]);
 
   useEffect(() => {
     void loadTest();
@@ -155,7 +155,7 @@ export function StudentTestPage() {
     try {
       const r = await apiJson<{ data: TestResult }>(`/api/v1/student/tests/${testId}/submit`, {
         method: 'POST',
-        json: { registration_number: reg, answers: payload },
+        json: { ...studentAuthBody(reg, pin), answers: payload },
       });
       setResult(r.data);
       setPhase('result');
@@ -165,7 +165,7 @@ export function StudentTestPage() {
     } finally {
       setSubmitting(false);
     }
-  }, [answers, questions, reg, submitting, testId]);
+  }, [answers, pin, questions, reg, submitting, testId]);
 
   useEffect(() => {
     if (phase !== 'taking' || !meta?.closes_at) {

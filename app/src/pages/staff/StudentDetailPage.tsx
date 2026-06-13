@@ -211,6 +211,8 @@ export function StudentDetailPage() {
     guardian_relationship: '',
     jbs_level_id: '' as number | '',
   });
+  const [resetPinValue, setResetPinValue] = useState('');
+  const [resetPinResult, setResetPinResult] = useState<string | null>(null);
 
   const load = useCallback(() => {
     if (!studentId) return;
@@ -262,6 +264,32 @@ export function StudentDetailPage() {
       });
       toastSuccess('Student details saved.');
       load();
+    } catch (e) {
+      setError(parseApiError(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const resetPortalPin = async (sendEmail: boolean) => {
+    if (!studentId) return;
+    setSaving(true);
+    setError(null);
+    setResetPinResult(null);
+    try {
+      const r = await apiJson<{ data: { pin: string }; message: string }>(
+        `/api/v1/admin/registrations/${studentId}/pin`,
+        {
+          method: 'PATCH',
+          json: {
+            ...(resetPinValue.trim().length === 4 ? { pin: resetPinValue.trim() } : {}),
+            send_email: sendEmail,
+          },
+        },
+      );
+      setResetPinValue('');
+      setResetPinResult(r.data.pin);
+      toastSuccess(sendEmail ? 'Portal PIN reset and emailed.' : 'Portal PIN reset.');
     } catch (e) {
       setError(parseApiError(e));
     } finally {
@@ -395,6 +423,47 @@ export function StudentDetailPage() {
               <Button variant="contained" onClick={() => void saveProfile()} disabled={saving} sx={{ alignSelf: 'flex-start' }}>
                 {saving ? 'Saving…' : 'Save details'}
               </Button>
+            </Stack>
+          </Paper>
+        </Grid>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Student portal PIN
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Reset the student&apos;s 4-digit portal PIN if they cannot sign in. Leave blank to generate a random PIN.
+            </Typography>
+            <Stack spacing={2}>
+              <TextField
+                label="Set specific PIN (optional)"
+                value={resetPinValue}
+                onChange={(e) => setResetPinValue(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                inputMode="numeric"
+                helperText="4 digits, or leave blank for a random PIN"
+                fullWidth
+              />
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                <Button
+                  variant="contained"
+                  disabled={saving}
+                  onClick={() => void resetPortalPin(true)}
+                >
+                  Reset &amp; email PIN
+                </Button>
+                <Button
+                  variant="outlined"
+                  disabled={saving}
+                  onClick={() => void resetPortalPin(false)}
+                >
+                  Reset only
+                </Button>
+              </Stack>
+              {resetPinResult && (
+                <Alert severity="info">
+                  New PIN: <strong style={{ fontFamily: 'monospace', letterSpacing: '0.15em' }}>{resetPinResult}</strong>
+                </Alert>
+              )}
             </Stack>
           </Paper>
         </Grid>

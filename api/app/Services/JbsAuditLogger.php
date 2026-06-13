@@ -19,6 +19,12 @@ class JbsAuditLogger
     private const SENSITIVE_KEYS = [
         'password',
         'password_confirmation',
+        'pin',
+        'current_pin',
+        'new_pin',
+        'new_pin_confirmation',
+        'portal_pin',
+        'portal_pin_hash',
         'token',
         'remember_token',
     ];

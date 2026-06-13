@@ -277,6 +277,7 @@ CREATE TABLE `jbs_student_registrations` (
   `jbs_session_id` bigint unsigned NOT NULL,
   `jbs_level_id` bigint unsigned NOT NULL,
   `registration_number` varchar(255) NOT NULL,
+  `portal_pin_hash` varchar(255) DEFAULT NULL,
   `first_name` varchar(120) NOT NULL,
   `last_name` varchar(120) NOT NULL,
   `email` varchar(255) DEFAULT NULL COMMENT 'Optional; unique per session when set; stored lowercase',

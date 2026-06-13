@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\V1\Staff\DashboardController as StaffDashboardContr
 use App\Http\Controllers\Api\V1\Staff\MyModulesController;
 use App\Http\Controllers\Api\V1\Student\StudentDocumentController;
 use App\Http\Controllers\Api\V1\Student\StudentLookupController;
+use App\Http\Controllers\Api\V1\Student\StudentPortalPinController;
 use App\Http\Controllers\Api\V1\Student\StudentTestController;
 use Illuminate\Support\Facades\Route;
 
@@ -34,6 +35,7 @@ Route::prefix('v1')->group(function (): void {
 
     Route::prefix('student')->middleware('throttle:60,1')->group(function (): void {
         Route::post('lookup', StudentLookupController::class);
+        Route::patch('pin', [StudentPortalPinController::class, 'update']);
         Route::post('tests/{jbs_test}/questions', [StudentTestController::class, 'questions']);
         Route::post('tests/{jbs_test}/submit', [StudentTestController::class, 'submit']);
         Route::post('documents/id-card', [StudentDocumentController::class, 'idCard']);
@@ -117,6 +119,7 @@ Route::prefix('v1')->group(function (): void {
             Route::get('registrations', [RegistrationAdminController::class, 'index']);
             Route::get('registrations/{jbs_student_registration}', [RegistrationAdminController::class, 'show']);
             Route::patch('registrations/{jbs_student_registration}', [RegistrationAdminController::class, 'update']);
+            Route::patch('registrations/{jbs_student_registration}/pin', [RegistrationAdminController::class, 'resetPin']);
             Route::post('registrations', [RegistrationController::class, 'store']);
 
             // Timetable read + export (assistants may view, not edit).

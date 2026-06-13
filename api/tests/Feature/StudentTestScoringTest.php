@@ -9,12 +9,23 @@ use App\Models\JbsQuestion;
 use App\Models\JbsSession;
 use App\Models\JbsStudentRegistration;
 use App\Models\JbsTest;
+use App\Services\JbsStudentPortalPinService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class StudentTestScoringTest extends TestCase
 {
     use RefreshDatabase;
+
+    private const PORTAL_PIN = '1234';
+
+    private function studentAuth(): array
+    {
+        return [
+            'registration_number' => 'BCC/0001',
+            'pin' => self::PORTAL_PIN,
+        ];
+    }
 
     private function openTestWithQuestion(array $correctIndices): array
     {
@@ -48,7 +59,7 @@ class StudentTestScoringTest extends TestCase
             'position' => 0,
         ]);
 
-        JbsStudentRegistration::query()->create([
+        $registration = JbsStudentRegistration::query()->create([
             'jbs_session_id' => $session->id,
             'jbs_level_id' => $level->id,
             'registration_number' => 'BCC/0001',
@@ -56,6 +67,8 @@ class StudentTestScoringTest extends TestCase
             'last_name' => 'Lovelace',
             'email' => 'ada@example.com',
         ]);
+
+        app(JbsStudentPortalPinService::class)->setPin($registration, self::PORTAL_PIN);
 
         return [$test, $question];
     }
@@ -84,17 +97,14 @@ class StudentTestScoringTest extends TestCase
     {
         [$test, $question] = $this->openTestWithQuestion([2]);
 
-        $this->postJson("/api/v1/student/tests/{$test->id}/questions", [
-            'registration_number' => 'BCC/0001',
-        ])
+        $this->postJson("/api/v1/student/tests/{$test->id}/questions", $this->studentAuth())
             ->assertOk()
             ->assertJsonPath('data.already_submitted', false)
             ->assertJsonPath('data.questions.0.selection_mode', 'single');
 
-        $this->assertSubmitResponseHidesScores($this->postJson("/api/v1/student/tests/{$test->id}/submit", [
-            'registration_number' => 'BCC/0001',
+        $this->assertSubmitResponseHidesScores($this->postJson("/api/v1/student/tests/{$test->id}/submit", array_merge($this->studentAuth(), [
             'answers' => [(string) $question->id => 2],
-        ]));
+        ])));
         $this->assertStoredPercent(100);
     }
 
@@ -102,17 +112,14 @@ class StudentTestScoringTest extends TestCase
     {
         [$test, $question] = $this->openTestWithQuestion([1, 2]);
 
-        $this->postJson("/api/v1/student/tests/{$test->id}/questions", [
-            'registration_number' => 'BCC/0001',
-        ])
+        $this->postJson("/api/v1/student/tests/{$test->id}/questions", $this->studentAuth())
             ->assertOk()
             ->assertJsonPath('data.already_submitted', false)
             ->assertJsonPath('data.questions.0.selection_mode', 'multiple');
 
-        $this->assertSubmitResponseHidesScores($this->postJson("/api/v1/student/tests/{$test->id}/submit", [
-            'registration_number' => 'BCC/0001',
+        $this->assertSubmitResponseHidesScores($this->postJson("/api/v1/student/tests/{$test->id}/submit", array_merge($this->studentAuth(), [
             'answers' => [(string) $question->id => [1, 2]],
-        ]));
+        ])));
         $this->assertStoredPercent(100);
     }
 
@@ -142,10 +149,9 @@ class StudentTestScoringTest extends TestCase
             $answers[(string) $q->id] = $i === 0 ? 0 : 1;
         }
 
-        $this->assertSubmitResponseHidesScores($this->postJson("/api/v1/student/tests/{$test->id}/submit", [
-            'registration_number' => 'BCC/0001',
+        $this->assertSubmitResponseHidesScores($this->postJson("/api/v1/student/tests/{$test->id}/submit", array_merge($this->studentAuth(), [
             'answers' => $answers,
-        ]));
+        ])));
         $this->assertStoredPercent(33);
     }
 
@@ -153,10 +159,9 @@ class StudentTestScoringTest extends TestCase
     {
         [$test, $question] = $this->openTestWithQuestion([1, 2]);
 
-        $this->assertSubmitResponseHidesScores($this->postJson("/api/v1/student/tests/{$test->id}/submit", [
-            'registration_number' => 'BCC/0001',
+        $this->assertSubmitResponseHidesScores($this->postJson("/api/v1/student/tests/{$test->id}/submit", array_merge($this->studentAuth(), [
             'answers' => [(string) $question->id => [2]],
-        ]));
+        ])));
         $this->assertStoredPercent(0);
     }
 
@@ -164,29 +169,24 @@ class StudentTestScoringTest extends TestCase
     {
         [$test, $question] = $this->openTestWithQuestion([2]);
 
-        $this->postJson("/api/v1/student/tests/{$test->id}/submit", [
-            'registration_number' => 'BCC/0001',
+        $this->postJson("/api/v1/student/tests/{$test->id}/submit", array_merge($this->studentAuth(), [
             'answers' => [(string) $question->id => 2],
-        ])->assertOk();
+        ]))->assertOk();
 
-        $this->postJson("/api/v1/student/tests/{$test->id}/submit", [
-            'registration_number' => 'BCC/0001',
+        $this->postJson("/api/v1/student/tests/{$test->id}/submit", array_merge($this->studentAuth(), [
             'answers' => [(string) $question->id => 2],
-        ])->assertStatus(409);
+        ]))->assertStatus(409);
     }
 
     public function test_lookup_excludes_completed_tests_from_open_list(): void
     {
         [$test, $question] = $this->openTestWithQuestion([2]);
 
-        $this->postJson("/api/v1/student/tests/{$test->id}/submit", [
-            'registration_number' => 'BCC/0001',
+        $this->postJson("/api/v1/student/tests/{$test->id}/submit", array_merge($this->studentAuth(), [
             'answers' => [(string) $question->id => 2],
-        ])->assertOk();
+        ]))->assertOk();
 
-        $response = $this->postJson('/api/v1/student/lookup', [
-            'registration_number' => 'BCC/0001',
-        ])->assertOk();
+        $response = $this->postJson('/api/v1/student/lookup', $this->studentAuth())->assertOk();
 
         $response
             ->assertJsonPath('data.open_tests', [])
@@ -202,16 +202,13 @@ class StudentTestScoringTest extends TestCase
     {
         [$test, $question] = $this->openTestWithQuestion([2]);
 
-        $this->postJson("/api/v1/student/tests/{$test->id}/submit", [
-            'registration_number' => 'BCC/0001',
+        $this->postJson("/api/v1/student/tests/{$test->id}/submit", array_merge($this->studentAuth(), [
             'answers' => [(string) $question->id => 2],
-        ])->assertOk();
+        ]))->assertOk();
 
         $test->update(['status' => 'closed', 'closed_at' => now()]);
 
-        $response = $this->postJson("/api/v1/student/tests/{$test->id}/questions", [
-            'registration_number' => 'BCC/0001',
-        ])
+        $response = $this->postJson("/api/v1/student/tests/{$test->id}/questions", $this->studentAuth())
             ->assertOk()
             ->assertJsonPath('data.already_submitted', true);
 
@@ -224,14 +221,11 @@ class StudentTestScoringTest extends TestCase
     {
         [$test, $question] = $this->openTestWithQuestion([2]);
 
-        $this->postJson("/api/v1/student/tests/{$test->id}/submit", [
-            'registration_number' => 'BCC/0001',
+        $this->postJson("/api/v1/student/tests/{$test->id}/submit", array_merge($this->studentAuth(), [
             'answers' => [(string) $question->id => 2],
-        ])->assertOk();
+        ]))->assertOk();
 
-        $response = $this->postJson("/api/v1/student/tests/{$test->id}/questions", [
-            'registration_number' => 'BCC/0001',
-        ])
+        $response = $this->postJson("/api/v1/student/tests/{$test->id}/questions", $this->studentAuth())
             ->assertOk()
             ->assertJsonPath('data.already_submitted', true)
             ->assertJsonPath('data.questions', []);
@@ -241,15 +235,13 @@ class StudentTestScoringTest extends TestCase
 
     public function test_expired_test_closes_automatically_and_rejects_new_attempts(): void
     {
-        [$test, $question] = $this->openTestWithQuestion([0]);
+        [$test] = $this->openTestWithQuestion([0]);
         $test->update([
             'duration_minutes' => 10,
             'opened_at' => now()->subMinutes(11),
         ]);
 
-        $this->postJson("/api/v1/student/tests/{$test->id}/questions", [
-            'registration_number' => 'BCC/0001',
-        ])->assertStatus(403);
+        $this->postJson("/api/v1/student/tests/{$test->id}/questions", $this->studentAuth())->assertStatus(403);
 
         $test->refresh();
         $this->assertSame('closed', $test->status);
@@ -264,9 +256,7 @@ class StudentTestScoringTest extends TestCase
             'opened_at' => now()->subMinutes(2),
         ]);
 
-        $this->postJson("/api/v1/student/tests/{$test->id}/questions", [
-            'registration_number' => 'BCC/0001',
-        ])
+        $this->postJson("/api/v1/student/tests/{$test->id}/questions", $this->studentAuth())
             ->assertOk()
             ->assertJsonPath('data.duration_minutes', 10)
             ->assertJsonStructure(['data' => ['closes_at', 'remaining_seconds', 'server_time']]);
@@ -276,14 +266,11 @@ class StudentTestScoringTest extends TestCase
     {
         [$test, $question] = $this->openTestWithQuestion([2]);
 
-        $this->postJson("/api/v1/student/tests/{$test->id}/submit", [
-            'registration_number' => 'BCC/0001',
+        $this->postJson("/api/v1/student/tests/{$test->id}/submit", array_merge($this->studentAuth(), [
             'answers' => [(string) $question->id => 2],
-        ])->assertOk();
+        ]))->assertOk();
 
-        $progress = $this->postJson('/api/v1/student/lookup', [
-            'registration_number' => 'BCC/0001',
-        ])
+        $progress = $this->postJson('/api/v1/student/lookup', $this->studentAuth())
             ->assertOk()
             ->json('data.progress');
 

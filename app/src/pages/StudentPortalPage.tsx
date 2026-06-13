@@ -12,8 +12,12 @@ import {
   Stack,
   TextField,
   Typography,
+  Box,
 } from '@mui/material';
-import { FormRowButton, InlineFormRow } from '../components/InlineFormRow';
+import { apiJson, downloadPdf, parseApiError } from '../api/http';
+import { toastSuccess } from '../feedback/toast';
+import { IdCardDialog } from '../components/IdCardPreview';
+import { FormRowButton } from '../components/InlineFormRow';
 import { PortalSection } from '../components/PortalSection';
 import {
   StudentModulesTable,
@@ -21,11 +25,15 @@ import {
   type StudentProgressData,
 } from '../components/StudentProgressPanel';
 import { TimetableGrid, type TimetableGridData } from '../components/TimetableGrid';
-import { apiJson, downloadPdf } from '../api/http';
+import {
+  clearStudentSession,
+  getStudentPin,
+  getStudentReg,
+  setStudentSession,
+  studentAuthBody,
+} from '../student/studentSession';
 
-const STUDENT_REG_KEY = 'jbs_student_reg';
-
-type SectionId = 'modules' | 'timetable' | 'openTests' | 'documents';
+type SectionId = 'modules' | 'timetable' | 'openTests' | 'documents' | 'security';
 
 type OpenTest = { test_id: number; module_id: number; module_name: string };
 
@@ -64,6 +72,7 @@ function defaultExpandedSections(lookup: LookupData): Record<SectionId, boolean>
     timetable: lookup.programme_phase === 'ongoing',
     openTests: lookup.open_tests.length > 0,
     documents: false,
+    security: false,
   };
 }
 
@@ -72,7 +81,8 @@ export function StudentPortalPage() {
   const [searchParams] = useSearchParams();
   const regFromUrl = searchParams.get('reg')?.trim() ?? '';
 
-  const [reg, setReg] = useState(() => regFromUrl || sessionStorage.getItem(STUDENT_REG_KEY) || '');
+  const [reg, setReg] = useState(() => regFromUrl || getStudentReg());
+  const [pin, setPin] = useState(() => getStudentPin());
   const [lookup, setLookup] = useState<LookupData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<SectionId, boolean>>({
@@ -80,7 +90,15 @@ export function StudentPortalPage() {
     timetable: false,
     openTests: true,
     documents: false,
+    security: false,
   });
+  const [idCardOpen, setIdCardOpen] = useState(false);
+  const [currentPin, setCurrentPin] = useState('');
+  const [newPin, setNewPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
+  const [pinBusy, setPinBusy] = useState(false);
+  const [pinMessage, setPinMessage] = useState<string | null>(null);
+  const [pinError, setPinError] = useState<string | null>(null);
 
   useEffect(() => {
     if (regFromUrl) {
@@ -88,31 +106,51 @@ export function StudentPortalPage() {
     }
   }, [regFromUrl]);
 
-  const doLookup = async (registrationNumber?: string) => {
+  const doLookup = async (registrationNumber?: string, portalPin?: string) => {
     const num = (registrationNumber ?? reg).trim();
-    if (!num) return;
+    const authPin = (portalPin ?? pin).trim();
+    if (!num || !authPin) {
+      setError('Enter your registration number and 4-digit PIN.');
+      return;
+    }
     setError(null);
     setLookup(null);
     try {
       const r = await apiJson<{ data: LookupData }>('/api/v1/student/lookup', {
         method: 'POST',
-        json: { registration_number: num },
+        json: studentAuthBody(num, authPin),
       });
       setLookup(r.data);
       setExpanded(defaultExpandedSections(r.data));
       setReg(num);
-      sessionStorage.setItem(STUDENT_REG_KEY, num);
-    } catch {
-      setError('Could not find that registration number.');
+      setPin(authPin);
+      setStudentSession(num, authPin);
+    } catch (e) {
+      setError(parseApiError(e) || 'Could not sign in. Check your registration number and PIN.');
     }
   };
 
   useEffect(() => {
-    if (regFromUrl) {
-      void doLookup(regFromUrl);
+    const num = (regFromUrl || getStudentReg()).trim();
+    const authPin = getStudentPin().trim();
+    if (num && authPin) {
+      void doLookup(num, authPin);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only auto-lookup when URL has reg
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- restore session on load or when URL reg changes
   }, [regFromUrl]);
+
+  const signOut = () => {
+    clearStudentSession();
+    setLookup(null);
+    setReg('');
+    setPin('');
+    setError(null);
+    setCurrentPin('');
+    setNewPin('');
+    setConfirmPin('');
+    setPinMessage(null);
+    setPinError(null);
+  };
 
   const setSectionExpanded = (id: SectionId, open: boolean) => {
     setExpanded((prev) => ({ ...prev, [id]: open }));
@@ -122,12 +160,44 @@ export function StudentPortalPage() {
     navigate(`/student/tests/${testId}?reg=${encodeURIComponent(reg)}`);
   };
 
-  const dl = async (kind: 'id-card' | 'statement' | 'certificate') => {
+  const dl = async (kind: 'statement' | 'certificate') => {
     setError(null);
     try {
-      await downloadPdf(`/api/v1/student/documents/${kind}`, { registration_number: reg }, `jbs-${kind}.pdf`);
+      await downloadPdf(
+        `/api/v1/student/documents/${kind}`,
+        studentAuthBody(reg, pin),
+        `jbs-${kind}.pdf`,
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Download failed');
+    }
+  };
+
+  const updatePin = async () => {
+    setPinBusy(true);
+    setPinError(null);
+    setPinMessage(null);
+    try {
+      await apiJson('/api/v1/student/pin', {
+        method: 'PATCH',
+        json: {
+          registration_number: reg,
+          current_pin: currentPin,
+          new_pin: newPin,
+          new_pin_confirmation: confirmPin,
+        },
+      });
+      setPin(newPin);
+      setStudentSession(reg, newPin);
+      setCurrentPin('');
+      setNewPin('');
+      setConfirmPin('');
+      setPinMessage('Your PIN has been updated.');
+      toastSuccess('PIN updated.');
+    } catch (e) {
+      setPinError(parseApiError(e));
+    } finally {
+      setPinBusy(false);
     }
   };
 
@@ -141,20 +211,47 @@ export function StudentPortalPage() {
       <Typography variant="h4" gutterBottom>
         Student portal
       </Typography>
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <InlineFormRow>
-          <TextField
-            fullWidth
-            size="small"
-            label="Registration number"
-            value={reg}
-            onChange={(e) => setReg(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && void doLookup()}
-            sx={{ flex: 1, minWidth: 0 }}
-          />
-          <FormRowButton onClick={() => void doLookup()}>Continue</FormRowButton>
-        </InlineFormRow>
-      </Paper>
+
+      {!lookup && (
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Stack spacing={1}>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={1.5}
+              alignItems={{ xs: 'stretch', sm: 'flex-end' }}
+              useFlexGap
+            >
+              <TextField
+                fullWidth
+                size="small"
+                label="Registration number"
+                value={reg}
+                onChange={(e) => setReg(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && void doLookup()}
+                sx={{ flex: { sm: 1 }, minWidth: { sm: 0 } }}
+              />
+              <TextField
+                size="small"
+                label="PIN"
+                type="password"
+                inputMode="numeric"
+                autoComplete="off"
+                value={pin}
+                onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                onKeyDown={(e) => e.key === 'Enter' && void doLookup()}
+                sx={{
+                  width: { xs: '100%', sm: 132 },
+                  flexShrink: 0,
+                }}
+              />
+              <FormRowButton onClick={() => void doLookup()}>Continue</FormRowButton>
+            </Stack>
+            <Typography variant="caption" color="text.secondary" sx={{ px: 0.5 }}>
+              4-digit PIN from your confirmation email
+            </Typography>
+          </Stack>
+        </Paper>
+      )}
 
       {error && (
         <Typography color="error" sx={{ mb: 2 }}>
@@ -165,11 +262,23 @@ export function StudentPortalPage() {
       {lookup && (
         <Stack spacing={2}>
           <Paper sx={{ p: 3 }}>
-            <Typography variant="h6">{lookup.full_name}</Typography>
-            <Typography color="text.secondary">
-              {lookup.session_name} · {lookup.level_name}
-            </Typography>
-            <Typography sx={{ mt: 1 }}>Reg: {lookup.registration_number}</Typography>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={2}
+              justifyContent="space-between"
+              alignItems={{ xs: 'flex-start', sm: 'center' }}
+            >
+              <Box>
+                <Typography variant="h6">{lookup.full_name}</Typography>
+                <Typography color="text.secondary">
+                  {lookup.session_name} · {lookup.level_name}
+                </Typography>
+                <Typography sx={{ mt: 1 }}>Reg: {lookup.registration_number}</Typography>
+              </Box>
+              <Button variant="outlined" size="small" onClick={signOut} sx={{ flexShrink: 0 }}>
+                Sign out
+              </Button>
+            </Stack>
           </Paper>
 
           <StudentProgressPanel
@@ -248,14 +357,14 @@ export function StudentPortalPage() {
             title="Documents (PDF)"
             subtitle={
               lookup.documents_available
-                ? 'ID card, statement, and certificate'
-                : 'ID card available · statement & certificate after tier completion'
+                ? 'View ID card · download statement and certificate'
+                : 'View ID card · statement & certificate after tier completion'
             }
             expanded={expanded.documents}
             onExpandedChange={(open) => setSectionExpanded('documents', open)}
           >
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <Button variant="outlined" fullWidth onClick={() => void dl('id-card')}>
+              <Button variant="outlined" fullWidth onClick={() => setIdCardOpen(true)}>
                 ID card
               </Button>
               <Button
@@ -276,6 +385,83 @@ export function StudentPortalPage() {
               </Button>
             </Stack>
           </PortalSection>
+
+          <PortalSection
+            title="Portal security"
+            subtitle="Change your 4-digit PIN"
+            expanded={expanded.security}
+            onExpandedChange={(open) => setSectionExpanded('security', open)}
+          >
+            <Stack spacing={2}>
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                spacing={1.5}
+                useFlexGap
+                sx={{ maxWidth: { sm: 720 } }}
+              >
+                <TextField
+                  size="small"
+                  label="Current PIN"
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  value={currentPin}
+                  onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  sx={{ flex: { sm: 1 }, minWidth: { sm: 0 } }}
+                  fullWidth
+                />
+                <TextField
+                  size="small"
+                  label="New PIN"
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  value={newPin}
+                  onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  sx={{ flex: { sm: 1 }, minWidth: { sm: 0 } }}
+                  fullWidth
+                />
+                <TextField
+                  size="small"
+                  label="Confirm new PIN"
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  value={confirmPin}
+                  onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  sx={{ flex: { sm: 1 }, minWidth: { sm: 0 } }}
+                  fullWidth
+                />
+              </Stack>
+              <Button
+                variant="contained"
+                disabled={
+                  pinBusy ||
+                  currentPin.length !== 4 ||
+                  newPin.length !== 4 ||
+                  confirmPin.length !== 4
+                }
+                onClick={() => void updatePin()}
+                sx={{ alignSelf: 'flex-start' }}
+              >
+                {pinBusy ? 'Updating…' : 'Update PIN'}
+              </Button>
+              {pinMessage && <Alert severity="success">{pinMessage}</Alert>}
+              {pinError && <Alert severity="error">{pinError}</Alert>}
+            </Stack>
+          </PortalSection>
+
+          <IdCardDialog
+            open={idCardOpen}
+            onClose={() => setIdCardOpen(false)}
+            participant={{
+              registration_number: lookup.registration_number,
+              participant_name: lookup.full_name,
+              session_name: lookup.session_name,
+              level_name: lookup.level_name,
+            }}
+            pin={pin}
+          />
         </Stack>
       )}
     </Container>

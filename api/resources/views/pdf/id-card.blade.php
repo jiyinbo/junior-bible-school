@@ -127,10 +127,10 @@
                     </tr></table>
                 </td>
             </tr>
-            {{-- Level --}}
+            {{-- Tier --}}
             <tr>
                 <td style="padding-bottom:2.5mm;text-align:center;">
-                    <div style="font-size:5pt;font-weight:bold;color:{{ $navy }};letter-spacing:0.5pt;">LEVEL</div>
+                    <div style="font-size:5pt;font-weight:bold;color:{{ $navy }};letter-spacing:0.5pt;">TIER</div>
                     <div style="font-size:6.5pt;font-weight:bold;color:#111;margin-top:0.6mm;line-height:1.1;">{{ $levelLabel }}</div>
                 </td>
             </tr>

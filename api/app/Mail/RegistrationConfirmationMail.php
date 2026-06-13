@@ -15,6 +15,7 @@ class RegistrationConfirmationMail extends Mailable
 
     public function __construct(
         public JbsStudentRegistration $registration,
+        public string $portalPin,
     ) {}
 
     public function envelope(): Envelope
@@ -31,6 +32,7 @@ class RegistrationConfirmationMail extends Mailable
             with: [
                 'studentName' => $this->registration->fullName(),
                 'registrationNumber' => $this->registration->registration_number,
+                'portalPin' => $this->portalPin,
                 'levelName' => $this->registration->level->name,
                 'studentPortalUrl' => rtrim((string) config('jbs.student_portal_url'), '/'),
                 'contactEmail' => (string) config('jbs.contact_email'),

@@ -54,6 +54,7 @@ export type EnrolledParticipant = {
   participant_name: string;
   session_name: string;
   level_name: string;
+  portal_pin: string;
 };
 
 export const emptyChild = (levelId: number | '' = ''): ChildForm => ({

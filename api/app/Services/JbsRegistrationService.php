@@ -12,6 +12,7 @@ class JbsRegistrationService
 {
     public function __construct(
         private JbsRegistrationValidationService $validation,
+        private JbsStudentPortalPinService $portalPin,
     ) {}
 
     public function normalizeEmail(string $email): string
@@ -160,7 +161,7 @@ class JbsRegistrationService
     ): JbsStudentRegistration {
         $registrationNumber = $this->issueRegistrationNumber($level);
 
-        return JbsStudentRegistration::query()->create([
+        $registration = JbsStudentRegistration::query()->create([
             'jbs_session_id' => $level->jbs_session_id,
             'jbs_level_id' => $level->id,
             'registration_number' => $registrationNumber,
@@ -193,6 +194,10 @@ class JbsRegistrationService
             'next_of_kin_email' => $this->optionalEmail($data['next_of_kin_email'] ?? null),
             'registered_after_close' => $afterClose,
         ]);
+
+        $this->portalPin->assignRandomPin($registration);
+
+        return $registration;
     }
 
     /**

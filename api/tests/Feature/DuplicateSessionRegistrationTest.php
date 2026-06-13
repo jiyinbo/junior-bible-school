@@ -126,6 +126,8 @@ class DuplicateSessionRegistrationTest extends TestCase
             'email' => 'child2@example.com',
             'guardian_email' => 'jane.parent@example.com',
         ]);
+
+        $this->assertSame(2, JbsStudentRegistration::query()->whereNotNull('portal_pin_hash')->count());
     }
 
     public function test_child_phone_and_email_are_optional(): void

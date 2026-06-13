@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api\V1\Student;
 
 use App\Http\Controllers\Controller;
 use App\Models\JbsAttempt;
-use App\Models\JbsStudentRegistration;
+use App\Services\JbsStudentPortalPinService;
 use App\Services\JbsStudentProgressService;
 use App\Services\JbsTimetableGridService;
 use Illuminate\Http\JsonResponse;
@@ -15,22 +15,16 @@ class StudentLookupController extends Controller
     public function __construct(
         private JbsStudentProgressService $progress,
         private JbsTimetableGridService $timetableGrid,
+        private JbsStudentPortalPinService $portalPin,
     ) {}
 
     public function __invoke(Request $request): JsonResponse
     {
-        $data = $request->validate([
-            'registration_number' => ['required', 'string', 'max:191'],
+        $reg = $this->portalPin->resolveRegistration($request, [
+            'session',
+            'level.modules.test',
+            'level.modules.assignment.teacher',
         ]);
-
-        $reg = JbsStudentRegistration::query()
-            ->where('registration_number', trim($data['registration_number']))
-            ->with(['session', 'level.modules.test', 'level.modules.assignment.teacher'])
-            ->first();
-
-        if (! $reg) {
-            return response()->json(['message' => 'Registration not found.'], 404);
-        }
 
         $submittedByTestId = JbsAttempt::query()
             ->where('jbs_student_registration_id', $reg->id)

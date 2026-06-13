@@ -8,24 +8,20 @@ use App\Models\JbsModuleScoreOutcome;
 use App\Models\JbsQuestion;
 use App\Models\JbsStudentRegistration;
 use App\Models\JbsTest;
+use App\Services\JbsStudentPortalPinService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class StudentTestController extends Controller
 {
+    public function __construct(
+        private JbsStudentPortalPinService $portalPin,
+    ) {}
+
     private function resolveRegistration(Request $request): JbsStudentRegistration
     {
-        $num = trim((string) $request->input('registration_number'));
-        abort_unless($num !== '', 422, 'registration_number required');
-
-        $reg = JbsStudentRegistration::query()
-            ->where('registration_number', $num)
-            ->with(['level.modules', 'session', 'level'])
-            ->first();
-        abort_if(! $reg, 404, 'Registration not found.');
-
-        return $reg;
+        return $this->portalPin->resolveRegistration($request, ['level.modules', 'session', 'level']);
     }
 
     private function assertTestBelongsToRegistration(JbsTest $test, JbsStudentRegistration $reg): void

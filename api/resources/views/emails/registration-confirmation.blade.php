@@ -17,6 +17,9 @@
                     </tr>
                     <tr>
                         <td style="padding:32px;">
+                            <p style="margin:0 0 20px; padding:12px 14px; font-size:13px; line-height:1.6; color:#92400e; background-color:#fffbeb; border:1px solid #fcd34d; border-radius:8px;">
+                                <strong>NOTE:</strong> This email was sent from a no-reply address, which means any responses sent here will not be received or monitored.
+                            </p>
                             <p style="margin:0 0 16px; font-size:15px; line-height:1.65;">
                                 Dear {{ $studentName }},
                             </p>
@@ -31,6 +34,10 @@
                                 <tr>
                                     <td style="padding:4px 0; color:#6b7280; width:42%; vertical-align:top;">Registration Number</td>
                                     <td style="padding:4px 0; font-weight:700; color:#1e3a8a;">{{ $registrationNumber }}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:4px 0; color:#6b7280; vertical-align:top;">Portal PIN</td>
+                                    <td style="padding:4px 0; font-weight:700; color:#1e3a8a; font-family:monospace; letter-spacing:2px;">{{ $portalPin }}</td>
                                 </tr>
                                 <tr>
                                     <td style="padding:4px 0; color:#6b7280; vertical-align:top;">Tier</td>
@@ -61,7 +68,7 @@
                             </table>
 
                             <p style="margin:0 0 16px; font-size:15px; line-height:1.65;">
-                                Our dedicated Student Portal contains more information about the programme, including details about your modules, ID card, timetable, and more. Please note that some of these details will become available closer to the start date. You can access the Student Portal using the link below:
+                                Our dedicated Student Portal contains more information about the programme, including details about your modules, ID card, timetable, and more. Please note that some of these details will become available closer to the start date. You will need your registration number and portal PIN to sign in. Please keep your PIN safe and do not share it publicly. You can access the Student Portal using the link below:
                             </p>
                             <p style="margin:0 0 20px; font-size:15px; line-height:1.65;">
                                 <a href="{{ $studentPortalUrl }}" style="color:#1e3a8a; font-weight:600;">{{ $studentPortalUrl }}</a>
@@ -84,7 +91,7 @@
                     <tr>
                         <td style="background-color:#f9fafb; padding:20px 32px; border-top:1px solid #e5e7eb;">
                             <p style="margin:0; font-size:12px; color:#9ca3af;">
-                                This is an automated message confirming your registration. Please do not share your registration number publicly.
+                                This is an automated message confirming your registration. Please keep your registration number and portal PIN safe and do not share them publicly.
                             </p>
                         </td>
                     </tr>

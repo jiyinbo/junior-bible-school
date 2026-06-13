@@ -10,6 +10,7 @@ use App\Models\JbsStudentRegistration;
 use App\Services\JbsIdCardPdfService;
 use App\Services\JbsQrService;
 use App\Services\JbsRegistrationService;
+use App\Services\JbsStudentPortalPinService;
 use App\Services\JbsStudentProgressService;
 use RuntimeException;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -26,6 +27,7 @@ class RegistrationAdminController extends Controller
         private JbsRegistrationService $registrationService,
         private JbsQrService $qr,
         private JbsIdCardPdfService $idCardPdf,
+        private JbsStudentPortalPinService $portalPin,
     ) {}
 
   /**
@@ -377,6 +379,38 @@ class RegistrationAdminController extends Controller
                 'id' => $reg->id,
                 'level_completed' => $reg->level_completed,
                 'progress' => $this->progress->summary($reg),
+            ],
+        ]);
+    }
+
+    public function resetPin(Request $request, JbsStudentRegistration $jbs_student_registration): JsonResponse
+    {
+        $data = $request->validate([
+            'pin' => ['nullable', 'string', 'digits:4'],
+            'send_email' => ['sometimes', 'boolean'],
+        ]);
+
+        $pin = $data['pin'] ?? $this->portalPin->generatePin();
+        $this->portalPin->setPin($jbs_student_registration, $pin);
+
+        if ($data['send_email'] ?? true) {
+            $this->portalPin->emailPin($jbs_student_registration, $pin);
+        }
+
+        $this->audit()->record(
+            'registration.portal_pin_reset',
+            $request,
+            $jbs_student_registration,
+            subjectLabel: $jbs_student_registration->registration_number,
+            metadata: [
+                'emailed' => (bool) ($data['send_email'] ?? true),
+            ],
+        );
+
+        return response()->json([
+            'message' => 'Portal PIN updated.',
+            'data' => [
+                'pin' => $pin,
             ],
         ]);
     }
