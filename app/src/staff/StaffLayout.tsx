@@ -195,10 +195,12 @@ export function StaffLayout() {
         component="main"
         sx={{
           flexGrow: 1,
-          width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
+          minWidth: 0,
+          width: { xs: '100%', md: `calc(100% - ${DRAWER_WIDTH}px)` },
+          maxWidth: { xs: '100%', md: 1100 },
+          boxSizing: 'border-box',
           p: { xs: 2, sm: 3 },
           mt: 8,
-          maxWidth: 1100,
         }}
       >
         <Outlet />

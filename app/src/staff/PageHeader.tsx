@@ -20,13 +20,13 @@ export function PageHeader({ title, subtitle, action }: Props) {
         mb: subtitle ? 1 : 0,
       }}
     >
-      <Typography variant="h4" sx={{ mb: 0 }}>
+      <Typography variant="h4" sx={{ mb: 0, wordBreak: 'break-word' }}>
         {title}
       </Typography>
       {action}
     </Box>
     {subtitle && (
-      <Typography variant="body2" color="text.secondary">
+      <Typography variant="body2" color="text.secondary" sx={{ wordBreak: 'break-word' }}>
         {subtitle}
       </Typography>
     )}

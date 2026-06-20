@@ -82,30 +82,52 @@ class RegistrationAdminController extends Controller
         return $query;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    private function registrationListRow(JbsStudentRegistration $reg): array
+    {
+        $summary = $this->progress->summary($reg);
+
+        return [
+            'id' => $reg->id,
+            'registration_number' => $reg->registration_number,
+            'full_name' => $reg->fullName(),
+            'email' => $reg->email,
+            'session_name' => $reg->session->name,
+            'level_name' => $reg->level->name,
+            'allergies' => $reg->allergies,
+            'level_completed' => $summary['level_completed'],
+            'programme_phase' => $summary['programme_phase'],
+            'attendance_days' => $summary['attendance_days'],
+            'tests_taken' => $summary['tests_taken'],
+            'tests_passed' => $summary['tests_passed'],
+            'tests_total' => $summary['tests_total'],
+        ];
+    }
+
     public function index(Request $request): JsonResponse
     {
         $filters = $this->filterParams($request);
-        $rows = $this->filteredQuery($filters)->limit(500)->get();
+        $pagination = $request->validate([
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+        $perPage = (int) ($pagination['per_page'] ?? 25);
+        $page = (int) ($pagination['page'] ?? 1);
+
+        $paginator = $this->filteredQuery($filters)->paginate(perPage: $perPage, page: $page);
 
         return response()->json([
-            'data' => $rows->map(function (JbsStudentRegistration $reg) {
-                $summary = $this->progress->summary($reg);
-
-                return [
-                    'id' => $reg->id,
-                    'registration_number' => $reg->registration_number,
-                    'full_name' => $reg->fullName(),
-                    'email' => $reg->email,
-                    'session_name' => $reg->session->name,
-                    'level_name' => $reg->level->name,
-                    'allergies' => $reg->allergies,
-                    'level_completed' => $summary['level_completed'],
-                    'attendance_days' => $summary['attendance_days'],
-                    'tests_taken' => $summary['tests_taken'],
-                    'tests_passed' => $summary['tests_passed'],
-                    'tests_total' => $summary['tests_total'],
-                ];
-            }),
+            'data' => $paginator->getCollection()->map(fn (JbsStudentRegistration $reg) => $this->registrationListRow($reg)),
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+                'from' => $paginator->firstItem(),
+                'to' => $paginator->lastItem(),
+            ],
         ]);
     }
 

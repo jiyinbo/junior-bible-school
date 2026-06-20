@@ -12,14 +12,14 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableContainer,
   TableHead,
+  TablePagination,
   TableRow,
   TextField,
   Typography,
 } from '@mui/material';
 import {
-  DetailRow,
-  ListCard,
   EmptyTableMessage,
   ResponsiveTableLayout,
 } from '../../components/ResponsiveTableLayout';
@@ -39,68 +39,198 @@ type StudentRow = {
   level_name: string;
   allergies: string | null;
   level_completed: boolean;
+  programme_phase: string;
   attendance_days: number;
   tests_taken: number;
   tests_passed: number;
   tests_total: number;
 };
 
+type ListMeta = {
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+  from: number | null;
+  to: number | null;
+};
+
+const ROWS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
+
+function studentStatusDisplay(row: StudentRow): { label: string; color: 'default' | 'success' } {
+  if (row.level_completed) {
+    return { label: 'Completed', color: 'success' };
+  }
+  if (row.programme_phase === 'upcoming') {
+    return { label: 'Not started', color: 'default' };
+  }
+  return { label: 'In progress', color: 'default' };
+}
+
+function StudentStatusChip({ row }: { row: StudentRow }) {
+  const { label, color } = studentStatusDisplay(row);
+  return <Chip size="small" label={label} color={color} />;
+}
+
+function StudentRowActions({
+  studentId,
+  layout = 'links',
+}: {
+  studentId: number;
+  layout?: 'links' | 'buttons' | 'compact-buttons';
+}) {
+  if (layout === 'buttons') {
+    return (
+      <Stack direction="row" spacing={1}>
+        <Button component={RouterLink} to={`/staff/students/${studentId}`} variant="outlined" size="small" fullWidth>
+          View
+        </Button>
+        <Button component={RouterLink} to={`/staff/students/${studentId}/edit`} variant="contained" size="small" fullWidth>
+          Edit
+        </Button>
+      </Stack>
+    );
+  }
+
+  if (layout === 'compact-buttons') {
+    return (
+      <Stack direction="row" spacing={1} justifyContent="flex-end">
+        <Button component={RouterLink} to={`/staff/students/${studentId}`} variant="outlined" size="small">
+          View
+        </Button>
+        <Button component={RouterLink} to={`/staff/students/${studentId}/edit`} variant="contained" size="small">
+          Edit
+        </Button>
+      </Stack>
+    );
+  }
+
+  return (
+    <Stack direction="row" spacing={1.5} justifyContent="flex-end" flexWrap="wrap">
+      <Typography
+        component={RouterLink}
+        to={`/staff/students/${studentId}`}
+        variant="body2"
+        sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}
+      >
+        View
+      </Typography>
+      <Typography
+        component={RouterLink}
+        to={`/staff/students/${studentId}/edit`}
+        variant="body2"
+        sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}
+      >
+        Edit
+      </Typography>
+    </Stack>
+  );
+}
+
+function StudentTableRow({ row }: { row: StudentRow }) {
+  return (
+    <TableRow hover>
+      <TableCell sx={{ minWidth: 220 }}>
+        <Typography fontWeight={600}>{row.full_name}</Typography>
+        <Typography variant="caption" color="text.secondary" display="block" sx={{ wordBreak: 'break-all' }}>
+          {row.registration_number}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" display="block" sx={{ wordBreak: 'break-all' }}>
+          {row.email}
+        </Typography>
+      </TableCell>
+      <TableCell sx={{ whiteSpace: 'nowrap' }}>{row.level_name}</TableCell>
+      <TableCell sx={{ minWidth: 120 }}>
+        <Typography variant="body2">{row.attendance_days} days</Typography>
+        <Typography variant="caption" color="text.secondary" display="block">
+          {row.tests_passed}/{row.tests_taken} of {row.tests_total} tests
+        </Typography>
+      </TableCell>
+      <TableCell>
+        <StudentStatusChip row={row} />
+      </TableCell>
+      <TableCell sx={{ maxWidth: 220 }}>
+        {row.allergies ? (
+          <Typography variant="body2" color="error.main" sx={{ wordBreak: 'break-word' }}>
+            {row.allergies}
+          </Typography>
+        ) : null}
+      </TableCell>
+      <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+        <StudentRowActions studentId={row.id} layout="compact-buttons" />
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function StudentCardStat({ label, value }: { label: string; value: string | number }) {
+  return (
+    <Box
+      sx={{
+        px: 1.25,
+        py: 1,
+        borderRadius: 1,
+        bgcolor: 'grey.50',
+        border: 1,
+        borderColor: 'divider',
+      }}
+    >
+      <Typography variant="caption" color="text.secondary" display="block">
+        {label}
+      </Typography>
+      <Typography variant="body2" fontWeight={600}>
+        {value}
+      </Typography>
+    </Box>
+  );
+}
+
 function StudentCard({ row }: { row: StudentRow }) {
   return (
-    <ListCard
-      action={
-        <Typography
-          component={RouterLink}
-          to={`/staff/students/${row.id}`}
-          variant="body2"
-          sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}
-        >
-          View
-        </Typography>
-      }
-    >
-      <Typography fontWeight={600}>{row.full_name}</Typography>
-      <Typography variant="caption" color="text.secondary" display="block">
-        {row.email}
-      </Typography>
-      <Stack spacing={0.25} sx={{ mt: 1.5 }}>
-        <DetailRow label="Reg #">
-          <Typography variant="body2">{row.registration_number}</Typography>
-        </DetailRow>
-        <DetailRow label="Tier">
+    <Paper variant="outlined" sx={{ p: 2 }}>
+      <Stack spacing={1.5}>
+        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={1}>
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Typography fontWeight={600} sx={{ lineHeight: 1.3 }}>
+              {row.full_name}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.25, wordBreak: 'break-all' }}>
+              {row.registration_number}
+            </Typography>
+          </Box>
+          <StudentStatusChip row={row} />
+        </Stack>
+
+        <Stack spacing={0.25}>
           <Typography variant="body2">{row.level_name}</Typography>
-        </DetailRow>
-        <DetailRow label="Session">
-          <Typography variant="body2">{row.session_name}</Typography>
-        </DetailRow>
-        <DetailRow label="Allergies / medical">
-          {row.allergies ? (
-            <Typography variant="body2" color="error.main">
-              {row.allergies}
-            </Typography>
-          ) : (
-            <Typography variant="body2" color="text.secondary">
-              —
-            </Typography>
-          )}
-        </DetailRow>
-        <DetailRow label="Attendance">
-          <Typography variant="body2">{row.attendance_days}</Typography>
-        </DetailRow>
-        <DetailRow label="Tests">
-          <Typography variant="body2">
-            {row.tests_passed}/{row.tests_taken} of {row.tests_total}
+          <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-all' }}>
+            {row.email}
           </Typography>
-        </DetailRow>
-        <DetailRow label="Status">
-          <Chip
-            size="small"
-            label={row.level_completed ? 'Completed' : 'In progress'}
-            color={row.level_completed ? 'success' : 'default'}
+        </Stack>
+
+        {row.allergies && (
+          <Typography variant="body2" color="error.main" sx={{ wordBreak: 'break-word' }}>
+            {row.allergies}
+          </Typography>
+        )}
+
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(2, 1fr)',
+            gap: 1,
+          }}
+        >
+          <StudentCardStat label="Attendance" value={row.attendance_days} />
+          <StudentCardStat
+            label="Tests"
+            value={`${row.tests_passed}/${row.tests_taken} of ${row.tests_total}`}
           />
-        </DetailRow>
+        </Box>
+
+        <StudentRowActions studentId={row.id} layout="buttons" />
       </Stack>
-    </ListCard>
+    </Paper>
   );
 }
 
@@ -114,8 +244,21 @@ export function StudentsPage() {
   const [completedFilter, setCompletedFilter] = useState<'' | 'yes' | 'no'>('');
   const [allergiesOnly, setAllergiesOnly] = useState(false);
   const [rows, setRows] = useState<StudentRow[]>([]);
+  const [meta, setMeta] = useState<ListMeta>({
+    current_page: 1,
+    last_page: 1,
+    per_page: 25,
+    total: 0,
+    from: null,
+    to: null,
+  });
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+
+  const resetPage = () => setPage(0);
 
   useEffect(() => {
     apiJson<{ data: SessionOption[] }>('/api/v1/admin/sessions')
@@ -143,14 +286,18 @@ export function StudentsPage() {
     if (completedFilter === 'yes') params.set('level_completed', '1');
     if (completedFilter === 'no') params.set('level_completed', '0');
     if (allergiesOnly) params.set('has_allergies', '1');
-    const q = params.toString() ? `?${params}` : '';
-    apiJson<{ data: StudentRow[] }>(`/api/v1/admin/registrations${q}`)
+    params.set('page', String(page + 1));
+    params.set('per_page', String(rowsPerPage));
+    setLoading(true);
+    apiJson<{ data: StudentRow[]; meta: ListMeta }>(`/api/v1/admin/registrations?${params}`)
       .then((r) => {
         setRows(r.data);
+        setMeta(r.meta);
         setError(null);
       })
-      .catch(() => setError('Could not load students.'));
-  }, [sessionId, levelId, query, completedFilter, allergiesOnly]);
+      .catch(() => setError('Could not load students.'))
+      .finally(() => setLoading(false));
+  }, [sessionId, levelId, query, completedFilter, allergiesOnly, page, rowsPerPage]);
 
   useEffect(() => {
     load();
@@ -219,7 +366,10 @@ export function StudentsPage() {
             label="Session"
             size="small"
             value={sessionId}
-            onChange={(e) => setSessionId(e.target.value === '' ? '' : Number(e.target.value))}
+            onChange={(e) => {
+              setSessionId(e.target.value === '' ? '' : Number(e.target.value));
+              resetPage();
+            }}
             fullWidth
           >
             <MenuItem value="">All sessions</MenuItem>
@@ -234,7 +384,10 @@ export function StudentsPage() {
             label="Tier"
             size="small"
             value={levelId}
-            onChange={(e) => setLevelId(e.target.value === '' ? '' : Number(e.target.value))}
+            onChange={(e) => {
+              setLevelId(e.target.value === '' ? '' : Number(e.target.value));
+              resetPage();
+            }}
             disabled={levels.length === 0}
             fullWidth
           >
@@ -250,7 +403,10 @@ export function StudentsPage() {
             label="Completion"
             size="small"
             value={completedFilter}
-            onChange={(e) => setCompletedFilter(e.target.value as '' | 'yes' | 'no')}
+            onChange={(e) => {
+              setCompletedFilter(e.target.value as '' | 'yes' | 'no');
+              resetPage();
+            }}
             fullWidth
           >
             <MenuItem value="">All</MenuItem>
@@ -262,7 +418,10 @@ export function StudentsPage() {
             label="Allergies / medical"
             size="small"
             value={allergiesOnly ? 'yes' : ''}
-            onChange={(e) => setAllergiesOnly(e.target.value === 'yes')}
+            onChange={(e) => {
+              setAllergiesOnly(e.target.value === 'yes');
+              resetPage();
+            }}
             fullWidth
           >
             <MenuItem value="">All</MenuItem>
@@ -272,7 +431,10 @@ export function StudentsPage() {
             label="Search"
             size="small"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              resetPage();
+            }}
             placeholder="Name, email, reg #"
             fullWidth
             sx={{ gridColumn: '1 / -1' }}
@@ -282,78 +444,74 @@ export function StudentsPage() {
 
       <Paper sx={{ p: { xs: 2, md: 0 }, overflow: 'hidden' }}>
         <ResponsiveTableLayout
-          isEmpty={rows.length === 0}
+          isEmpty={!loading && rows.length === 0}
           empty={<EmptyTableMessage>No students match your filters.</EmptyTableMessage>}
           table={
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Student</TableCell>
-                  <TableCell>Reg #</TableCell>
-                  <TableCell>Tier</TableCell>
-                  <TableCell>Allergies / medical</TableCell>
-                  <TableCell align="center">Attendance</TableCell>
-                  <TableCell align="center">Tests</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell align="right" />
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {rows.map((row) => (
-                  <TableRow key={row.id} hover>
-                    <TableCell>
-                      <Typography fontWeight={600}>{row.full_name}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {row.email}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>{row.registration_number}</TableCell>
-                    <TableCell>
-                      {row.level_name}
-                      <Typography variant="caption" display="block" color="text.secondary">
-                        {row.session_name}
-                      </Typography>
-                    </TableCell>
-                    <TableCell sx={{ maxWidth: 240 }}>
-                      {row.allergies ? (
-                        <Typography variant="body2" color="error.main">
-                          {row.allergies}
-                        </Typography>
-                      ) : (
-                        <Typography variant="caption" color="text.secondary">
-                          —
-                        </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell align="center">{row.attendance_days}</TableCell>
-                    <TableCell align="center">
-                      {row.tests_passed}/{row.tests_taken} of {row.tests_total}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        size="small"
-                        label={row.level_completed ? 'Completed' : 'In progress'}
-                        color={row.level_completed ? 'success' : 'default'}
-                      />
-                    </TableCell>
-                    <TableCell align="right">
-                      <Typography
-                        component={RouterLink}
-                        to={`/staff/students/${row.id}`}
-                        variant="body2"
-                        sx={{ fontWeight: 600 }}
-                      >
-                        View
-                      </Typography>
-                    </TableCell>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Student</TableCell>
+                    <TableCell>Tier</TableCell>
+                    <TableCell>Progress</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Allergies / medical</TableCell>
+                    <TableCell align="right" />
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHead>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={6}>
+                        <Typography color="text.secondary" sx={{ py: 2 }}>
+                          Loading students…
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    rows.map((row) => <StudentTableRow key={row.id} row={row} />)
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
           }
-          cards={rows.map((row) => (
-            <StudentCard key={row.id} row={row} />
-          ))}
+          cards={
+            loading ? (
+              <Typography color="text.secondary" sx={{ py: 1 }}>
+                Loading students…
+              </Typography>
+            ) : (
+              rows.map((row) => <StudentCard key={row.id} row={row} />)
+            )
+          }
+        />
+        <TablePagination
+          component="div"
+          count={meta.total}
+          page={page}
+          onPageChange={(_, nextPage) => setPage(nextPage)}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={(e) => {
+            setRowsPerPage(Number(e.target.value));
+            setPage(0);
+          }}
+          rowsPerPageOptions={ROWS_PER_PAGE_OPTIONS}
+          labelDisplayedRows={({ from, to, count }) =>
+            count === 0 ? '0 students' : `${from}–${to} of ${count}`
+          }
+          sx={{
+            borderTop: 1,
+            borderColor: 'divider',
+            px: { xs: 0, md: 2 },
+            '.MuiTablePagination-toolbar': {
+              flexWrap: 'wrap',
+              gap: 1,
+              px: { xs: 0, md: 2 },
+            },
+            '.MuiTablePagination-selectLabel, .MuiTablePagination-displayedRows': {
+              m: 0,
+            },
+          }}
         />
       </Paper>
     </>
