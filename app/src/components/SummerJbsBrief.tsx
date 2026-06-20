@@ -127,6 +127,9 @@ const GRADUATION_PARAS = [
 const IMPARTATION =
   'The teachings culminate in a powerful time of impartation, where students receive spiritual reinforcement and prayer for personal growth. On the final day of lectures i.e., Friday afternoon, attendees will have the opportunity to be baptised in the Holy Spirit, as well as to publicly declare their faith through water baptism by immersion, sealing their experience with a tangible step of spiritual commitment.';
 
+const BAPTISM =
+  'Participants at JBS are given the opportunity to be baptised in water by immersion and receive the baptism of the Holy Ghost with the evidence of speaking in tongues, following the Impartation service. Those taking part in water baptism will be required to register and bring a change of clothing. A certificate of water baptism will be issued by the church to all participants.';
+
 type TierTab = 'basic' | 'advanced' | 'masterclass';
 
 function CourseList({ courses }: { courses: readonly string[] }) {
@@ -347,6 +350,10 @@ export function SummerJbsBrief() {
 
         <BriefAccordion id="impartation" title="Impartation:">
           <BodyText>{IMPARTATION}</BodyText>
+        </BriefAccordion>
+
+        <BriefAccordion id="baptism" title="Water Baptism and Holy Ghost Baptism:">
+          <BodyText>{BAPTISM}</BodyText>
         </BriefAccordion>
 
         <BriefAccordion id="graduation" title="Graduation:">

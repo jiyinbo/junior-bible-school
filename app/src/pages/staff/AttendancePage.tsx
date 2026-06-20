@@ -22,7 +22,6 @@ import {
   EmptyTableMessage,
   ResponsiveTableLayout,
 } from '../../components/ResponsiveTableLayout';
-import { toastSuccess } from '../../feedback/toast';
 import { apiJson, parseApiError } from '../../api/http';
 import { PageHeader } from '../../staff/PageHeader';
 import { useStaffAuth } from '../../staff/StaffAuthContext';
@@ -42,6 +41,49 @@ type LogRow = {
   level: string;
   recorded_by: string;
 };
+
+type ScanResult = {
+  message: string;
+  already_logged: boolean;
+  registration_number: string;
+  student_name: string;
+  level: string;
+  recorded_at: string;
+};
+
+function ScanResultAlert({
+  result,
+  onClose,
+}: {
+  result: ScanResult;
+  onClose: () => void;
+}) {
+  return (
+    <Alert
+      severity={result.already_logged ? 'info' : 'success'}
+      onClose={onClose}
+      sx={{ mb: 2 }}
+    >
+      <Typography fontWeight={600} gutterBottom>
+        {result.message}
+      </Typography>
+      <Stack spacing={0.25} sx={{ mt: 1 }}>
+        <DetailRow label="Name">
+          <Typography variant="body2">{result.student_name}</Typography>
+        </DetailRow>
+        <DetailRow label="Reg #">
+          <Typography variant="body2">{result.registration_number}</Typography>
+        </DetailRow>
+        <DetailRow label="Tier">
+          <Typography variant="body2">{result.level}</Typography>
+        </DetailRow>
+        <DetailRow label="Recorded">
+          <Typography variant="body2">{formatRecordedAt(result.recorded_at)}</Typography>
+        </DetailRow>
+      </Stack>
+    </Alert>
+  );
+}
 
 function formatRecordedAt(iso: string): string {
   const d = new Date(iso);
@@ -85,6 +127,7 @@ export function AttendancePage() {
   const [sessionFilter, setSessionFilter] = useState<number | ''>('');
   const [logs, setLogs] = useState<LogRow[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [scanResult, setScanResult] = useState<ScanResult | null>(null);
 
   const loadStatus = () => {
     apiJson<{ data: AttendanceStatus }>('/api/v1/staff/attendance/status')
@@ -117,15 +160,19 @@ export function AttendancePage() {
     if (!regNum.trim()) return;
     setError(null);
     try {
-      const r = await apiJson<{ message: string }>('/api/v1/staff/attendance/scan', {
-        method: 'POST',
-        json: { registration_number: regNum.trim() },
-      });
-      toastSuccess(r.message);
+      const r = await apiJson<{ message: string; data: Omit<ScanResult, 'message'> }>(
+        '/api/v1/staff/attendance/scan',
+        {
+          method: 'POST',
+          json: { registration_number: regNum.trim() },
+        },
+      );
+      setScanResult({ message: r.message, ...r.data });
       setRegNum('');
       loadStatus();
       if (isAdmin && tab === 1) loadLogs();
     } catch (e) {
+      setScanResult(null);
       setError(parseApiError(e));
     }
   };
@@ -156,7 +203,11 @@ export function AttendancePage() {
       )}
 
       {(!isAdmin || tab === 0) && (
-        <Paper sx={{ p: 3, maxWidth: 420 }}>
+        <>
+          {scanResult && (
+            <ScanResultAlert result={scanResult} onClose={() => setScanResult(null)} />
+          )}
+          <Paper sx={{ p: 3, maxWidth: 420 }}>
           <Stack spacing={2}>
             <TextField
               label="Registration number"
@@ -173,6 +224,7 @@ export function AttendancePage() {
             </Button>
           </Stack>
         </Paper>
+        </>
       )}
 
       {isAdmin && tab === 1 && (

@@ -80,7 +80,7 @@ class AttendanceController extends Controller
 
         $reg = JbsStudentRegistration::query()
             ->where('registration_number', trim($data['registration_number']))
-            ->with('session')
+            ->with(['session', 'level'])
             ->firstOrFail();
 
         $session = $reg->session;
@@ -125,9 +125,12 @@ class AttendanceController extends Controller
             return response()->json([
                 'message' => 'Attendance recorded.',
                 'data' => [
+                    'already_logged' => false,
+                    'registration_number' => $reg->registration_number,
+                    'student_name' => $reg->fullName(),
+                    'level' => $reg->level->name,
                     'attended_on' => $date,
                     'recorded_at' => $log->recorded_at?->toIso8601String() ?? $now->toIso8601String(),
-                    'student_name' => $reg->fullName(),
                 ],
             ], 201);
         }
@@ -135,9 +138,12 @@ class AttendanceController extends Controller
         return response()->json([
             'message' => 'Attendance already logged for today.',
             'data' => [
+                'already_logged' => true,
+                'registration_number' => $reg->registration_number,
+                'student_name' => $reg->fullName(),
+                'level' => $reg->level->name,
                 'attended_on' => $date,
                 'recorded_at' => ($log->recorded_at ?? $log->created_at)->toIso8601String(),
-                'student_name' => $reg->fullName(),
             ],
         ]);
     }
