@@ -49,6 +49,20 @@ export function formatStudentBool(value: boolean | null | undefined): string {
   return '—';
 }
 
+/** Matches staff list + StudentProgressPanel tier summary (and student portal progress strip). */
+export function studentTierStatusDisplay(
+  levelCompleted: boolean,
+  programmePhase?: string | null,
+): { label: string; color: 'default' | 'success' } {
+  if (levelCompleted) {
+    return { label: 'Completed', color: 'success' };
+  }
+  if (programmePhase === 'upcoming') {
+    return { label: 'Not started', color: 'default' };
+  }
+  return { label: 'In progress', color: 'default' };
+}
+
 export function useStudentDetail(studentId: string | undefined) {
   const [student, setStudent] = useState<StudentDetail | null>(null);
   const [error, setError] = useState<string | null>(null);

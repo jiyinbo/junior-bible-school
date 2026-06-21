@@ -19,6 +19,7 @@ import { useStaffAuth } from '../../staff/StaffAuthContext';
 import {
   formatStudentBool,
   formatStudentField,
+  studentTierStatusDisplay,
   useStudentDetail,
 } from './studentDetailShared';
 
@@ -83,6 +84,7 @@ export function StudentDetailPage() {
 
   const p = student.progress;
   const completed = p.level_completed;
+  const tierStatus = studentTierStatusDisplay(completed, p.programme_phase);
 
   return (
     <>
@@ -117,13 +119,9 @@ export function StudentDetailPage() {
             <FieldRow label="Session" value={student.session.name} />
             <FieldRow label="Tier" value={student.level.name} />
             <FieldRow
-              label="Tier status"
+              label="Status"
               value={
-                <Chip
-                  size="small"
-                  label={completed ? 'Completed' : 'In progress'}
-                  color={completed ? 'success' : 'default'}
-                />
+                <Chip size="small" label={tierStatus.label} color={tierStatus.color} />
               }
             />
             {student.level_completed_by && (

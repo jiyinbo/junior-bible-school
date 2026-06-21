@@ -26,6 +26,7 @@ import {
 import { apiJson, downloadCsvGet, parseApiError } from '../../api/http';
 import { PageHeader } from '../../staff/PageHeader';
 import { useStaffAuth } from '../../staff/StaffAuthContext';
+import { studentTierStatusDisplay } from './studentDetailShared';
 
 type SessionOption = { id: number; name: string };
 type LevelOption = { id: number; name: string };
@@ -57,18 +58,8 @@ type ListMeta = {
 
 const ROWS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
-function studentStatusDisplay(row: StudentRow): { label: string; color: 'default' | 'success' } {
-  if (row.level_completed) {
-    return { label: 'Completed', color: 'success' };
-  }
-  if (row.programme_phase === 'upcoming') {
-    return { label: 'Not started', color: 'default' };
-  }
-  return { label: 'In progress', color: 'default' };
-}
-
 function StudentStatusChip({ row }: { row: StudentRow }) {
-  const { label, color } = studentStatusDisplay(row);
+  const { label, color } = studentTierStatusDisplay(row.level_completed, row.programme_phase);
   return <Chip size="small" label={label} color={color} />;
 }
 
