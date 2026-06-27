@@ -72,49 +72,29 @@ function StudentRowActions({
 }) {
   if (layout === 'buttons') {
     return (
-      <Stack direction="row" spacing={1}>
-        <Button component={RouterLink} to={`/staff/students/${studentId}`} variant="outlined" size="small" fullWidth>
-          View
-        </Button>
-        <Button component={RouterLink} to={`/staff/students/${studentId}/edit`} variant="contained" size="small" fullWidth>
-          Edit
-        </Button>
-      </Stack>
+      <Button component={RouterLink} to={`/staff/students/${studentId}`} variant="contained" size="small" fullWidth>
+        View
+      </Button>
     );
   }
 
   if (layout === 'compact-buttons') {
     return (
-      <Stack direction="row" spacing={1} justifyContent="flex-end">
-        <Button component={RouterLink} to={`/staff/students/${studentId}`} variant="outlined" size="small">
-          View
-        </Button>
-        <Button component={RouterLink} to={`/staff/students/${studentId}/edit`} variant="contained" size="small">
-          Edit
-        </Button>
-      </Stack>
+      <Button component={RouterLink} to={`/staff/students/${studentId}`} variant="contained" size="small">
+        View
+      </Button>
     );
   }
 
   return (
-    <Stack direction="row" spacing={1.5} justifyContent="flex-end" flexWrap="wrap">
-      <Typography
-        component={RouterLink}
-        to={`/staff/students/${studentId}`}
-        variant="body2"
-        sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}
-      >
-        View
-      </Typography>
-      <Typography
-        component={RouterLink}
-        to={`/staff/students/${studentId}/edit`}
-        variant="body2"
-        sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}
-      >
-        Edit
-      </Typography>
-    </Stack>
+    <Typography
+      component={RouterLink}
+      to={`/staff/students/${studentId}`}
+      variant="body2"
+      sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}
+    >
+      View
+    </Typography>
   );
 }
 

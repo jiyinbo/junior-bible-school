@@ -20,11 +20,15 @@ import { ModuleTestPage } from './pages/staff/ModuleTestPage';
 import { ScoresPage } from './pages/staff/ScoresPage';
 import { StudentsPage } from './pages/staff/StudentsPage';
 import { StudentDetailPage } from './pages/staff/StudentDetailPage';
-import { StudentEditPage } from './pages/staff/StudentEditPage';
 import { AttendancePage } from './pages/staff/AttendancePage';
 import { RegistrationsPage } from './pages/staff/RegistrationsPage';
 import { AuditLogsPage } from './pages/staff/AuditLogsPage';
 import { SendEmailPage } from './pages/staff/SendEmailPage';
+
+function LegacyStudentEditRedirect() {
+  const { studentId } = useParams<{ studentId: string }>();
+  return <Navigate to={`/staff/students/${studentId}`} replace />;
+}
 
 function LegacyAdminSessionRedirect() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -54,7 +58,7 @@ export default function App() {
             <Route path="scores" element={<ScoresPage />} />
             <Route element={<RequireRole roles={['admin', 'assistant']} />}>
               <Route path="students" element={<StudentsPage />} />
-              <Route path="students/:studentId/edit" element={<StudentEditPage />} />
+              <Route path="students/:studentId/edit" element={<LegacyStudentEditRedirect />} />
               <Route path="students/:studentId" element={<StudentDetailPage />} />
               <Route path="sessions" element={<SessionsPage />} />
               <Route path="sessions/:sessionId" element={<SessionDetailPage />} />

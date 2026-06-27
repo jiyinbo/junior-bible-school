@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Mail\PortalPinMail;
+use App\Mail\TierChangeMail;
 use App\Models\JbsStudentRegistration;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -71,21 +72,50 @@ class JbsStudentPortalPinService
     {
         $registration->loadMissing(['level', 'session']);
 
-        $recipients = array_values(array_unique(array_filter([
+        foreach ($this->portalRecipients($registration) as $email) {
+            $this->sendMailSafely($email, new PortalPinMail($registration, $pin), $registration);
+        }
+    }
+
+    public function emailTierChange(
+        JbsStudentRegistration $registration,
+        string $pin,
+        string $previousRegistrationNumber,
+        string $previousLevelName,
+    ): void {
+        $registration->loadMissing(['level', 'session']);
+
+        foreach ($this->portalRecipients($registration) as $email) {
+            $this->sendMailSafely(
+                $email,
+                new TierChangeMail($registration, $pin, $previousRegistrationNumber, $previousLevelName),
+                $registration,
+            );
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function portalRecipients(JbsStudentRegistration $registration): array
+    {
+        return array_values(array_unique(array_filter([
             $registration->email,
             $registration->guardian_email,
         ])));
+    }
 
-        foreach ($recipients as $email) {
-            try {
-                Mail::to($email)->send(new PortalPinMail($registration, $pin));
-            } catch (Throwable $e) {
-                Log::error('Failed to send portal PIN email', [
-                    'registration_number' => $registration->registration_number,
-                    'email' => $email,
-                    'error' => $e->getMessage(),
-                ]);
-            }
+    private function sendMailSafely(string $email, PortalPinMail|TierChangeMail $mailable, JbsStudentRegistration $registration): void
+    {
+        try {
+            Mail::to($email)->send($mailable);
+        } catch (Throwable $e) {
+            Log::error('Failed to send student portal email', [
+                'registration_number' => $registration->registration_number,
+                'email' => $email,
+                'mailable' => $mailable::class,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 }

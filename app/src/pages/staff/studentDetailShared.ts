@@ -81,5 +81,5 @@ export function useStudentDetail(studentId: string | undefined) {
     load();
   }, [load]);
 
-  return { student, error, setError, load };
+  return { student, setStudent, error, setError, load };
 }

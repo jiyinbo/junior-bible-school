@@ -115,7 +115,7 @@ class JbsRegistrationService
             $this->assertNotAlreadyRegisteredInSession($session->id, $child['email']);
         }
 
-        return DB::transaction(function () use ($session, $guardian, $children, $afterClose): array {
+        return DB::transaction(function () use ($guardian, $children, $afterClose): array {
             $registrations = [];
 
             foreach ($children as $child) {
@@ -249,5 +249,49 @@ class JbsRegistrationService
         $registration->update($data);
 
         return $registration->fresh();
+    }
+
+    /**
+     * Move a student to another tier within the same session, reissuing registration number and portal PIN.
+     *
+     * @return array{
+     *     registration: JbsStudentRegistration,
+     *     pin: string,
+     *     old_registration_number: string,
+     *     old_level_name: string,
+     * }
+     */
+    public function changeTier(JbsStudentRegistration $registration, JbsLevel $newLevel): array
+    {
+        if ($registration->jbs_level_id === $newLevel->id) {
+            throw new RuntimeException('Student is already assigned to this tier.');
+        }
+
+        if ($newLevel->jbs_session_id !== $registration->jbs_session_id) {
+            throw new RuntimeException('Selected tier is not available for this student\'s session.');
+        }
+
+        $registration->loadMissing('level');
+        $oldRegistrationNumber = $registration->registration_number;
+        $oldLevelName = $registration->level->name;
+
+        return DB::transaction(function () use ($registration, $newLevel, $oldRegistrationNumber, $oldLevelName): array {
+            $newRegistrationNumber = $this->issueRegistrationNumber($newLevel);
+            $pin = $this->portalPin->generatePin();
+
+            $registration->update([
+                'jbs_level_id' => $newLevel->id,
+                'registration_number' => $newRegistrationNumber,
+            ]);
+
+            $this->portalPin->setPin($registration, $pin);
+
+            return [
+                'registration' => $registration->fresh(),
+                'pin' => $pin,
+                'old_registration_number' => $oldRegistrationNumber,
+                'old_level_name' => $oldLevelName,
+            ];
+        });
     }
 }

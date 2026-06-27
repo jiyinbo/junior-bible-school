@@ -12,13 +12,13 @@ use App\Services\JbsQrService;
 use App\Services\JbsRegistrationService;
 use App\Services\JbsStudentPortalPinService;
 use App\Services\JbsStudentProgressService;
-use RuntimeException;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class RegistrationAdminController extends Controller
 {
@@ -30,7 +30,7 @@ class RegistrationAdminController extends Controller
         private JbsStudentPortalPinService $portalPin,
     ) {}
 
-  /**
+    /**
      * @return array<string, mixed>
      */
     private function filterParams(Request $request): array
@@ -294,11 +294,36 @@ class RegistrationAdminController extends Controller
             'phone' => ['nullable', 'string', 'max:40'],
             'guardian_name' => ['nullable', 'string', 'max:255'],
             'guardian_relationship' => ['nullable', 'string', 'max:120'],
+            'guardian_phone' => ['nullable', 'string', 'max:40'],
             'guardian_email' => ['nullable', 'email', 'max:255'],
+            'gender' => ['nullable', 'string', 'max:32'],
+            'date_of_birth' => ['nullable', 'date', 'before:today'],
+            'nationality' => ['nullable', 'string', 'max:120'],
+            'address' => ['nullable', 'string', 'max:500'],
+            'born_again' => ['nullable', 'boolean'],
+            'date_of_new_birth' => ['nullable', 'date', 'before_or_equal:today'],
+            'new_birth_location' => ['nullable', 'string', 'max:255'],
+            'place_of_worship' => ['nullable', 'string', 'max:255'],
+            'place_of_worship_address' => ['nullable', 'string', 'max:500'],
+            'pastor_name' => ['nullable', 'string', 'max:255'],
+            'activity_group' => ['nullable', 'string', 'max:255'],
+            'current_school' => ['nullable', 'string', 'max:255'],
+            'current_school_year' => ['nullable', 'string', 'max:64'],
+            'allergies' => ['nullable', 'string', 'max:500'],
+            'next_of_kin_name' => ['nullable', 'string', 'max:255'],
+            'next_of_kin_phone' => ['nullable', 'string', 'max:40'],
+            'next_of_kin_email' => ['nullable', 'email', 'max:255'],
             'jbs_level_id' => ['sometimes', 'integer', 'exists:jbs_levels,id'],
         ]);
 
+        foreach (['date_of_birth', 'date_of_new_birth'] as $dateField) {
+            if (array_key_exists($dateField, $data) && ($data[$dateField] === '' || $data[$dateField] === null)) {
+                $data[$dateField] = null;
+            }
+        }
+
         // Moving a student between tiers is allowed only within the same session.
+        $targetLevel = null;
         if (array_key_exists('jbs_level_id', $data)) {
             $targetLevel = JbsLevel::query()->find($data['jbs_level_id']);
             if (! $targetLevel || $targetLevel->jbs_session_id !== $jbs_student_registration->jbs_session_id) {
@@ -308,17 +333,64 @@ class RegistrationAdminController extends Controller
             }
         }
 
+        $tierChange = null;
+        if ($targetLevel !== null && $targetLevel->id !== $jbs_student_registration->jbs_level_id) {
+            $oldLevelId = $jbs_student_registration->jbs_level_id;
+
+            try {
+                $tierChange = $this->registrationService->changeTier($jbs_student_registration, $targetLevel);
+            } catch (RuntimeException $e) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
+
+            $jbs_student_registration = $tierChange['registration'];
+            unset($data['jbs_level_id']);
+        }
+
         $keys = array_keys($data);
         $old = $this->audit()->snapshot($jbs_student_registration, $keys);
 
         try {
-            $reg = $this->registrationService->updateStudent($jbs_student_registration, $data);
+            $reg = $keys !== []
+                ? $this->registrationService->updateStudent($jbs_student_registration, $data)
+                : $jbs_student_registration;
         } catch (RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        $reg->load(['session', 'level', 'levelCompletedBy']);
-        $this->audit()->updated($request, 'registration.updated', $reg, $old, $this->audit()->snapshot($reg, $keys));
+        if ($tierChange !== null) {
+            $reg->load(['session', 'level', 'levelCompletedBy']);
+
+            $this->portalPin->emailTierChange(
+                $reg,
+                $tierChange['pin'],
+                $tierChange['old_registration_number'],
+                $tierChange['old_level_name'],
+            );
+
+            $this->audit()->record(
+                'registration.tier_changed',
+                $request,
+                $reg,
+                oldValues: [
+                    'registration_number' => $tierChange['old_registration_number'],
+                    'jbs_level_id' => $oldLevelId,
+                    'level_name' => $tierChange['old_level_name'],
+                ],
+                newValues: [
+                    'registration_number' => $reg->registration_number,
+                    'jbs_level_id' => $reg->jbs_level_id,
+                    'level_name' => $reg->level->name,
+                ],
+                metadata: ['emailed' => true],
+            );
+        } else {
+            $reg->load(['session', 'level', 'levelCompletedBy']);
+        }
+
+        if ($keys !== []) {
+            $this->audit()->updated($request, 'registration.updated', $reg, $old, $this->audit()->snapshot($reg, $keys));
+        }
 
         return response()->json([
             'data' => [
