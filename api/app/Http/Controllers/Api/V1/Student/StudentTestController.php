@@ -5,10 +5,10 @@ namespace App\Http\Controllers\Api\V1\Student;
 use App\Http\Controllers\Controller;
 use App\Models\JbsAttempt;
 use App\Models\JbsModuleScoreOutcome;
-use App\Models\JbsQuestion;
 use App\Models\JbsStudentRegistration;
 use App\Models\JbsTest;
 use App\Services\JbsStudentPortalPinService;
+use App\Services\JbsTestLayoutService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +17,7 @@ class StudentTestController extends Controller
 {
     public function __construct(
         private JbsStudentPortalPinService $portalPin,
+        private JbsTestLayoutService $testLayout,
     ) {}
 
     private function resolveRegistration(Request $request): JbsStudentRegistration
@@ -59,19 +60,14 @@ class StudentTestController extends Controller
         $this->assertTestOpenForTaking($jbs_test);
 
         $questions = $jbs_test->questions()->orderBy('position')->get();
+        $layout = $this->testLayout->buildLayout($jbs_test, $reg, $questions);
 
         return response()->json([
             'data' => $this->testStartPayload(
                 $jbs_test,
                 $reg,
                 null,
-                $questions->map(fn (JbsQuestion $q) => [
-                    'id' => $q->id,
-                    'prompt' => $q->prompt,
-                    'choices' => $q->choices,
-                    'position' => $q->position,
-                    'selection_mode' => $q->selectionMode(),
-                ])->all(),
+                $this->testLayout->presentQuestions($questions, $layout),
                 false,
             ),
         ]);
@@ -135,12 +131,14 @@ class StudentTestController extends Controller
 
         return DB::transaction(function () use ($jbs_test, $reg, $payload): JsonResponse {
             $questions = $jbs_test->questions()->orderBy('position')->get();
+            $layout = $this->testLayout->buildLayout($jbs_test, $reg, $questions);
+            $canonicalAnswers = $this->testLayout->remapAnswerPayload($payload['answers'], $layout);
             $max = $questions->count();
             $correct = 0;
             $answersOut = [];
 
             foreach ($questions as $q) {
-                $given = $payload['answers'][(string) $q->id] ?? $payload['answers'][$q->id] ?? null;
+                $given = $canonicalAnswers[(string) $q->id] ?? null;
                 $answersOut[(string) $q->id] = $given;
                 if ($q->isAnswerCorrect($given)) {
                     $correct++;

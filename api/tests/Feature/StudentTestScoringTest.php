@@ -10,6 +10,7 @@ use App\Models\JbsSession;
 use App\Models\JbsStudentRegistration;
 use App\Models\JbsTest;
 use App\Services\JbsStudentPortalPinService;
+use App\Services\JbsTestLayoutService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -73,6 +74,48 @@ class StudentTestScoringTest extends TestCase
         return [$test, $question];
     }
 
+    private function registration(): JbsStudentRegistration
+    {
+        $registration = JbsStudentRegistration::query()
+            ->where('registration_number', 'BCC/0001')
+            ->first();
+
+        $this->assertNotNull($registration);
+
+        return $registration;
+    }
+
+    /**
+     * @param  int|list<int>  $canonical
+     */
+    private function displayAnswer(JbsTest $test, JbsQuestion $question, int|array $canonical): int|array
+    {
+        $layout = app(JbsTestLayoutService::class)->buildLayout(
+            $test,
+            $this->registration(),
+            $test->questions()->orderBy('position')->get(),
+        );
+        $permutation = $layout['choice_permutations'][(string) $question->id];
+
+        if (is_array($canonical)) {
+            $display = [];
+            foreach ($canonical as $canonicalIndex) {
+                $displayIndex = array_search($canonicalIndex, $permutation, true);
+                $this->assertNotFalse($displayIndex);
+                $display[] = $displayIndex;
+            }
+
+            sort($display);
+
+            return $display;
+        }
+
+        $displayIndex = array_search($canonical, $permutation, true);
+        $this->assertNotFalse($displayIndex);
+
+        return $displayIndex;
+    }
+
     private function assertSubmitResponseHidesScores(\Illuminate\Testing\TestResponse $response): void
     {
         $response
@@ -103,7 +146,7 @@ class StudentTestScoringTest extends TestCase
             ->assertJsonPath('data.questions.0.selection_mode', 'single');
 
         $this->assertSubmitResponseHidesScores($this->postJson("/api/v1/student/tests/{$test->id}/submit", array_merge($this->studentAuth(), [
-            'answers' => [(string) $question->id => 2],
+            'answers' => [(string) $question->id => $this->displayAnswer($test, $question, 2)],
         ])));
         $this->assertStoredPercent(100);
     }
@@ -118,7 +161,7 @@ class StudentTestScoringTest extends TestCase
             ->assertJsonPath('data.questions.0.selection_mode', 'multiple');
 
         $this->assertSubmitResponseHidesScores($this->postJson("/api/v1/student/tests/{$test->id}/submit", array_merge($this->studentAuth(), [
-            'answers' => [(string) $question->id => [1, 2]],
+            'answers' => [(string) $question->id => $this->displayAnswer($test, $question, [1, 2])],
         ])));
         $this->assertStoredPercent(100);
     }
@@ -146,7 +189,7 @@ class StudentTestScoringTest extends TestCase
         $questions = $test->questions()->orderBy('position')->get();
         $answers = [];
         foreach ($questions as $i => $q) {
-            $answers[(string) $q->id] = $i === 0 ? 0 : 1;
+            $answers[(string) $q->id] = $this->displayAnswer($test, $q, $i === 0 ? 0 : 1);
         }
 
         $this->assertSubmitResponseHidesScores($this->postJson("/api/v1/student/tests/{$test->id}/submit", array_merge($this->studentAuth(), [
@@ -160,7 +203,7 @@ class StudentTestScoringTest extends TestCase
         [$test, $question] = $this->openTestWithQuestion([1, 2]);
 
         $this->assertSubmitResponseHidesScores($this->postJson("/api/v1/student/tests/{$test->id}/submit", array_merge($this->studentAuth(), [
-            'answers' => [(string) $question->id => [2]],
+            'answers' => [(string) $question->id => $this->displayAnswer($test, $question, [2])],
         ])));
         $this->assertStoredPercent(0);
     }
@@ -170,11 +213,11 @@ class StudentTestScoringTest extends TestCase
         [$test, $question] = $this->openTestWithQuestion([2]);
 
         $this->postJson("/api/v1/student/tests/{$test->id}/submit", array_merge($this->studentAuth(), [
-            'answers' => [(string) $question->id => 2],
+            'answers' => [(string) $question->id => $this->displayAnswer($test, $question, 2)],
         ]))->assertOk();
 
         $this->postJson("/api/v1/student/tests/{$test->id}/submit", array_merge($this->studentAuth(), [
-            'answers' => [(string) $question->id => 2],
+            'answers' => [(string) $question->id => $this->displayAnswer($test, $question, 2)],
         ]))->assertStatus(409);
     }
 
@@ -183,7 +226,7 @@ class StudentTestScoringTest extends TestCase
         [$test, $question] = $this->openTestWithQuestion([2]);
 
         $this->postJson("/api/v1/student/tests/{$test->id}/submit", array_merge($this->studentAuth(), [
-            'answers' => [(string) $question->id => 2],
+            'answers' => [(string) $question->id => $this->displayAnswer($test, $question, 2)],
         ]))->assertOk();
 
         $response = $this->postJson('/api/v1/student/lookup', $this->studentAuth())->assertOk();
@@ -203,7 +246,7 @@ class StudentTestScoringTest extends TestCase
         [$test, $question] = $this->openTestWithQuestion([2]);
 
         $this->postJson("/api/v1/student/tests/{$test->id}/submit", array_merge($this->studentAuth(), [
-            'answers' => [(string) $question->id => 2],
+            'answers' => [(string) $question->id => $this->displayAnswer($test, $question, 2)],
         ]))->assertOk();
 
         $test->update(['status' => 'closed', 'closed_at' => now()]);
@@ -222,7 +265,7 @@ class StudentTestScoringTest extends TestCase
         [$test, $question] = $this->openTestWithQuestion([2]);
 
         $this->postJson("/api/v1/student/tests/{$test->id}/submit", array_merge($this->studentAuth(), [
-            'answers' => [(string) $question->id => 2],
+            'answers' => [(string) $question->id => $this->displayAnswer($test, $question, 2)],
         ]))->assertOk();
 
         $response = $this->postJson("/api/v1/student/tests/{$test->id}/questions", $this->studentAuth())
@@ -267,7 +310,7 @@ class StudentTestScoringTest extends TestCase
         [$test, $question] = $this->openTestWithQuestion([2]);
 
         $this->postJson("/api/v1/student/tests/{$test->id}/submit", array_merge($this->studentAuth(), [
-            'answers' => [(string) $question->id => 2],
+            'answers' => [(string) $question->id => $this->displayAnswer($test, $question, 2)],
         ]))->assertOk();
 
         $progress = $this->postJson('/api/v1/student/lookup', $this->studentAuth())
