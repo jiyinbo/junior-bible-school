@@ -113,6 +113,9 @@ export function validateChild(
   if (!c.pastor_name.trim()) errors.pastor_name = "Pastor's name is required";
   if (!c.current_school.trim()) errors.current_school = 'Current school is required';
   if (!c.current_school_year.trim()) errors.current_school_year = 'Current school year is required';
+  if (c.has_allergies && !c.allergies.trim()) {
+    errors.allergies = 'Please describe the allergy or medical condition';
+  }
   if (!c.next_of_kin_name.trim()) errors.next_of_kin_name = 'Next of kin full name is required';
   const kinPhoneErr = ukPhoneError(c.next_of_kin_phone, 'Next of kin phone');
   if (kinPhoneErr) errors.next_of_kin_phone = kinPhoneErr;

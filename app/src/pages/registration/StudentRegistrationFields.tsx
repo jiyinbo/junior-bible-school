@@ -1,7 +1,11 @@
 import {
   Checkbox,
+  FormControl,
   FormControlLabel,
+  FormLabel,
   MenuItem,
+  Radio,
+  RadioGroup,
   TextField,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -35,6 +39,7 @@ export type StudentFieldValues = Pick<
   | 'activity_group'
   | 'current_school'
   | 'current_school_year'
+  | 'has_allergies'
   | 'allergies'
   | 'next_of_kin_name'
   | 'next_of_kin_phone'
@@ -249,12 +254,37 @@ export function StudentRegistrationFields({ values, errors, onChange }: Props) {
             fullWidth
           />
         </FormRow>
-        <TextField
-          label="Allergies / medical conditions (optional)"
-          value={values.allergies}
-          onChange={(e) => onChange({ allergies: e.target.value })}
-          fullWidth
-        />
+        <FormControl fullWidth>
+          <FormLabel id="has-allergies-label">Any allergies or medical conditions?</FormLabel>
+          <RadioGroup
+            row
+            aria-labelledby="has-allergies-label"
+            value={values.has_allergies ? 'yes' : 'no'}
+            onChange={(e) => {
+              const yes = e.target.value === 'yes';
+              onChange({
+                has_allergies: yes,
+                allergies: yes ? values.allergies : '',
+              });
+            }}
+          >
+            <FormControlLabel value="no" control={<Radio />} label="No" />
+            <FormControlLabel value="yes" control={<Radio />} label="Yes" />
+          </RadioGroup>
+        </FormControl>
+        {values.has_allergies ? (
+          <TextField
+            label="Please describe the allergy or medical condition"
+            value={values.allergies}
+            onChange={(e) => onChange({ allergies: e.target.value })}
+            error={Boolean(errors.allergies)}
+            helperText={errors.allergies}
+            required
+            fullWidth
+            multiline
+            minRows={2}
+          />
+        ) : null}
         <TextField
           label={LABEL_NEXT_OF_KIN_FULL_NAME}
           placeholder="First name and surname"

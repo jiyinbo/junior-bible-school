@@ -39,6 +39,7 @@ export type ChildForm = {
   activity_group: string;
   current_school: string;
   current_school_year: string;
+  has_allergies: boolean;
   allergies: string;
   next_of_kin_name: string;
   next_of_kin_phone: string;
@@ -76,6 +77,7 @@ export const emptyChild = (levelId: number | '' = ''): ChildForm => ({
   activity_group: '',
   current_school: '',
   current_school_year: '',
+  has_allergies: false,
   allergies: '',
   next_of_kin_name: '',
   next_of_kin_phone: '',

@@ -62,7 +62,7 @@ export function StepSummary({
               born_again: child.born_again,
               date_of_new_birth: child.date_of_new_birth || null,
               new_birth_location: child.new_birth_location || null,
-              allergies: child.allergies || null,
+              allergies: child.has_allergies ? child.allergies.trim() || null : null,
             };
           }),
         },
@@ -109,7 +109,7 @@ export function StepSummary({
           <Typography variant="body2">
             Next of kin email: {child.next_of_kin_email.trim() || '—'}
           </Typography>
-          {child.allergies && (
+          {child.has_allergies && child.allergies.trim() && (
             <Typography variant="body2">Allergies / medical: {child.allergies}</Typography>
           )}
         </Paper>

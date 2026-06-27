@@ -111,7 +111,11 @@ export function StepChildInfo({
       return;
     }
 
-    const normalized = normalizeChildContacts(draft);
+    const normalized = {
+      ...normalizeChildContacts(draft),
+      has_allergies: draft.has_allergies,
+      allergies: draft.has_allergies ? draft.allergies.trim() : '',
+    };
     const displayName = `${normalized.first_name} ${normalized.last_name}`.trim();
 
     if (editingIndex !== null) {
@@ -128,7 +132,12 @@ export function StepChildInfo({
   };
 
   const startEdit = (index: number) => {
-    setDraft({ ...addedChildren[index] });
+    const child = addedChildren[index];
+    setDraft({
+      ...child,
+      has_allergies: child.has_allergies ?? Boolean(child.allergies.trim()),
+      allergies: child.allergies,
+    });
     setEditingIndex(index);
     setErrors({});
     setListError(null);

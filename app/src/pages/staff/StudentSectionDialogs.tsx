@@ -7,8 +7,12 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControl,
   FormControlLabel,
+  FormLabel,
   MenuItem,
+  Radio,
+  RadioGroup,
   Stack,
   TextField,
   Typography,
@@ -127,6 +131,7 @@ export function StudentSectionDialogs({
   const [school, setSchool] = useState({
     current_school: '',
     current_school_year: '',
+    has_allergies: false,
     allergies: '',
   });
   const [nextOfKin, setNextOfKin] = useState({
@@ -185,6 +190,7 @@ export function StudentSectionDialogs({
       setSchool({
         current_school: student.current_school ?? '',
         current_school_year: student.current_school_year ?? '',
+        has_allergies: Boolean(student.allergies?.trim()),
         allergies: student.allergies ?? '',
       });
     }
@@ -543,7 +549,7 @@ export function StudentSectionDialogs({
             {
               current_school: emptyToNull(school.current_school),
               current_school_year: emptyToNull(school.current_school_year),
-              allergies: emptyToNull(school.allergies),
+              allergies: school.has_allergies ? emptyToNull(school.allergies) : null,
             },
             'School & medical details saved.',
           )
@@ -563,14 +569,36 @@ export function StudentSectionDialogs({
             fullWidth
           />
         </Stack>
-        <TextField
-          label="Allergies / medical conditions"
-          value={school.allergies}
-          onChange={(e) => setSchool((current) => ({ ...current, allergies: e.target.value }))}
-          fullWidth
-          multiline
-          minRows={2}
-        />
+        <FormControl fullWidth>
+          <FormLabel id="staff-has-allergies-label">Any allergies or medical conditions?</FormLabel>
+          <RadioGroup
+            row
+            aria-labelledby="staff-has-allergies-label"
+            value={school.has_allergies ? 'yes' : 'no'}
+            onChange={(e) => {
+              const yes = e.target.value === 'yes';
+              setSchool((current) => ({
+                ...current,
+                has_allergies: yes,
+                allergies: yes ? current.allergies : '',
+              }));
+            }}
+          >
+            <FormControlLabel value="no" control={<Radio />} label="No" />
+            <FormControlLabel value="yes" control={<Radio />} label="Yes" />
+          </RadioGroup>
+        </FormControl>
+        {school.has_allergies ? (
+          <TextField
+            label="Please describe the allergy or medical condition"
+            value={school.allergies}
+            onChange={(e) => setSchool((current) => ({ ...current, allergies: e.target.value }))}
+            fullWidth
+            multiline
+            minRows={2}
+            required
+          />
+        ) : null}
       </SectionEditDialog>
 
       <SectionEditDialog
