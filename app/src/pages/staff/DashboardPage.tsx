@@ -10,6 +10,12 @@ import {
   MenuItem,
   Skeleton,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   TextField,
   Typography,
 } from '@mui/material';
@@ -123,16 +129,6 @@ function staffAccountsHint(admins: number, teachers: number, assistants: number)
     staffRoleLabel(teachers, 'teacher', 'teachers'),
     staffRoleLabel(assistants, 'assistant', 'assistants'),
   ].join(' · ');
-}
-
-function verticalBarChartHeight(itemCount: number, rowHeight = 40): number {
-  if (itemCount === 0) return 280;
-  return Math.min(720, Math.max(280, itemCount * rowHeight + 56));
-}
-
-function categoryAxisWidth(labels: string[], min = 120, max = 280): number {
-  const longest = labels.reduce((longestLabel, label) => Math.max(longestLabel, label.length), 0);
-  return Math.min(max, Math.max(min, Math.ceil(longest * 6.5)));
 }
 
 type SplitTooltipProps = {
@@ -275,8 +271,7 @@ export function DashboardPage() {
   const completedByGender = stats?.completed_by_gender;
   const nationalityChart = stats?.nationalities ?? [];
   const churchChart = stats?.churches ?? [];
-  const churchChartHeight = verticalBarChartHeight(churchChart.length);
-  const churchAxisWidth = categoryAxisWidth(churchChart.map((row) => row.church));
+  const churchTotal = churchChart.reduce((sum, row) => sum + row.count, 0);
   const gradesByLevel = stats?.grades_by_level ?? [];
   const attendanceLevels = stats?.attendance_last_7_days_by_level?.levels ?? [];
   const attendanceChart =
@@ -574,35 +569,36 @@ export function DashboardPage() {
                 </Typography>
                 <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
                   Place of worship from student registrations
+                  {churchChart.length > 0 ? ` — ${churchChart.length} churches, ${churchTotal} students` : ''}
                 </Typography>
-                <Box sx={{ width: '100%', height: churchChartHeight }}>
-                  {churchChart.length > 0 ? (
-                    <ResponsiveContainer>
-                      <BarChart
-                        data={churchChart}
-                        layout="vertical"
-                        margin={{ left: 8, right: 24, top: 4, bottom: 4 }}
-                        barCategoryGap="24%"
-                      >
-                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                        <XAxis type="number" allowDecimals={false} />
-                        <YAxis
-                          type="category"
-                          dataKey="church"
-                          width={churchAxisWidth}
-                          tick={{ fontSize: 11 }}
-                          interval={0}
-                        />
-                        <Tooltip />
-                        <Bar dataKey="count" name="Students" fill="#6b4c9a" radius={[0, 6, 6, 0]} barSize={28} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <Typography variant="body2" color="text.secondary">
-                      No church data yet.
-                    </Typography>
-                  )}
-                </Box>
+                {churchChart.length > 0 ? (
+                  <TableContainer sx={{ maxHeight: 480 }}>
+                    <Table size="small" stickyHeader>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Church</TableCell>
+                          <TableCell align="right" sx={{ width: 100 }}>
+                            Students
+                          </TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {churchChart.map((row) => (
+                          <TableRow key={row.church} hover>
+                            <TableCell sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                              {row.church}
+                            </TableCell>
+                            <TableCell align="right">{row.count}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    No church data yet.
+                  </Typography>
+                )}
               </CardContent>
             </Card>
           </Grid>
