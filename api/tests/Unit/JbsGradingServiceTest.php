@@ -26,6 +26,9 @@ class JbsGradingServiceTest extends TestCase
         $this->assertSame('Upper Credit', $this->grading->overallGradeForPercent(55)['grade_label']);
         $this->assertSame('Merit', $this->grading->overallGradeForPercent(65)['grade_label']);
         $this->assertSame('Distinction', $this->grading->overallGradeForPercent(80)['grade_label']);
+        $this->assertSame('D', $this->grading->overallGradeForPercent(80)['grade_short']);
+        $this->assertSame('M', $this->grading->overallGradeForPercent(65)['grade_short']);
+        $this->assertSame('P', $this->grading->overallGradeForPercent(39)['grade_short']);
     }
 
     #[Test]
@@ -56,8 +59,10 @@ class JbsGradingServiceTest extends TestCase
 
         $this->assertCount(5, $overall);
         $this->assertSame('≥70%', $overall[0]['range']);
+        $this->assertSame('D', $overall[0]['short']);
+        $this->assertSame('M', $overall[1]['short']);
         $this->assertSame('≥60% and <70%', $overall[1]['range']);
-        $this->assertSame('<40%', $overall[4]['range']);
+        $this->assertSame('P', $overall[4]['short']);
         $this->assertSame('<30%', $module[6]['range']);
 
         $this->assertSame('NS', $module[0]['short']);

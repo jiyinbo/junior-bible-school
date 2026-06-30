@@ -9,8 +9,8 @@ export type GradingBand = {
 
 /** Official overall scale — simple average across modules (2 d.p.). */
 export const OVERALL_GRADING_SCALE: GradingBand[] = [
-  { min_percent: 70, max_percent: 100, label: 'Distinction', short: 'DN', range: '≥70%', passed: true },
-  { min_percent: 60, max_percent: 69, label: 'Merit', short: 'MR', range: '≥60% and <70%', passed: true },
+  { min_percent: 70, max_percent: 100, label: 'Distinction', short: 'D', range: '≥70%', passed: true },
+  { min_percent: 60, max_percent: 69, label: 'Merit', short: 'M', range: '≥60% and <70%', passed: true },
   { min_percent: 50, max_percent: 59, label: 'Upper Credit', short: 'UC', range: '≥50% and <60%', passed: true },
   { min_percent: 40, max_percent: 49, label: 'Lower Credit', short: 'LC', range: '≥40% and <50%', passed: true },
   { min_percent: 0, max_percent: 39, label: 'Pass', short: 'P', range: '<40%', passed: true },
@@ -57,8 +57,8 @@ export function gradeChipColor(
     return 'default';
   }
 
-  if (short === 'DN') return 'success';
-  if (short === 'MR' || short === 'UC' || short === 'LC') return 'info';
+  if (short === 'D') return 'success';
+  if (short === 'M' || short === 'UC' || short === 'LC') return 'info';
   if (short === 'P') return 'warning';
   return 'default';
 }

@@ -18,6 +18,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  LabelList,
   Legend,
   Pie,
   PieChart,
@@ -48,6 +49,7 @@ type DashboardStats = {
     modules_count: number;
     staff_admins: number;
     staff_teachers: number;
+    staff_assistants: number;
     level_completed_count: number;
     level_not_completed_count: number;
     open_tests: number;
@@ -56,10 +58,50 @@ type DashboardStats = {
   };
   registrations_by_level: { level_id: number; level_name: string; count: number }[];
   modules_by_level: { level_id: number; level_name: string; module_count: number }[];
-  attendance_last_7_days: { date: string; count: number }[];
+  attendance_last_7_days_by_level: {
+    levels: { level_id: number; level_name: string }[];
+    days: { date: string; counts: number[] }[];
+  };
+  gender_by_level: GenderLevelRow[];
+  gender_completed_by_level: GenderLevelRow[];
+  completed_by_gender: GenderTotals;
+  nationalities: { nationality: string; count: number }[];
+  churches: { church: string; count: number }[];
+  grades_by_level: GradesByLevelRow[];
+};
+
+type GradesByLevelRow = {
+  level_id: number;
+  level_name: string;
+  distinction: number;
+  merit: number;
+  upper_credit: number;
+  lower_credit: number;
+  pass: number;
+  ungraded: number;
+  total_graded: number;
+};
+
+type GenderLevelRow = {
+  level_id: number;
+  level_name: string;
+  boys: number;
+  girls: number;
+  other: number;
+  total: number;
+};
+
+type GenderTotals = {
+  boys: number;
+  girls: number;
+  other: number;
+  total: number;
 };
 
 const CHART_COLORS = ['#1a3352', '#2a4a73', '#b8923a', '#4a7c59', '#6b4c9a', '#c45c3e'];
+const BOYS_COLOR = '#2a4a73';
+const GIRLS_COLOR = '#b8923a';
+const OTHER_GENDER_COLOR = '#6b7280';
 
 function formatShortDate(iso: string): string {
   const d = new Date(iso + 'T12:00:00');
@@ -69,6 +111,112 @@ function formatShortDate(iso: string): string {
 function firstName(fullName: string | undefined): string {
   if (!fullName?.trim()) return 'there';
   return fullName.trim().split(/\s+/)[0] ?? fullName;
+}
+
+function staffRoleLabel(count: number, singular: string, plural: string): string {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function staffAccountsHint(admins: number, teachers: number, assistants: number): string {
+  return [
+    staffRoleLabel(admins, 'admin', 'admins'),
+    staffRoleLabel(teachers, 'teacher', 'teachers'),
+    staffRoleLabel(assistants, 'assistant', 'assistants'),
+  ].join(' · ');
+}
+
+function verticalBarChartHeight(itemCount: number, rowHeight = 40): number {
+  if (itemCount === 0) return 280;
+  return Math.min(720, Math.max(280, itemCount * rowHeight + 56));
+}
+
+function categoryAxisWidth(labels: string[], min = 120, max = 280): number {
+  const longest = labels.reduce((longestLabel, label) => Math.max(longestLabel, label.length), 0);
+  return Math.min(max, Math.max(min, Math.ceil(longest * 6.5)));
+}
+
+type SplitTooltipProps = {
+  active?: boolean;
+  payload?: { name?: string; value?: number; color?: string }[];
+  label?: string;
+};
+
+function SplitCountTooltip({ active, payload, label }: SplitTooltipProps) {
+  if (!active || !payload?.length) return null;
+  const total = payload.reduce((sum, entry) => sum + (Number(entry.value) || 0), 0);
+
+  return (
+    <Box
+      sx={{
+        bgcolor: 'background.paper',
+        border: 1,
+        borderColor: 'divider',
+        borderRadius: 1,
+        p: 1.25,
+        boxShadow: 1,
+      }}
+    >
+      {label && (
+        <Typography variant="caption" fontWeight={600} display="block" sx={{ mb: 0.75 }}>
+          {label}
+        </Typography>
+      )}
+      {payload.map((entry) => (
+        <Typography key={String(entry.name)} variant="caption" display="block" sx={{ color: entry.color }}>
+          {entry.name}: {entry.value}
+        </Typography>
+      ))}
+      <Typography variant="caption" fontWeight={600} display="block" sx={{ mt: 0.75 }}>
+        Total: {total}
+      </Typography>
+    </Box>
+  );
+}
+
+function horizontalStackTotalLabel(props: unknown) {
+  const { x, y, width, height, payload } = props as {
+    x?: number;
+    y?: number;
+    width?: number;
+    height?: number;
+    payload?: GenderLevelRow;
+  };
+  const total = payload?.total ?? 0;
+  if (x == null || y == null || width == null || height == null || total === 0) {
+    return null;
+  }
+
+  return (
+    <text
+      x={x + width + 6}
+      y={y + height / 2}
+      fill="#374151"
+      fontSize={11}
+      fontWeight={600}
+      dominantBaseline="middle"
+    >
+      {total}
+    </text>
+  );
+}
+
+function verticalStackTotalLabel(props: unknown) {
+  const { x, y, width, payload } = props as {
+    x?: number;
+    y?: number;
+    width?: number;
+    payload?: Record<string, string | number>;
+  };
+  const total = Number(payload?.total ?? 0);
+  if (x == null || y == null || width == null || total === 0) {
+    return null;
+  }
+
+  return (
+    <text x={x + width / 2} y={y - 6} fill="#374151" fontSize={11} fontWeight={600} textAnchor="middle">
+      {total}
+    </text>
+  );
 }
 
 export function DashboardPage() {
@@ -114,18 +262,37 @@ export function DashboardPage() {
       ? [
           { name: 'Admins', value: m.staff_admins },
           { name: 'Teachers', value: m.staff_teachers },
-        ].filter((x) => x.value > 0)
+          { name: 'Assistants', value: m.staff_assistants },
+        ]
       : [];
+  const staffTotal =
+    (m?.staff_admins ?? 0) + (m?.staff_teachers ?? 0) + (m?.staff_assistants ?? 0);
 
-  const regChart = stats?.registrations_by_level ?? [];
   const modChart = stats?.modules_by_level ?? [];
+  const genderByLevel = stats?.gender_by_level ?? [];
+  const showGenderOther = genderByLevel.some((row) => row.other > 0);
+  const genderCompletedByLevel = stats?.gender_completed_by_level ?? [];
+  const completedByGender = stats?.completed_by_gender;
+  const nationalityChart = stats?.nationalities ?? [];
+  const churchChart = stats?.churches ?? [];
+  const churchChartHeight = verticalBarChartHeight(churchChart.length);
+  const churchAxisWidth = categoryAxisWidth(churchChart.map((row) => row.church));
+  const gradesByLevel = stats?.grades_by_level ?? [];
+  const attendanceLevels = stats?.attendance_last_7_days_by_level?.levels ?? [];
   const attendanceChart =
-    stats?.attendance_last_7_days.map((d) => ({
-      ...d,
-      label: formatShortDate(d.date),
-    })) ?? [];
+    stats?.attendance_last_7_days_by_level?.days.map((d) => {
+      const row: Record<string, string | number> = {
+        date: d.date,
+        label: formatShortDate(d.date),
+      };
+      attendanceLevels.forEach((level, i) => {
+        row[level.level_name] = d.counts[i] ?? 0;
+      });
+      row.total = d.counts.reduce((sum, count) => sum + count, 0);
+      return row;
+    }) ?? [];
 
-  const metricCount = isAdmin ? 8 : 6;
+  const metricCount = isAdmin ? 7 : 6;
 
   return (
     <>
@@ -239,14 +406,19 @@ export function DashboardPage() {
                 <MetricCard label="Open tests" value={m?.open_tests ?? 0} hint="Across modules" />
               </Grid>
               {isAdmin && (
-                <>
-                  <Grid size={{ xs: 6, sm: 4, md: 3 }}>
-                    <MetricCard label="Admins" value={m?.staff_admins ?? 0} />
-                  </Grid>
-                  <Grid size={{ xs: 6, sm: 4, md: 3 }}>
-                    <MetricCard label="Teachers" value={m?.staff_teachers ?? 0} />
-                  </Grid>
-                </>
+                <Grid size={{ xs: 6, sm: 4, md: 3 }}>
+                  <MetricCard
+                    label="Staff accounts"
+                    value={
+                      (m?.staff_admins ?? 0) + (m?.staff_teachers ?? 0) + (m?.staff_assistants ?? 0)
+                    }
+                    hint={staffAccountsHint(
+                      m?.staff_admins ?? 0,
+                      m?.staff_teachers ?? 0,
+                      m?.staff_assistants ?? 0,
+                    )}
+                  />
+                </Grid>
               )}
             </>
           )}
@@ -286,15 +458,40 @@ export function DashboardPage() {
                 <Typography variant="subtitle1" fontWeight={600} gutterBottom>
                   Students per tier
                 </Typography>
-                <Box sx={{ width: '100%', height: 240 }}>
-                  {regChart.length > 0 ? (
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                  Total registrations, stacked by boys and girls
+                  {showGenderOther ? ' (and other / unspecified)' : ''}
+                </Typography>
+                <Box sx={{ width: '100%', height: 260 }}>
+                  {genderByLevel.some((row) => row.total > 0) ? (
                     <ResponsiveContainer>
-                      <BarChart data={regChart} layout="vertical" margin={{ left: 8, right: 16 }}>
+                      <BarChart data={genderByLevel} layout="vertical" margin={{ left: 8, right: 36, top: 4, bottom: 4 }}>
                         <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                         <XAxis type="number" allowDecimals={false} />
                         <YAxis type="category" dataKey="level_name" width={90} tick={{ fontSize: 11 }} />
-                        <Tooltip />
-                        <Bar dataKey="count" name="Students" fill="#b8923a" radius={[0, 6, 6, 0]} />
+                        <Tooltip content={<SplitCountTooltip />} />
+                        <Legend />
+                        <Bar dataKey="boys" name="Boys" stackId="students" fill={BOYS_COLOR} />
+                        <Bar
+                          dataKey="girls"
+                          name="Girls"
+                          stackId="students"
+                          fill={GIRLS_COLOR}
+                          radius={showGenderOther ? undefined : [0, 6, 6, 0]}
+                        >
+                          {!showGenderOther && <LabelList content={horizontalStackTotalLabel} />}
+                        </Bar>
+                        {showGenderOther && (
+                          <Bar
+                            dataKey="other"
+                            name="Other / unspecified"
+                            stackId="students"
+                            fill={OTHER_GENDER_COLOR}
+                            radius={[0, 6, 6, 0]}
+                          >
+                            <LabelList content={horizontalStackTotalLabel} />
+                          </Bar>
+                        )}
                       </BarChart>
                     </ResponsiveContainer>
                   ) : (
@@ -306,59 +503,232 @@ export function DashboardPage() {
               </CardContent>
             </Card>
           </Grid>
-          <Grid size={{ xs: 12 }}>
-            <Card>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Card sx={{ height: '100%' }}>
               <CardContent>
                 <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                  Attendance — last 7 days
+                  Tier completed (boys &amp; girls)
                 </Typography>
-                <Box sx={{ width: '100%', height: 260 }}>
-                  <ResponsiveContainer>
-                    <BarChart data={attendanceChart} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-                      <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-                      <Tooltip />
-                      <Bar dataKey="count" name="Present" fill="#1a3352" radius={[6, 6, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                  Students marked tier complete
+                  {completedByGender
+                    ? ` — ${completedByGender.boys} boys, ${completedByGender.girls} girls`
+                    : ''}
+                  {completedByGender && completedByGender.other > 0
+                    ? `, ${completedByGender.other} other`
+                    : ''}
+                </Typography>
+                <Box sx={{ width: '100%', height: 240 }}>
+                  {genderCompletedByLevel.some((row) => row.total > 0) ? (
+                    <ResponsiveContainer>
+                      <BarChart data={genderCompletedByLevel} layout="vertical" margin={{ left: 8, right: 16 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                        <XAxis type="number" allowDecimals={false} />
+                        <YAxis type="category" dataKey="level_name" width={90} tick={{ fontSize: 11 }} />
+                        <Tooltip />
+                        <Legend />
+                        <Bar dataKey="boys" name="Boys" stackId="completed" fill={BOYS_COLOR} />
+                        <Bar dataKey="girls" name="Girls" stackId="completed" fill={GIRLS_COLOR} radius={[0, 6, 6, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      No tier completions recorded yet.
+                    </Typography>
+                  )}
                 </Box>
               </CardContent>
             </Card>
           </Grid>
-          {isAdmin && staffPie.length > 0 && (
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent>
+                <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                  Nationality
+                </Typography>
+                <Box sx={{ width: '100%', height: 260 }}>
+                  {nationalityChart.length > 0 ? (
+                    <ResponsiveContainer>
+                      <BarChart data={nationalityChart} layout="vertical" margin={{ left: 8, right: 16 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                        <XAxis type="number" allowDecimals={false} />
+                        <YAxis type="category" dataKey="nationality" width={100} tick={{ fontSize: 11 }} />
+                        <Tooltip />
+                        <Bar dataKey="count" name="Students" fill="#4a7c59" radius={[0, 6, 6, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      No nationality data yet.
+                    </Typography>
+                  )}
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid size={{ xs: 12 }}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent>
+                <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                  Churches represented
+                </Typography>
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                  Place of worship from student registrations
+                </Typography>
+                <Box sx={{ width: '100%', height: churchChartHeight }}>
+                  {churchChart.length > 0 ? (
+                    <ResponsiveContainer>
+                      <BarChart
+                        data={churchChart}
+                        layout="vertical"
+                        margin={{ left: 8, right: 24, top: 4, bottom: 4 }}
+                        barCategoryGap="24%"
+                      >
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                        <XAxis type="number" allowDecimals={false} />
+                        <YAxis
+                          type="category"
+                          dataKey="church"
+                          width={churchAxisWidth}
+                          tick={{ fontSize: 11 }}
+                          interval={0}
+                        />
+                        <Tooltip />
+                        <Bar dataKey="count" name="Students" fill="#6b4c9a" radius={[0, 6, 6, 0]} barSize={28} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      No church data yet.
+                    </Typography>
+                  )}
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid size={{ xs: 12, md: isAdmin ? 6 : 12 }}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent>
+                <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                  Grades per tier
+                </Typography>
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                  Overall grade from module test averages (Distinction, Merit, Upper Credit, Lower Credit, Pass)
+                </Typography>
+                <Box sx={{ width: '100%', height: 280 }}>
+                  {gradesByLevel.some((row) => row.total_graded > 0) ? (
+                    <ResponsiveContainer>
+                      <BarChart data={gradesByLevel} layout="vertical" margin={{ left: 8, right: 16 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                        <XAxis type="number" allowDecimals={false} />
+                        <YAxis type="category" dataKey="level_name" width={90} tick={{ fontSize: 11 }} />
+                        <Tooltip />
+                        <Legend />
+                        <Bar dataKey="distinction" name="Distinction (D)" stackId="grades" fill={CHART_COLORS[0]} />
+                        <Bar dataKey="merit" name="Merit (M)" stackId="grades" fill={CHART_COLORS[1]} />
+                        <Bar dataKey="upper_credit" name="Upper Credit (UC)" stackId="grades" fill={CHART_COLORS[2]} />
+                        <Bar dataKey="lower_credit" name="Lower Credit (LC)" stackId="grades" fill={CHART_COLORS[3]} />
+                        <Bar
+                          dataKey="pass"
+                          name="Pass (P)"
+                          stackId="grades"
+                          fill={CHART_COLORS[4]}
+                          radius={[0, 6, 6, 0]}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      No graded students yet — overall grades appear once module scores are recorded.
+                    </Typography>
+                  )}
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+          {isAdmin && (
             <Grid size={{ xs: 12, md: 6 }}>
               <Card sx={{ height: '100%' }}>
                 <CardContent>
                   <Typography variant="subtitle1" fontWeight={600} gutterBottom>
                     Staff by role
                   </Typography>
-                  <Box sx={{ width: '100%', height: 240 }}>
-                    <ResponsiveContainer>
-                      <PieChart>
-                        <Pie
-                          data={staffPie}
-                          dataKey="value"
-                          nameKey="name"
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={50}
-                          outerRadius={80}
-                          paddingAngle={2}
-                        >
-                          {staffPie.map((_, i) => (
-                            <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                        <Legend />
-                      </PieChart>
-                    </ResponsiveContainer>
+                  <Box sx={{ width: '100%', height: 280 }}>
+                    {staffTotal > 0 ? (
+                      <ResponsiveContainer>
+                        <PieChart>
+                          <Pie
+                            data={staffPie}
+                            dataKey="value"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={50}
+                            outerRadius={80}
+                            paddingAngle={2}
+                          >
+                            {staffPie.map((_, i) => (
+                              <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        No staff accounts yet.
+                      </Typography>
+                    )}
                   </Box>
                 </CardContent>
               </Card>
             </Grid>
           )}
+          <Grid size={{ xs: 12 }}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent>
+                <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                  Attendance — last 7 days
+                </Typography>
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                  Present students per day, stacked by tier
+                </Typography>
+                <Box sx={{ width: '100%', height: 280 }}>
+                  {attendanceLevels.length > 0 ? (
+                    <ResponsiveContainer>
+                      <BarChart data={attendanceChart} margin={{ top: 20, right: 8, left: -16, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+                        <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                        <Tooltip content={<SplitCountTooltip />} />
+                        <Legend />
+                        {attendanceLevels.map((level, i) => (
+                          <Bar
+                            key={level.level_id}
+                            dataKey={level.level_name}
+                            stackId="attendance"
+                            fill={CHART_COLORS[i % CHART_COLORS.length]}
+                            radius={
+                              i === attendanceLevels.length - 1 ? [6, 6, 0, 0] : undefined
+                            }
+                          >
+                            {i === attendanceLevels.length - 1 && (
+                              <LabelList content={verticalStackTotalLabel} />
+                            )}
+                          </Bar>
+                        ))}
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      No tiers in this session yet.
+                    </Typography>
+                  )}
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
         </Grid>
       )}
 

@@ -13,6 +13,10 @@ use Illuminate\Support\Collection;
 
 class JbsDashboardStatsService
 {
+    public function __construct(
+        private JbsGradingService $grading,
+    ) {}
+
     public function resolveSession(?int $sessionId): ?JbsSession
     {
         if ($sessionId) {
@@ -53,7 +57,7 @@ class JbsDashboardStatsService
         ])->values()->all();
 
         $staffCounts = User::query()
-            ->whereIn('role', ['admin', 'teacher'])
+            ->whereIn('role', ['admin', 'teacher', 'assistant'])
             ->selectRaw('role, COUNT(*) as count')
             ->groupBy('role')
             ->pluck('count', 'role');
@@ -67,6 +71,7 @@ class JbsDashboardStatsService
                 'modules_count' => (int) $levels->sum(fn ($l) => $l->modules->count()),
                 'staff_admins' => (int) ($staffCounts['admin'] ?? 0),
                 'staff_teachers' => (int) ($staffCounts['teacher'] ?? 0),
+                'staff_assistants' => (int) ($staffCounts['assistant'] ?? 0),
                 'level_completed_count' => $this->levelCompletedCount($session->id, true),
                 'level_not_completed_count' => $this->levelCompletedCount($session->id, false),
                 'open_tests' => $this->openTestsCount($session->id),
@@ -74,7 +79,13 @@ class JbsDashboardStatsService
             ],
             $registrationsByLevel,
             $modulesByLevel,
-            $this->attendanceLast7Days($session->id),
+            $this->attendanceLast7DaysByLevel($session->id, $levels),
+            $this->genderByLevel($session->id, $levels),
+            $this->genderByLevel($session->id, $levels, completedOnly: true),
+            $this->genderTotals($session->id, completedOnly: true),
+            $this->nationalityStats($session->id),
+            $this->churchStats($session->id),
+            $this->gradesByLevel($session->id, $levels),
         );
     }
 
@@ -123,6 +134,8 @@ class JbsDashboardStatsService
             ->whereIn('jbs_level_id', $levelIds)
             ->count();
 
+        $sessionLevels = $session->levels()->orderBy('sort_order')->get();
+
         return $this->buildPayload(
             $session,
             [
@@ -132,16 +145,266 @@ class JbsDashboardStatsService
                 'modules_count' => $moduleIds->count(),
                 'staff_admins' => 0,
                 'staff_teachers' => 0,
-                'level_completed_count' => 0,
-                'level_not_completed_count' => 0,
+                'staff_assistants' => 0,
+                'level_completed_count' => $this->levelCompletedCount($session->id, true, $levelIds->all()),
+                'level_not_completed_count' => $this->levelCompletedCount($session->id, false, $levelIds->all()),
                 'open_tests' => $this->openTestsCount($session->id, $moduleIds->all()),
                 'my_modules' => $moduleIds->count(),
                 'assigned_students' => $assignedStudents,
             ],
             $this->registrationsByLevelForLevels($session, $levelIds),
             $this->modulesByLevelForAssignments($assignments, $session->id),
-            $this->attendanceLast7Days($session->id, $levelIds->all()),
+            $this->attendanceLast7DaysByLevel($session->id, $sessionLevels, $levelIds->all()),
+            $this->genderByLevel($session->id, $sessionLevels, $levelIds->all()),
+            $this->genderByLevel($session->id, $sessionLevels, $levelIds->all(), completedOnly: true),
+            $this->genderTotals($session->id, $levelIds->all(), completedOnly: true),
+            $this->nationalityStats($session->id, $levelIds->all()),
+            $this->churchStats($session->id, $levelIds->all()),
+            $this->gradesByLevel($session->id, $sessionLevels, $levelIds->all()),
         );
+    }
+
+    /**
+     * @param  Collection<int, \App\Models\JbsLevel>|null  $levels
+     * @param  list<int>|null  $levelIds
+     * @return list<array{level_id: int, level_name: string, boys: int, girls: int, other: int, total: int}>
+     */
+    private function genderByLevel(
+        int $sessionId,
+        ?Collection $levels = null,
+        ?array $levelIds = null,
+        bool $completedOnly = false,
+    ): array {
+        $levels ??= JbsSession::query()->find($sessionId)?->levels()->orderBy('sort_order')->get() ?? collect();
+
+        if ($levelIds !== null) {
+            $levels = $levels->whereIn('id', $levelIds)->values();
+        }
+
+        $query = JbsStudentRegistration::query()
+            ->where('jbs_session_id', $sessionId)
+            ->when($completedOnly, fn ($q) => $q->where('level_completed', true))
+            ->when($levelIds !== null, fn ($q) => $q->whereIn('jbs_level_id', $levelIds));
+
+        $rows = $query
+            ->selectRaw('jbs_level_id, gender, COUNT(*) as count')
+            ->groupBy('jbs_level_id', 'gender')
+            ->get()
+            ->groupBy('jbs_level_id');
+
+        return $levels->map(function ($level) use ($rows) {
+            $genderRows = $rows->get($level->id, collect());
+            $counts = $this->genderCountsFromRows($genderRows);
+
+            return [
+                'level_id' => $level->id,
+                'level_name' => $level->name,
+                ...$counts,
+            ];
+        })->values()->all();
+    }
+
+    /**
+     * @param  list<int>|null  $levelIds
+     * @return array{boys: int, girls: int, other: int, total: int}
+     */
+    private function genderTotals(int $sessionId, ?array $levelIds = null, bool $completedOnly = false): array
+    {
+        $query = JbsStudentRegistration::query()
+            ->where('jbs_session_id', $sessionId)
+            ->when($completedOnly, fn ($q) => $q->where('level_completed', true))
+            ->when($levelIds !== null, fn ($q) => $q->whereIn('jbs_level_id', $levelIds));
+
+        $rows = $query
+            ->selectRaw('gender, COUNT(*) as count')
+            ->groupBy('gender')
+            ->get();
+
+        return $this->genderCountsFromRows($rows);
+    }
+
+    /**
+     * @param  list<int>|null  $levelIds
+     * @return list<array{nationality: string, count: int}>
+     */
+    private function nationalityStats(int $sessionId, ?array $levelIds = null): array
+    {
+        return JbsStudentRegistration::query()
+            ->where('jbs_session_id', $sessionId)
+            ->when($levelIds !== null, fn ($q) => $q->whereIn('jbs_level_id', $levelIds))
+            ->selectRaw("COALESCE(NULLIF(TRIM(nationality), ''), 'Unknown') as nationality, COUNT(*) as count")
+            ->groupBy('nationality')
+            ->orderByDesc('count')
+            ->orderBy('nationality')
+            ->get()
+            ->map(fn ($row) => [
+                'nationality' => $row->nationality,
+                'count' => (int) $row->count,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  list<int>|null  $levelIds
+     * @return list<array{church: string, count: int}>
+     */
+    private function churchStats(int $sessionId, ?array $levelIds = null): array
+    {
+        return JbsStudentRegistration::query()
+            ->where('jbs_session_id', $sessionId)
+            ->when($levelIds !== null, fn ($q) => $q->whereIn('jbs_level_id', $levelIds))
+            ->selectRaw("COALESCE(NULLIF(TRIM(place_of_worship), ''), 'Unknown') as church, COUNT(*) as count")
+            ->groupBy('church')
+            ->orderByDesc('count')
+            ->orderBy('church')
+            ->get()
+            ->map(fn ($row) => [
+                'church' => $row->church,
+                'count' => (int) $row->count,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  Collection<int, \App\Models\JbsLevel>|null  $levels
+     * @param  list<int>|null  $levelIds
+     * @return list<array{
+     *     level_id: int,
+     *     level_name: string,
+     *     distinction: int,
+     *     merit: int,
+     *     upper_credit: int,
+     *     lower_credit: int,
+     *     pass: int,
+     *     ungraded: int,
+     *     total_graded: int
+     * }>
+     */
+    private function gradesByLevel(int $sessionId, ?Collection $levels = null, ?array $levelIds = null): array
+    {
+        $levels ??= JbsSession::query()->find($sessionId)?->levels()->orderBy('sort_order')->get() ?? collect();
+
+        if ($levelIds !== null) {
+            $levels = $levels->whereIn('id', $levelIds)->values();
+        }
+
+        $rowsByLevel = [];
+        foreach ($levels as $level) {
+            $rowsByLevel[$level->id] = $this->emptyGradeRow($level->id, $level->name);
+        }
+
+        $registrations = JbsStudentRegistration::query()
+            ->where('jbs_session_id', $sessionId)
+            ->when($levelIds !== null, fn ($q) => $q->whereIn('jbs_level_id', $levelIds))
+            ->with(['level.modules', 'scoreOutcomes'])
+            ->get();
+
+        foreach ($registrations as $registration) {
+            if (! isset($rowsByLevel[$registration->jbs_level_id])) {
+                continue;
+            }
+
+            $percents = [];
+            $outcomes = $registration->scoreOutcomes->keyBy('jbs_module_id');
+
+            foreach ($registration->level->modules as $module) {
+                $outcome = $outcomes->get($module->id);
+                if ($outcome !== null) {
+                    $percents[] = $this->grading->percentFromScores(
+                        (float) $outcome->score,
+                        (float) $outcome->max_score,
+                    );
+                }
+            }
+
+            $overallPercent = $this->grading->overallAveragePercent($percents);
+            if ($overallPercent === null) {
+                $rowsByLevel[$registration->jbs_level_id]['ungraded']++;
+
+                continue;
+            }
+
+            $gradeShort = $this->grading->overallGradeForPercent($overallPercent)['grade_short'];
+            $field = match ($gradeShort) {
+                'D' => 'distinction',
+                'M' => 'merit',
+                'UC' => 'upper_credit',
+                'LC' => 'lower_credit',
+                'P' => 'pass',
+                default => null,
+            };
+
+            if ($field === null) {
+                $rowsByLevel[$registration->jbs_level_id]['ungraded']++;
+
+                continue;
+            }
+
+            $rowsByLevel[$registration->jbs_level_id][$field]++;
+            $rowsByLevel[$registration->jbs_level_id]['total_graded']++;
+        }
+
+        return array_values($rowsByLevel);
+    }
+
+    /**
+     * @return array{
+     *     level_id: int,
+     *     level_name: string,
+     *     distinction: int,
+     *     merit: int,
+     *     upper_credit: int,
+     *     lower_credit: int,
+     *     pass: int,
+     *     ungraded: int,
+     *     total_graded: int
+     * }
+     */
+    private function emptyGradeRow(int $levelId, string $levelName): array
+    {
+        return [
+            'level_id' => $levelId,
+            'level_name' => $levelName,
+            'distinction' => 0,
+            'merit' => 0,
+            'upper_credit' => 0,
+            'lower_credit' => 0,
+            'pass' => 0,
+            'ungraded' => 0,
+            'total_graded' => 0,
+        ];
+    }
+
+    /**
+     * @return array{boys: int, girls: int, other: int, total: int}
+     */
+    private function genderCountsFromRows(Collection $rows): array
+    {
+        $boys = 0;
+        $girls = 0;
+        $other = 0;
+
+        foreach ($rows as $row) {
+            $count = (int) $row->count;
+            $gender = $row->gender;
+
+            if ($gender === 'Male') {
+                $boys += $count;
+            } elseif ($gender === 'Female') {
+                $girls += $count;
+            } else {
+                $other += $count;
+            }
+        }
+
+        return [
+            'boys' => $boys,
+            'girls' => $girls,
+            'other' => $other,
+            'total' => $boys + $girls + $other,
+        ];
     }
 
     /**
@@ -161,11 +424,12 @@ class JbsDashboardStatsService
         return $query->count();
     }
 
-    private function levelCompletedCount(int $sessionId, bool $completed): int
+    private function levelCompletedCount(int $sessionId, bool $completed, ?array $levelIds = null): int
     {
         return JbsStudentRegistration::query()
             ->where('jbs_session_id', $sessionId)
             ->where('level_completed', $completed)
+            ->when($levelIds !== null, fn ($q) => $q->whereIn('jbs_level_id', $levelIds))
             ->count();
     }
 
@@ -188,37 +452,52 @@ class JbsDashboardStatsService
     }
 
     /**
+     * @param  Collection<int, \App\Models\JbsLevel>  $levels
      * @param  list<int>|null  $levelIds
-     * @return list<array{date: string, count: int}>
+     * @return array{levels: list<array{level_id: int, level_name: string}>, days: list<array{date: string, counts: list<int>}>}
      */
-    private function attendanceLast7Days(int $sessionId, ?array $levelIds = null): array
+    private function attendanceLast7DaysByLevel(int $sessionId, Collection $levels, ?array $levelIds = null): array
     {
+        if ($levelIds !== null) {
+            $levels = $levels->whereIn('id', $levelIds)->values();
+        }
+
+        $levelList = $levels->map(fn ($level) => [
+            'level_id' => $level->id,
+            'level_name' => $level->name,
+        ])->values()->all();
+
         $start = Carbon::today()->subDays(6);
 
         $rows = JbsAttendanceLog::query()
-            ->where('attended_on', '>=', $start)
-            ->whereHas('registration', function ($q) use ($sessionId, $levelIds): void {
-                $q->where('jbs_session_id', $sessionId);
-                if ($levelIds !== null) {
-                    $q->whereIn('jbs_level_id', $levelIds);
-                }
-            })
-            ->selectRaw('attended_on, COUNT(*) as count')
-            ->groupBy('attended_on')
-            ->orderBy('attended_on')
-            ->get()
-            ->keyBy(fn ($row) => Carbon::parse($row->attended_on)->toDateString());
+            ->join('jbs_student_registrations as reg', 'reg.id', '=', 'jbs_attendance_logs.jbs_student_registration_id')
+            ->where('reg.jbs_session_id', $sessionId)
+            ->when($levelIds !== null, fn ($q) => $q->whereIn('reg.jbs_level_id', $levelIds))
+            ->where('jbs_attendance_logs.attended_on', '>=', $start)
+            ->selectRaw('jbs_attendance_logs.attended_on as attended_on, reg.jbs_level_id as level_id, COUNT(*) as count')
+            ->groupBy('jbs_attendance_logs.attended_on', 'reg.jbs_level_id')
+            ->get();
+
+        $byDate = [];
+        foreach ($rows as $row) {
+            $date = Carbon::parse($row->attended_on)->toDateString();
+            $byDate[$date][(int) $row->level_id] = (int) $row->count;
+        }
 
         $days = [];
         for ($i = 0; $i < 7; $i++) {
             $date = $start->copy()->addDays($i)->toDateString();
-            $days[] = [
-                'date' => $date,
-                'count' => (int) ($rows[$date]->count ?? 0),
-            ];
+            $counts = array_map(
+                fn (array $level) => (int) ($byDate[$date][$level['level_id']] ?? 0),
+                $levelList,
+            );
+            $days[] = ['date' => $date, 'counts' => $counts];
         }
 
-        return $days;
+        return [
+            'levels' => $levelList,
+            'days' => $days,
+        ];
     }
 
     /**
@@ -266,7 +545,7 @@ class JbsDashboardStatsService
      * @param  array<string, int|float>  $metrics
      * @param  list<array{level_id: int, level_name: string, count: int}>  $registrationsByLevel
      * @param  list<array{level_id: int, level_name: string, module_count: int}>  $modulesByLevel
-     * @param  list<array{date: string, count: int}>  $attendanceLast7Days
+     * @param  array{levels: list<array{level_id: int, level_name: string}>, days: list<array{date: string, counts: list<int>}>}  $attendanceLast7DaysByLevel
      * @return array<string, mixed>
      */
     private function buildPayload(
@@ -274,7 +553,13 @@ class JbsDashboardStatsService
         array $metrics,
         array $registrationsByLevel,
         array $modulesByLevel,
-        array $attendanceLast7Days,
+        array $attendanceLast7DaysByLevel,
+        array $genderByLevel = [],
+        array $genderCompletedByLevel = [],
+        ?array $completedByGender = null,
+        array $nationalities = [],
+        array $churches = [],
+        array $gradesByLevel = [],
     ): array {
         return [
             'session' => [
@@ -287,7 +572,13 @@ class JbsDashboardStatsService
             'metrics' => $metrics,
             'registrations_by_level' => $registrationsByLevel,
             'modules_by_level' => $modulesByLevel,
-            'attendance_last_7_days' => $attendanceLast7Days,
+            'attendance_last_7_days_by_level' => $attendanceLast7DaysByLevel,
+            'gender_by_level' => $genderByLevel,
+            'gender_completed_by_level' => $genderCompletedByLevel,
+            'completed_by_gender' => $completedByGender ?? ['boys' => 0, 'girls' => 0, 'other' => 0, 'total' => 0],
+            'nationalities' => $nationalities,
+            'churches' => $churches,
+            'grades_by_level' => $gradesByLevel,
         ];
     }
 
@@ -312,6 +603,7 @@ class JbsDashboardStatsService
                 'modules_count' => 0,
                 'staff_admins' => 0,
                 'staff_teachers' => 0,
+                'staff_assistants' => 0,
                 'level_completed_count' => 0,
                 'level_not_completed_count' => 0,
                 'open_tests' => 0,
@@ -319,7 +611,13 @@ class JbsDashboardStatsService
             ],
             'registrations_by_level' => [],
             'modules_by_level' => [],
-            'attendance_last_7_days' => [],
+            'attendance_last_7_days_by_level' => ['levels' => [], 'days' => []],
+            'gender_by_level' => [],
+            'gender_completed_by_level' => [],
+            'completed_by_gender' => ['boys' => 0, 'girls' => 0, 'other' => 0, 'total' => 0],
+            'nationalities' => [],
+            'churches' => [],
+            'grades_by_level' => [],
         ];
     }
 }

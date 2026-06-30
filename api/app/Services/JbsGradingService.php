@@ -18,8 +18,8 @@ class JbsGradingService
 
     /** @var list<array{min: int, label: string, short: string}> */
     private const OVERALL_BANDS = [
-        ['min' => 70, 'label' => 'Distinction', 'short' => 'DN'],
-        ['min' => 60, 'label' => 'Merit', 'short' => 'MR'],
+        ['min' => 70, 'label' => 'Distinction', 'short' => 'D'],
+        ['min' => 60, 'label' => 'Merit', 'short' => 'M'],
         ['min' => 50, 'label' => 'Upper Credit', 'short' => 'UC'],
         ['min' => 40, 'label' => 'Lower Credit', 'short' => 'LC'],
         ['min' => 0, 'label' => 'Pass', 'short' => 'P'],
