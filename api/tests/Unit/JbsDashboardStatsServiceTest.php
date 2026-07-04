@@ -35,7 +35,7 @@ class JbsDashboardStatsServiceTest extends TestCase
         ]);
 
         $this->createRegistration($session, $basic, 'Male', 'British', 'Winners Chapel Dartford', false);
-        $this->createRegistration($session, $basic, 'Female', 'British', 'Winners Chapel Dartford', true);
+        $this->createRegistration($session, $basic, 'Female', 'British', 'Winners Chapel Dartford', true, 'Peanuts');
         $this->createRegistration($session, $advanced, 'Male', 'Nigerian', 'Other Church', true);
 
         $payload = app(JbsDashboardStatsService::class)->adminStats($session->id);
@@ -55,6 +55,10 @@ class JbsDashboardStatsServiceTest extends TestCase
         $this->assertSame(2, $payload['churches'][0]['count']);
         $this->assertSame(2, $payload['grades_by_level'][0]['ungraded']);
         $this->assertSame(1, $payload['grades_by_level'][1]['ungraded']);
+        $this->assertSame(1, $payload['allergies_by_level'][0]['count']);
+        $this->assertSame(2, $payload['allergies_by_level'][0]['total']);
+        $this->assertSame(0, $payload['allergies_by_level'][1]['count']);
+        $this->assertSame(1, $payload['allergies_by_level'][1]['total']);
     }
 
     #[Test]
@@ -178,6 +182,7 @@ class JbsDashboardStatsServiceTest extends TestCase
         string $nationality,
         string $church,
         bool $completed,
+        ?string $allergies = null,
     ): JbsStudentRegistration {
         static $n = 0;
         $n++;
@@ -207,6 +212,7 @@ class JbsDashboardStatsServiceTest extends TestCase
             'current_school_year' => 'Year 9',
             'next_of_kin_name' => 'Kin',
             'level_completed' => $completed,
+            'allergies' => $allergies,
         ]);
     }
 }

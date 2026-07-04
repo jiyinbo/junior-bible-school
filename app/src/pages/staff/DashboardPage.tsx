@@ -74,6 +74,14 @@ type DashboardStats = {
   nationalities: { nationality: string; count: number }[];
   churches: { church: string; count: number }[];
   grades_by_level: GradesByLevelRow[];
+  allergies_by_level: AllergiesByLevelRow[];
+};
+
+type AllergiesByLevelRow = {
+  level_id: number;
+  level_name: string;
+  count: number;
+  total: number;
 };
 
 type GradesByLevelRow = {
@@ -129,6 +137,11 @@ function staffAccountsHint(admins: number, teachers: number, assistants: number)
     staffRoleLabel(teachers, 'teacher', 'teachers'),
     staffRoleLabel(assistants, 'assistant', 'assistants'),
   ].join(' · ');
+}
+
+function allergiesPerTierHint(rows: AllergiesByLevelRow[]): string {
+  const parts = rows.filter((row) => row.total > 0).map((row) => `${row.level_name}: ${row.count}`);
+  return parts.length > 0 ? parts.join(' · ') : 'None recorded';
 }
 
 type SplitTooltipProps = {
@@ -273,6 +286,8 @@ export function DashboardPage() {
   const churchChart = stats?.churches ?? [];
   const churchTotal = churchChart.reduce((sum, row) => sum + row.count, 0);
   const gradesByLevel = stats?.grades_by_level ?? [];
+  const allergiesByLevel = stats?.allergies_by_level ?? [];
+  const allergiesTotal = allergiesByLevel.reduce((sum, row) => sum + row.count, 0);
   const attendanceLevels = stats?.attendance_last_7_days_by_level?.levels ?? [];
   const attendanceChart =
     stats?.attendance_last_7_days_by_level?.days.map((d) => {
@@ -287,7 +302,7 @@ export function DashboardPage() {
       return row;
     }) ?? [];
 
-  const metricCount = isAdmin ? 7 : 6;
+  const metricCount = isAdmin ? 8 : 7;
 
   return (
     <>
@@ -379,6 +394,14 @@ export function DashboardPage() {
                   label={isAdmin ? 'Registered students' : 'Students (your tiers)'}
                   value={m?.registrations_total ?? 0}
                   hint={stats?.session?.registration_is_open ? 'Registration open' : 'Registration closed'}
+                />
+              </Grid>
+              <Grid size={{ xs: 6, sm: 4, md: 3 }}>
+                <MetricCard
+                  label="With allergies / medical"
+                  value={allergiesTotal}
+                  color={allergiesTotal > 0 ? 'warning' : 'default'}
+                  hint={allergiesPerTierHint(allergiesByLevel)}
                 />
               </Grid>
               <Grid size={{ xs: 6, sm: 4, md: 3 }}>

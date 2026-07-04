@@ -86,6 +86,7 @@ class JbsDashboardStatsService
             $this->nationalityStats($session->id),
             $this->churchStats($session->id),
             $this->gradesByLevel($session->id, $levels),
+            $this->allergiesByLevel($session->id, $levels),
         );
     }
 
@@ -161,6 +162,7 @@ class JbsDashboardStatsService
             $this->nationalityStats($session->id, $levelIds->all()),
             $this->churchStats($session->id, $levelIds->all()),
             $this->gradesByLevel($session->id, $sessionLevels, $levelIds->all()),
+            $this->allergiesByLevel($session->id, $sessionLevels, $levelIds->all()),
         );
     }
 
@@ -501,6 +503,46 @@ class JbsDashboardStatsService
     }
 
     /**
+     * @param  Collection<int, \App\Models\JbsLevel>|null  $levels
+     * @param  list<int>|null  $levelIds
+     * @return list<array{level_id: int, level_name: string, count: int, total: int}>
+     */
+    private function allergiesByLevel(
+        int $sessionId,
+        ?Collection $levels = null,
+        ?array $levelIds = null,
+    ): array {
+        $levels ??= JbsSession::query()->find($sessionId)?->levels()->orderBy('sort_order')->get() ?? collect();
+
+        if ($levelIds !== null) {
+            $levels = $levels->whereIn('id', $levelIds)->values();
+        }
+
+        $allergyCounts = JbsStudentRegistration::query()
+            ->where('jbs_session_id', $sessionId)
+            ->when($levelIds !== null, fn ($q) => $q->whereIn('jbs_level_id', $levelIds))
+            ->whereNotNull('allergies')
+            ->where('allergies', '!=', '')
+            ->selectRaw('jbs_level_id, COUNT(*) as count')
+            ->groupBy('jbs_level_id')
+            ->pluck('count', 'jbs_level_id');
+
+        $totalCounts = JbsStudentRegistration::query()
+            ->where('jbs_session_id', $sessionId)
+            ->when($levelIds !== null, fn ($q) => $q->whereIn('jbs_level_id', $levelIds))
+            ->selectRaw('jbs_level_id, COUNT(*) as count')
+            ->groupBy('jbs_level_id')
+            ->pluck('count', 'jbs_level_id');
+
+        return $levels->map(fn ($level) => [
+            'level_id' => $level->id,
+            'level_name' => $level->name,
+            'count' => (int) ($allergyCounts[$level->id] ?? 0),
+            'total' => (int) ($totalCounts[$level->id] ?? 0),
+        ])->values()->all();
+    }
+
+    /**
      * @param  Collection<int, int>  $levelIds
      * @return list<array{level_id: int, level_name: string, count: int}>
      */
@@ -560,6 +602,7 @@ class JbsDashboardStatsService
         array $nationalities = [],
         array $churches = [],
         array $gradesByLevel = [],
+        array $allergiesByLevel = [],
     ): array {
         return [
             'session' => [
@@ -579,6 +622,7 @@ class JbsDashboardStatsService
             'nationalities' => $nationalities,
             'churches' => $churches,
             'grades_by_level' => $gradesByLevel,
+            'allergies_by_level' => $allergiesByLevel,
         ];
     }
 
@@ -618,6 +662,7 @@ class JbsDashboardStatsService
             'nationalities' => [],
             'churches' => [],
             'grades_by_level' => [],
+            'allergies_by_level' => [],
         ];
     }
 }
