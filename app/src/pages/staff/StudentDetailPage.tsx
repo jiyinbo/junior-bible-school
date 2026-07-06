@@ -18,6 +18,7 @@ import {
   Typography,
 } from "@mui/material";
 import { apiJson, downloadPdfGet, parseApiError } from "../../api/http";
+import type { DocumentData } from "./certificates";
 import { deleteStudent } from "./studentPatch";
 import { toastSuccess } from "../../feedback/toast";
 import { StudentProgressPanel } from "../../components/StudentProgressPanel";
@@ -101,10 +102,23 @@ export function StudentDetailPage() {
     if (!studentId || !student) return;
     setError(null);
     try {
-      await downloadPdfGet(
-        `/api/v1/admin/registrations/${studentId}/documents/${kind}`,
-        `jbs-${kind}-${student.registration_number}.pdf`,
+      if (kind === "id-card") {
+        await downloadPdfGet(
+          `/api/v1/admin/registrations/${studentId}/documents/id-card`,
+          `jbs-id-card-${student.registration_number}.pdf`,
+        );
+        return;
+      }
+      const { data } = await apiJson<{ data: DocumentData }>(
+        `/api/v1/admin/registrations/${studentId}/documents/data`,
       );
+      const { generateStatementPdf, generateCertificatePdf } = await import("./certificates");
+      const filename = `jbs-${kind}-${data.registration_number}.pdf`;
+      if (kind === "statement") {
+        await generateStatementPdf(data, filename);
+      } else {
+        await generateCertificatePdf(data, filename);
+      }
     } catch (e) {
       setError(parseApiError(e));
     }

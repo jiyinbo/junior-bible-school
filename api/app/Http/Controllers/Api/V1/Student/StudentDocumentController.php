@@ -4,11 +4,12 @@ namespace App\Http\Controllers\Api\V1\Student;
 
 use App\Http\Controllers\Controller;
 use App\Models\JbsStudentRegistration;
+use App\Services\JbsDocumentDataService;
 use App\Services\JbsIdCardPdfService;
+use App\Services\JbsQrService;
 use App\Services\JbsStudentPortalPinService;
 use App\Services\JbsStudentProgressService;
-use App\Services\JbsQrService;
-use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -19,6 +20,7 @@ class StudentDocumentController extends Controller
         private JbsQrService $qr,
         private JbsIdCardPdfService $idCardPdf,
         private JbsStudentPortalPinService $portalPin,
+        private JbsDocumentDataService $documents,
     ) {}
 
     private function registration(Request $request): JbsStudentRegistration
@@ -39,37 +41,15 @@ class StudentDocumentController extends Controller
         ]);
     }
 
-    public function statement(Request $request): Response
+    /**
+     * Data used to render the statement of result and certificate in the browser.
+     * Only available once the student's tier has been marked completed.
+     */
+    public function data(Request $request): JsonResponse
     {
         $reg = $this->registration($request);
         $this->progress->assertDocumentsAllowed($reg);
 
-        $reg->load(['session', 'level.modules', 'scoreOutcomes' => fn ($q) => $q->with('module')]);
-
-        $pdf = Pdf::loadView('pdf.statement', [
-            'registration' => $reg,
-        ])->setPaper('a4', 'portrait');
-
-        return response($pdf->output(), 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="jbs-statement.pdf"',
-        ]);
-    }
-
-    public function certificate(Request $request): Response
-    {
-        $reg = $this->registration($request);
-        $this->progress->assertDocumentsAllowed($reg);
-
-        $reg->load(['session', 'level']);
-
-        $pdf = Pdf::loadView('pdf.certificate', [
-            'registration' => $reg,
-        ])->setPaper('a4', 'landscape');
-
-        return response($pdf->output(), 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="jbs-certificate.pdf"',
-        ]);
+        return response()->json(['data' => $this->documents->forRegistration($reg)]);
     }
 }

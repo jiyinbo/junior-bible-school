@@ -253,18 +253,25 @@ class JbsDashboardStatsService
      */
     private function churchStats(int $sessionId, ?array $levelIds = null): array
     {
+        // NB: group/order by the raw expressions rather than the SELECT aliases.
+        // The alias "address" collides with the real `address` column, and MySQL
+        // (ONLY_FULL_GROUP_BY) binds GROUP BY/ORDER BY to the column, which breaks
+        // functional dependency and errors out. Using the expressions is portable.
+        $churchExpr = "COALESCE(NULLIF(TRIM(place_of_worship), ''), 'Unknown')";
+        $addressExpr = "COALESCE(NULLIF(TRIM(place_of_worship_address), ''), '')";
+
         return JbsStudentRegistration::query()
             ->where('jbs_session_id', $sessionId)
             ->when($levelIds !== null, fn ($q) => $q->whereIn('jbs_level_id', $levelIds))
-            ->selectRaw("COALESCE(NULLIF(TRIM(place_of_worship), ''), 'Unknown') as church, COALESCE(NULLIF(TRIM(place_of_worship_address), ''), '') as address, COUNT(*) as count")
-            ->groupBy('church', 'address')
+            ->selectRaw("{$churchExpr} as church, {$addressExpr} as worship_address, COUNT(*) as count")
+            ->groupByRaw("{$churchExpr}, {$addressExpr}")
             ->orderByDesc('count')
-            ->orderBy('church')
-            ->orderBy('address')
+            ->orderByRaw("{$churchExpr} asc")
+            ->orderByRaw("{$addressExpr} asc")
             ->get()
             ->map(fn ($row) => [
                 'church' => $row->church,
-                'address' => $row->address,
+                'address' => $row->worship_address,
                 'count' => (int) $row->count,
             ])
             ->values()

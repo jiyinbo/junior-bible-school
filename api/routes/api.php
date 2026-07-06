@@ -39,8 +39,7 @@ Route::prefix('v1')->group(function (): void {
         Route::post('tests/{jbs_test}/questions', [StudentTestController::class, 'questions']);
         Route::post('tests/{jbs_test}/submit', [StudentTestController::class, 'submit']);
         Route::post('documents/id-card', [StudentDocumentController::class, 'idCard']);
-        Route::post('documents/statement', [StudentDocumentController::class, 'statement']);
-        Route::post('documents/certificate', [StudentDocumentController::class, 'certificate']);
+        Route::post('documents/data', [StudentDocumentController::class, 'data']);
     });
 
     Route::post('auth/login', [AuthController::class, 'login'])->middleware('throttle:12,1');
@@ -101,13 +100,13 @@ Route::prefix('v1')->group(function (): void {
             Route::patch('levels/{jbs_level}/timetable/entry', [TimetableAdminController::class, 'setEntry']);
 
             Route::get('registrations/export', [RegistrationAdminController::class, 'export']);
+            Route::get('documents/data', [RegistrationAdminController::class, 'bulkDocumentData']);
             Route::patch('registrations/{jbs_student_registration}/completion', [RegistrationAdminController::class, 'updateCompletion']);
             Route::patch('registrations/{jbs_student_registration}/scores', [RegistrationAdminController::class, 'updateScore']);
             Route::delete('registrations/{jbs_student_registration}/scores', [RegistrationAdminController::class, 'deleteScore']);
             Route::delete('registrations/{jbs_student_registration}', [RegistrationAdminController::class, 'destroy']);
             Route::get('registrations/{jbs_student_registration}/documents/id-card', [RegistrationAdminController::class, 'idCard']);
-            Route::get('registrations/{jbs_student_registration}/documents/statement', [RegistrationAdminController::class, 'statement']);
-            Route::get('registrations/{jbs_student_registration}/documents/certificate', [RegistrationAdminController::class, 'certificate']);
+            Route::get('registrations/{jbs_student_registration}/documents/data', [RegistrationAdminController::class, 'documentData']);
         });
 
         // Assistants share these read + registration-management endpoints with admins:

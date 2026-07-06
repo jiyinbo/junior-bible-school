@@ -7,12 +7,12 @@ use App\Models\JbsLevel;
 use App\Models\JbsModule;
 use App\Models\JbsModuleScoreOutcome;
 use App\Models\JbsStudentRegistration;
+use App\Services\JbsDocumentDataService;
 use App\Services\JbsIdCardPdfService;
 use App\Services\JbsQrService;
 use App\Services\JbsRegistrationService;
 use App\Services\JbsStudentPortalPinService;
 use App\Services\JbsStudentProgressService;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -28,6 +28,7 @@ class RegistrationAdminController extends Controller
         private JbsQrService $qr,
         private JbsIdCardPdfService $idCardPdf,
         private JbsStudentPortalPinService $portalPin,
+        private JbsDocumentDataService $documents,
     ) {}
 
     /**
@@ -620,35 +621,47 @@ class RegistrationAdminController extends Controller
         ]);
     }
 
-    public function statement(Request $request, JbsStudentRegistration $jbs_student_registration): Response
+    /**
+     * Data used to render the statement of result and certificate in the browser.
+     */
+    public function documentData(Request $request, JbsStudentRegistration $jbs_student_registration): JsonResponse
     {
         $reg = $jbs_student_registration->load(['session', 'level.modules']);
         $this->progress->assertDocumentsAllowed($reg);
 
-        $this->audit()->record('registration.document_downloaded', $request, $reg, metadata: ['document' => 'statement']);
+        $this->audit()->record('registration.document_downloaded', $request, $reg, metadata: ['document' => 'data']);
 
-        $reg->load(['scoreOutcomes' => fn ($q) => $q->with('module')]);
-
-        $pdf = Pdf::loadView('pdf.statement', ['registration' => $reg])->setPaper('a4', 'portrait');
-
-        return response($pdf->output(), 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="jbs-statement-'.$reg->registration_number.'.pdf"',
-        ]);
+        return response()->json(['data' => $this->documents->forRegistration($reg)]);
     }
 
-    public function certificate(Request $request, JbsStudentRegistration $jbs_student_registration): Response
+    /**
+     * Bulk document data for every completed (graduating) student matching the
+     * given filters — used to print statements/certificates a tier at a time.
+     */
+    public function bulkDocumentData(Request $request): JsonResponse
     {
-        $reg = $jbs_student_registration->load(['session', 'level']);
-        $this->progress->assertDocumentsAllowed($reg);
+        $filters = $this->filterParams($request);
+        // Only graduating students get a statement/certificate.
+        $filters['level_completed'] = true;
 
-        $this->audit()->record('registration.document_downloaded', $request, $reg, metadata: ['document' => 'certificate']);
+        $registrations = $this->filteredQuery($filters)
+            ->with(['level.modules'])
+            ->get();
 
-        $pdf = Pdf::loadView('pdf.certificate', ['registration' => $reg])->setPaper('a4', 'landscape');
+        $this->audit()->record(
+            'registration.documents_bulk_downloaded',
+            $request,
+            metadata: [
+                'count' => $registrations->count(),
+                'jbs_session_id' => $filters['jbs_session_id'] ?? null,
+                'jbs_level_id' => $filters['jbs_level_id'] ?? null,
+            ],
+        );
 
-        return response($pdf->output(), 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="jbs-certificate-'.$reg->registration_number.'.pdf"',
+        return response()->json([
+            'data' => $registrations
+                ->map(fn (JbsStudentRegistration $reg) => $this->documents->forRegistration($reg))
+                ->values(),
         ]);
     }
 

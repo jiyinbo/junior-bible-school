@@ -14,7 +14,8 @@ import {
   Typography,
   Box,
 } from '@mui/material';
-import { apiJson, downloadPdf, parseApiError } from '../api/http';
+import { apiJson, parseApiError } from '../api/http';
+import type { DocumentData } from './staff/certificates';
 import { toastSuccess } from '../feedback/toast';
 import { IdCardDialog } from '../components/IdCardPreview';
 import { FormRowButton } from '../components/InlineFormRow';
@@ -163,13 +164,19 @@ export function StudentPortalPage() {
   const dl = async (kind: 'statement' | 'certificate') => {
     setError(null);
     try {
-      await downloadPdf(
-        `/api/v1/student/documents/${kind}`,
-        studentAuthBody(reg, pin),
-        `jbs-${kind}.pdf`,
-      );
+      const { data } = await apiJson<{ data: DocumentData }>('/api/v1/student/documents/data', {
+        method: 'POST',
+        json: studentAuthBody(reg, pin),
+      });
+      const { generateStatementPdf, generateCertificatePdf } = await import('./staff/certificates');
+      const filename = `jbs-${kind}-${data.registration_number}.pdf`;
+      if (kind === 'statement') {
+        await generateStatementPdf(data, filename);
+      } else {
+        await generateCertificatePdf(data, filename);
+      }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Download failed');
+      setError(parseApiError(e));
     }
   };
 

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
+import WorkspacePremiumOutlinedIcon from '@mui/icons-material/WorkspacePremiumOutlined';
 import {
   Alert,
   Box,
@@ -28,6 +30,7 @@ import { apiJson, downloadCsvGet, parseApiError } from '../../api/http';
 import { PageHeader } from '../../staff/PageHeader';
 import { useStaffAuth } from '../../staff/StaffAuthContext';
 import { studentTierStatusDisplay } from './studentDetailShared';
+import type { DocumentData } from './certificates';
 
 type SessionOption = { id: number; name: string };
 type LevelOption = { id: number; name: string };
@@ -230,6 +233,7 @@ export function StudentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [printing, setPrinting] = useState(false);
+  const [printingDoc, setPrintingDoc] = useState<null | 'statement' | 'certificate'>(null);
 
   const resetPage = () => setPage(0);
 
@@ -352,6 +356,36 @@ export function StudentsPage() {
     }
   };
 
+  const printDocuments = async (kind: 'statement' | 'certificate') => {
+    setPrintingDoc(kind);
+    setError(null);
+    try {
+      const q = buildFilterParams().toString();
+      const path = q ? `/api/v1/admin/documents/data?${q}` : '/api/v1/admin/documents/data';
+      const { data } = await apiJson<{ data: DocumentData[] }>(path);
+      if (data.length === 0) {
+        setError('No graduating (tier-completed) students match your filters, so there is nothing to print.');
+        return;
+      }
+      const tierName = levelId !== '' ? levels.find((l) => l.id === levelId)?.name : undefined;
+      const scope = (tierName ?? 'all-tiers')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
+      const date = new Date().toISOString().slice(0, 10);
+      const gen = await import('./certificates');
+      if (kind === 'statement') {
+        await gen.generateStatementsPdf(data, `jbs-statements-${scope || 'students'}-${date}.pdf`);
+      } else {
+        await gen.generateCertificatesPdf(data, `jbs-certificates-${scope || 'students'}-${date}.pdf`);
+      }
+    } catch (e) {
+      setError(parseApiError(e));
+    } finally {
+      setPrintingDoc(null);
+    }
+  };
+
   return (
     <>
       <PageHeader
@@ -367,6 +401,26 @@ export function StudentsPage() {
             >
               {printing ? 'Preparing…' : 'Print ID cards'}
             </Button>
+            {isAdmin && (
+              <Button
+                variant="outlined"
+                startIcon={<DescriptionOutlinedIcon />}
+                onClick={() => void printDocuments('statement')}
+                disabled={printingDoc !== null}
+              >
+                {printingDoc === 'statement' ? 'Preparing…' : 'Print statements'}
+              </Button>
+            )}
+            {isAdmin && (
+              <Button
+                variant="outlined"
+                startIcon={<WorkspacePremiumOutlinedIcon />}
+                onClick={() => void printDocuments('certificate')}
+                disabled={printingDoc !== null}
+              >
+                {printingDoc === 'certificate' ? 'Preparing…' : 'Print certificates'}
+              </Button>
+            )}
             {isAdmin && (
               <Button
                 variant="outlined"
@@ -475,7 +529,8 @@ export function StudentsPage() {
         </Box>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
           “Print ID cards” builds an A4 PDF (9 cards per page) for every student matching these
-          filters — select a tier to print that tier only.
+          filters. “Print statements” and “Print certificates” cover only graduating
+          (tier-completed) students that match — select a tier to print that tier only.
         </Typography>
       </Paper>
 
