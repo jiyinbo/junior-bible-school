@@ -13,6 +13,10 @@ export async function patchStudent(
   return response.data;
 }
 
+export async function deleteStudent(studentId: string): Promise<void> {
+  await apiJson(`/api/v1/admin/registrations/${studentId}`, { method: 'DELETE' });
+}
+
 export function emptyToNull(value: string): string | null {
   const trimmed = value.trim();
 

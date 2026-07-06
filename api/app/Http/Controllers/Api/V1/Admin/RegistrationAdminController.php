@@ -509,6 +509,31 @@ class RegistrationAdminController extends Controller
         ]);
     }
 
+    public function destroy(Request $request, JbsStudentRegistration $jbs_student_registration): JsonResponse
+    {
+        $this->audit()->record(
+            'registration.deleted',
+            $request,
+            $jbs_student_registration,
+            subjectLabel: $jbs_student_registration->registration_number,
+            oldValues: $this->audit()->snapshot(
+                $jbs_student_registration,
+                ['registration_number', 'first_name', 'last_name', 'email'],
+            ),
+            metadata: [
+                'registration_number' => $jbs_student_registration->registration_number,
+                'full_name' => $jbs_student_registration->fullName(),
+                'session_id' => $jbs_student_registration->jbs_session_id,
+                'level_id' => $jbs_student_registration->jbs_level_id,
+            ],
+        );
+
+        // Attendance logs, attempts and score outcomes cascade on delete via FK constraints.
+        $jbs_student_registration->delete();
+
+        return response()->json(['message' => 'Registration deleted.']);
+    }
+
     public function updateScore(Request $request, JbsStudentRegistration $jbs_student_registration): JsonResponse
     {
         $data = $request->validate([

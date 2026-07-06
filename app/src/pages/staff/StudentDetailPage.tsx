@@ -1,10 +1,15 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Link as RouterLink, useParams } from "react-router-dom";
+import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
 import {
   Alert,
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   FormControlLabel,
   Grid,
   Paper,
@@ -13,6 +18,7 @@ import {
   Typography,
 } from "@mui/material";
 import { apiJson, downloadPdfGet, parseApiError } from "../../api/http";
+import { deleteStudent } from "./studentPatch";
 import { toastSuccess } from "../../feedback/toast";
 import { StudentProgressPanel } from "../../components/StudentProgressPanel";
 import { DetailRow } from "../../components/ResponsiveTableLayout";
@@ -61,6 +67,7 @@ function FieldRow({
 
 export function StudentDetailPage() {
   const { studentId } = useParams<{ studentId: string }>();
+  const navigate = useNavigate();
   const { isAdmin } = useStaffAuth();
   const { student, error, setError, load, setStudent } =
     useStudentDetail(studentId);
@@ -70,6 +77,8 @@ export function StudentDetailPage() {
   const [tiers, setTiers] = useState<TierOption[]>([]);
   const [completed, setCompleted] = useState(false);
   const [savingCompletion, setSavingCompletion] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!student) return;
@@ -127,6 +136,22 @@ export function StudentDetailPage() {
 
   const handleStudentSaved = (updated: StudentDetail) => {
     setStudent(updated);
+  };
+
+  const handleDelete = async () => {
+    if (!studentId) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      await deleteStudent(studentId);
+      toastSuccess("Registration deleted.");
+      navigate("/staff/students");
+    } catch (e) {
+      setError(parseApiError(e));
+      setConfirmDelete(false);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   if (!student) {
@@ -195,6 +220,8 @@ export function StudentDetailPage() {
             title="Contact"
             onEdit={() => setEditSection("contact")}
           >
+            <FieldRow label="First name" value={student.first_name} />
+            <FieldRow label="Last name" value={student.last_name} />
             <FieldRow label="Email" value={student.email} />
             <FieldRow label="Phone" value={formatStudentField(student.phone)} />
           </EditableDetailSection>
@@ -409,6 +436,31 @@ export function StudentDetailPage() {
                 </Stack>
               </Paper>
             </Grid>
+            <Grid size={{ xs: 12 }}>
+              <Paper
+                variant="outlined"
+                sx={{ p: { xs: 2, sm: 3 }, borderColor: "error.main" }}
+              >
+                <Typography variant="h6" gutterBottom color="error">
+                  Danger zone
+                </Typography>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mb: 2 }}
+                >
+                  Permanently delete this registration along with its
+                  attendance, test attempts and scores. This cannot be undone.
+                </Typography>
+                <Button
+                  color="error"
+                  variant="outlined"
+                  onClick={() => setConfirmDelete(true)}
+                >
+                  Delete registration
+                </Button>
+              </Paper>
+            </Grid>
           </>
         )}
         <Grid size={{ xs: 12 }}>
@@ -454,6 +506,38 @@ export function StudentDetailPage() {
         onSaved={handleStudentSaved}
         onError={setError}
       />
+
+      <Dialog
+        open={confirmDelete}
+        onClose={() => (deleting ? undefined : setConfirmDelete(false))}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Delete registration</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Delete{" "}
+            <strong>
+              {student.first_name} {student.last_name}
+            </strong>{" "}
+            ({student.registration_number})? This permanently removes their
+            attendance, test attempts and scores and cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDelete(false)} disabled={deleting}>
+            Cancel
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={() => void handleDelete()}
+            disabled={deleting}
+          >
+            {deleting ? "Deleting…" : "Delete"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

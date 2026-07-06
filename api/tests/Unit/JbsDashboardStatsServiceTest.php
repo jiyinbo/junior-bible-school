@@ -52,9 +52,14 @@ class JbsDashboardStatsServiceTest extends TestCase
         $this->assertSame('British', $payload['nationalities'][0]['nationality']);
         $this->assertSame(2, $payload['nationalities'][0]['count']);
         $this->assertSame('Winners Chapel Dartford', $payload['churches'][0]['church']);
+        $this->assertSame('Town', $payload['churches'][0]['address']);
         $this->assertSame(2, $payload['churches'][0]['count']);
         $this->assertSame(2, $payload['grades_by_level'][0]['ungraded']);
+        $this->assertSame(1, $payload['grades_by_level'][0]['boys']['ungraded']);
+        $this->assertSame(1, $payload['grades_by_level'][0]['girls']['ungraded']);
         $this->assertSame(1, $payload['grades_by_level'][1]['ungraded']);
+        $this->assertSame(1, $payload['grades_by_level'][1]['boys']['ungraded']);
+        $this->assertSame(0, $payload['grades_by_level'][1]['girls']['ungraded']);
         $this->assertSame(1, $payload['allergies_by_level'][0]['count']);
         $this->assertSame(2, $payload['allergies_by_level'][0]['total']);
         $this->assertSame(0, $payload['allergies_by_level'][1]['count']);
@@ -115,6 +120,9 @@ class JbsDashboardStatsServiceTest extends TestCase
 
         $this->assertSame(1, $payload['grades_by_level'][0]['distinction']);
         $this->assertSame(0, $payload['grades_by_level'][0]['merit']);
+        $this->assertSame(1, $payload['grades_by_level'][0]['girls']['distinction']);
+        $this->assertSame(1, $payload['grades_by_level'][0]['girls']['total_graded']);
+        $this->assertSame(0, $payload['grades_by_level'][0]['boys']['distinction']);
     }
 
     #[Test]
@@ -171,6 +179,16 @@ class JbsDashboardStatsServiceTest extends TestCase
 
         $wednesday = collect($attendance['days'])->firstWhere('date', '2026-06-25');
         $this->assertSame([0, 1], $wednesday['counts']);
+
+        $basicGender = collect($attendance['by_gender'])->firstWhere('level_name', 'Basic');
+        $this->assertSame(1, $basicGender['boys']);
+        $this->assertSame(0, $basicGender['girls']);
+        $this->assertSame(1, $basicGender['total']);
+
+        $advancedGender = collect($attendance['by_gender'])->firstWhere('level_name', 'Advanced');
+        $this->assertSame(0, $advancedGender['boys']);
+        $this->assertSame(2, $advancedGender['girls']);
+        $this->assertSame(2, $advancedGender['total']);
 
         Carbon::setTestNow();
     }

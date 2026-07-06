@@ -249,20 +249,22 @@ class JbsDashboardStatsService
 
     /**
      * @param  list<int>|null  $levelIds
-     * @return list<array{church: string, count: int}>
+     * @return list<array{church: string, address: string, count: int}>
      */
     private function churchStats(int $sessionId, ?array $levelIds = null): array
     {
         return JbsStudentRegistration::query()
             ->where('jbs_session_id', $sessionId)
             ->when($levelIds !== null, fn ($q) => $q->whereIn('jbs_level_id', $levelIds))
-            ->selectRaw("COALESCE(NULLIF(TRIM(place_of_worship), ''), 'Unknown') as church, COUNT(*) as count")
-            ->groupBy('church')
+            ->selectRaw("COALESCE(NULLIF(TRIM(place_of_worship), ''), 'Unknown') as church, COALESCE(NULLIF(TRIM(place_of_worship_address), ''), '') as address, COUNT(*) as count")
+            ->groupBy('church', 'address')
             ->orderByDesc('count')
             ->orderBy('church')
+            ->orderBy('address')
             ->get()
             ->map(fn ($row) => [
                 'church' => $row->church,
+                'address' => $row->address,
                 'count' => (int) $row->count,
             ])
             ->values()
@@ -281,7 +283,9 @@ class JbsDashboardStatsService
      *     lower_credit: int,
      *     pass: int,
      *     ungraded: int,
-     *     total_graded: int
+     *     total_graded: int,
+     *     boys: array{distinction: int, merit: int, upper_credit: int, lower_credit: int, pass: int, ungraded: int, total_graded: int},
+     *     girls: array{distinction: int, merit: int, upper_credit: int, lower_credit: int, pass: int, ungraded: int, total_graded: int}
      * }>
      */
     private function gradesByLevel(int $sessionId, ?Collection $levels = null, ?array $levelIds = null): array
@@ -308,6 +312,13 @@ class JbsDashboardStatsService
                 continue;
             }
 
+            $levelId = $registration->jbs_level_id;
+            $genderKey = match ($registration->gender) {
+                'Male' => 'boys',
+                'Female' => 'girls',
+                default => null,
+            };
+
             $percents = [];
             $outcomes = $registration->scoreOutcomes->keyBy('jbs_module_id');
 
@@ -322,30 +333,35 @@ class JbsDashboardStatsService
             }
 
             $overallPercent = $this->grading->overallAveragePercent($percents);
-            if ($overallPercent === null) {
-                $rowsByLevel[$registration->jbs_level_id]['ungraded']++;
 
-                continue;
+            $field = null;
+            if ($overallPercent !== null) {
+                $gradeShort = $this->grading->overallGradeForPercent($overallPercent)['grade_short'];
+                $field = match ($gradeShort) {
+                    'D' => 'distinction',
+                    'M' => 'merit',
+                    'UC' => 'upper_credit',
+                    'LC' => 'lower_credit',
+                    'P' => 'pass',
+                    default => null,
+                };
             }
-
-            $gradeShort = $this->grading->overallGradeForPercent($overallPercent)['grade_short'];
-            $field = match ($gradeShort) {
-                'D' => 'distinction',
-                'M' => 'merit',
-                'UC' => 'upper_credit',
-                'LC' => 'lower_credit',
-                'P' => 'pass',
-                default => null,
-            };
 
             if ($field === null) {
-                $rowsByLevel[$registration->jbs_level_id]['ungraded']++;
+                $rowsByLevel[$levelId]['ungraded']++;
+                if ($genderKey !== null) {
+                    $rowsByLevel[$levelId][$genderKey]['ungraded']++;
+                }
 
                 continue;
             }
 
-            $rowsByLevel[$registration->jbs_level_id][$field]++;
-            $rowsByLevel[$registration->jbs_level_id]['total_graded']++;
+            $rowsByLevel[$levelId][$field]++;
+            $rowsByLevel[$levelId]['total_graded']++;
+            if ($genderKey !== null) {
+                $rowsByLevel[$levelId][$genderKey][$field]++;
+                $rowsByLevel[$levelId][$genderKey]['total_graded']++;
+            }
         }
 
         return array_values($rowsByLevel);
@@ -361,7 +377,9 @@ class JbsDashboardStatsService
      *     lower_credit: int,
      *     pass: int,
      *     ungraded: int,
-     *     total_graded: int
+     *     total_graded: int,
+     *     boys: array{distinction: int, merit: int, upper_credit: int, lower_credit: int, pass: int, ungraded: int, total_graded: int},
+     *     girls: array{distinction: int, merit: int, upper_credit: int, lower_credit: int, pass: int, ungraded: int, total_graded: int}
      * }
      */
     private function emptyGradeRow(int $levelId, string $levelName): array
@@ -369,6 +387,24 @@ class JbsDashboardStatsService
         return [
             'level_id' => $levelId,
             'level_name' => $levelName,
+            'distinction' => 0,
+            'merit' => 0,
+            'upper_credit' => 0,
+            'lower_credit' => 0,
+            'pass' => 0,
+            'ungraded' => 0,
+            'total_graded' => 0,
+            'boys' => $this->emptyGradeCounts(),
+            'girls' => $this->emptyGradeCounts(),
+        ];
+    }
+
+    /**
+     * @return array{distinction: int, merit: int, upper_credit: int, lower_credit: int, pass: int, ungraded: int, total_graded: int}
+     */
+    private function emptyGradeCounts(): array
+    {
+        return [
             'distinction' => 0,
             'merit' => 0,
             'upper_credit' => 0,
@@ -456,7 +492,11 @@ class JbsDashboardStatsService
     /**
      * @param  Collection<int, \App\Models\JbsLevel>  $levels
      * @param  list<int>|null  $levelIds
-     * @return array{levels: list<array{level_id: int, level_name: string}>, days: list<array{date: string, counts: list<int>}>}
+     * @return array{
+     *     levels: list<array{level_id: int, level_name: string}>,
+     *     days: list<array{date: string, counts: list<int>}>,
+     *     by_gender: list<array{level_id: int, level_name: string, boys: int, girls: int, total: int}>
+     * }
      */
     private function attendanceLast7DaysByLevel(int $sessionId, Collection $levels, ?array $levelIds = null): array
     {
@@ -476,14 +516,24 @@ class JbsDashboardStatsService
             ->where('reg.jbs_session_id', $sessionId)
             ->when($levelIds !== null, fn ($q) => $q->whereIn('reg.jbs_level_id', $levelIds))
             ->where('jbs_attendance_logs.attended_on', '>=', $start)
-            ->selectRaw('jbs_attendance_logs.attended_on as attended_on, reg.jbs_level_id as level_id, COUNT(*) as count')
-            ->groupBy('jbs_attendance_logs.attended_on', 'reg.jbs_level_id')
+            ->selectRaw('jbs_attendance_logs.attended_on as attended_on, reg.jbs_level_id as level_id, reg.gender as gender, COUNT(*) as count')
+            ->groupBy('jbs_attendance_logs.attended_on', 'reg.jbs_level_id', 'reg.gender')
             ->get();
 
         $byDate = [];
+        $genderByLevel = [];
         foreach ($rows as $row) {
             $date = Carbon::parse($row->attended_on)->toDateString();
-            $byDate[$date][(int) $row->level_id] = (int) $row->count;
+            $levelId = (int) $row->level_id;
+            $count = (int) $row->count;
+
+            $byDate[$date][$levelId] = ($byDate[$date][$levelId] ?? 0) + $count;
+
+            if ($row->gender === 'Male') {
+                $genderByLevel[$levelId]['boys'] = ($genderByLevel[$levelId]['boys'] ?? 0) + $count;
+            } elseif ($row->gender === 'Female') {
+                $genderByLevel[$levelId]['girls'] = ($genderByLevel[$levelId]['girls'] ?? 0) + $count;
+            }
         }
 
         $days = [];
@@ -496,9 +546,23 @@ class JbsDashboardStatsService
             $days[] = ['date' => $date, 'counts' => $counts];
         }
 
+        $byGender = array_map(function (array $level) use ($genderByLevel) {
+            $boys = $genderByLevel[$level['level_id']]['boys'] ?? 0;
+            $girls = $genderByLevel[$level['level_id']]['girls'] ?? 0;
+
+            return [
+                'level_id' => $level['level_id'],
+                'level_name' => $level['level_name'],
+                'boys' => $boys,
+                'girls' => $girls,
+                'total' => $boys + $girls,
+            ];
+        }, $levelList);
+
         return [
             'levels' => $levelList,
             'days' => $days,
+            'by_gender' => $byGender,
         ];
     }
 
@@ -655,7 +719,7 @@ class JbsDashboardStatsService
             ],
             'registrations_by_level' => [],
             'modules_by_level' => [],
-            'attendance_last_7_days_by_level' => ['levels' => [], 'days' => []],
+            'attendance_last_7_days_by_level' => ['levels' => [], 'days' => [], 'by_gender' => []],
             'gender_by_level' => [],
             'gender_completed_by_level' => [],
             'completed_by_gender' => ['boys' => 0, 'girls' => 0, 'other' => 0, 'total' => 0],

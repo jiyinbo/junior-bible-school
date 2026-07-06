@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
+import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
 import {
   Alert,
   Box,
@@ -228,6 +229,7 @@ export function StudentsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [printing, setPrinting] = useState(false);
 
   const resetPage = () => setPage(0);
 
@@ -300,22 +302,82 @@ export function StudentsPage() {
     }
   };
 
+  const fetchAllMatching = async (): Promise<StudentRow[]> => {
+    const all: StudentRow[] = [];
+    const perPage = 100;
+    let pageNum = 1;
+    for (;;) {
+      const params = buildFilterParams();
+      params.set('page', String(pageNum));
+      params.set('per_page', String(perPage));
+      const r = await apiJson<{ data: StudentRow[]; meta: ListMeta }>(
+        `/api/v1/admin/registrations?${params}`,
+      );
+      all.push(...r.data);
+      if (r.data.length === 0 || pageNum >= r.meta.last_page) break;
+      pageNum += 1;
+    }
+    return all;
+  };
+
+  const printIdCards = async () => {
+    setPrinting(true);
+    setError(null);
+    try {
+      const students = await fetchAllMatching();
+      if (students.length === 0) {
+        setError('No students match your filters, so there are no ID cards to print.');
+        return;
+      }
+      const tierName = levelId !== '' ? levels.find((l) => l.id === levelId)?.name : undefined;
+      const scope = (tierName ?? 'all-tiers')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
+      const date = new Date().toISOString().slice(0, 10);
+      const { generateIdCardsPdf } = await import('./idCards');
+      await generateIdCardsPdf(
+        students.map((s) => ({
+          registration_number: s.registration_number,
+          full_name: s.full_name,
+          level_name: s.level_name,
+          session_name: s.session_name,
+        })),
+        `jbs-id-cards-${scope || 'students'}-${date}.pdf`,
+      );
+    } catch (e) {
+      setError(parseApiError(e));
+    } finally {
+      setPrinting(false);
+    }
+  };
+
   return (
     <>
       <PageHeader
         title="Students"
         subtitle="View registration details, attendance and test progress, and mark tier completion for statement and certificate access."
         action={
-          isAdmin ? (
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
             <Button
               variant="outlined"
-              startIcon={<FileDownloadOutlinedIcon />}
-              onClick={() => void exportCsv()}
-              disabled={exporting}
+              startIcon={<BadgeOutlinedIcon />}
+              onClick={() => void printIdCards()}
+              disabled={printing}
             >
-              {exporting ? 'Exporting…' : 'Export CSV'}
+              {printing ? 'Preparing…' : 'Print ID cards'}
             </Button>
-          ) : undefined
+            {isAdmin && (
+              <Button
+                variant="outlined"
+                startIcon={<FileDownloadOutlinedIcon />}
+                onClick={() => void exportCsv()}
+                disabled={exporting}
+              >
+                {exporting ? 'Exporting…' : 'Export CSV'}
+              </Button>
+            )}
+          </Stack>
         }
       />
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -411,6 +473,10 @@ export function StudentsPage() {
             sx={{ gridColumn: '1 / -1' }}
           />
         </Box>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
+          “Print ID cards” builds an A4 PDF (9 cards per page) for every student matching these
+          filters — select a tier to print that tier only.
+        </Typography>
       </Paper>
 
       <Paper sx={{ p: { xs: 2, md: 0 }, overflow: 'hidden' }}>

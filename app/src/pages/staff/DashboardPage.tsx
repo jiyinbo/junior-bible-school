@@ -34,6 +34,7 @@ import {
   YAxis,
 } from 'recharts';
 import { apiJson } from '../../api/http';
+import { ListCard, ResponsiveTableLayout } from '../../components/ResponsiveTableLayout';
 import { MetricCard } from '../../staff/MetricCard';
 import { useStaffAuth } from '../../staff/StaffAuthContext';
 import { dashboardQuickLinksForRole } from '../../staff/navConfig';
@@ -67,12 +68,19 @@ type DashboardStats = {
   attendance_last_7_days_by_level: {
     levels: { level_id: number; level_name: string }[];
     days: { date: string; counts: number[] }[];
+    by_gender: {
+      level_id: number;
+      level_name: string;
+      boys: number;
+      girls: number;
+      total: number;
+    }[];
   };
   gender_by_level: GenderLevelRow[];
   gender_completed_by_level: GenderLevelRow[];
   completed_by_gender: GenderTotals;
   nationalities: { nationality: string; count: number }[];
-  churches: { church: string; count: number }[];
+  churches: { church: string; address: string; count: number }[];
   grades_by_level: GradesByLevelRow[];
   allergies_by_level: AllergiesByLevelRow[];
 };
@@ -84,9 +92,7 @@ type AllergiesByLevelRow = {
   total: number;
 };
 
-type GradesByLevelRow = {
-  level_id: number;
-  level_name: string;
+type GradeCounts = {
   distinction: number;
   merit: number;
   upper_credit: number;
@@ -94,6 +100,13 @@ type GradesByLevelRow = {
   pass: number;
   ungraded: number;
   total_graded: number;
+};
+
+type GradesByLevelRow = GradeCounts & {
+  level_id: number;
+  level_name: string;
+  boys: GradeCounts;
+  girls: GradeCounts;
 };
 
 type GenderLevelRow = {
@@ -286,6 +299,7 @@ export function DashboardPage() {
   const churchChart = stats?.churches ?? [];
   const churchTotal = churchChart.reduce((sum, row) => sum + row.count, 0);
   const gradesByLevel = stats?.grades_by_level ?? [];
+  const gradesByGender = gradesByLevel.filter((row) => row.total_graded > 0);
   const allergiesByLevel = stats?.allergies_by_level ?? [];
   const allergiesTotal = allergiesByLevel.reduce((sum, row) => sum + row.count, 0);
   const attendanceLevels = stats?.attendance_last_7_days_by_level?.levels ?? [];
@@ -301,6 +315,8 @@ export function DashboardPage() {
       row.total = d.counts.reduce((sum, count) => sum + count, 0);
       return row;
     }) ?? [];
+  const attendanceByGender = stats?.attendance_last_7_days_by_level?.by_gender ?? [];
+  const attendanceGenderRows = attendanceByGender.filter((row) => row.total > 0);
 
   const metricCount = isAdmin ? 8 : 7;
 
@@ -595,28 +611,63 @@ export function DashboardPage() {
                   {churchChart.length > 0 ? ` — ${churchChart.length} churches, ${churchTotal} students` : ''}
                 </Typography>
                 {churchChart.length > 0 ? (
-                  <TableContainer sx={{ maxHeight: 480 }}>
-                    <Table size="small" stickyHeader>
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Church</TableCell>
-                          <TableCell align="right" sx={{ width: 100 }}>
-                            Students
-                          </TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {churchChart.map((row) => (
-                          <TableRow key={row.church} hover>
-                            <TableCell sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
-                              {row.church}
-                            </TableCell>
-                            <TableCell align="right">{row.count}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
+                  <ResponsiveTableLayout
+                    table={
+                      <TableContainer sx={{ maxHeight: 480 }}>
+                        <Table size="small" stickyHeader>
+                          <TableHead>
+                            <TableRow>
+                              <TableCell>Church</TableCell>
+                              <TableCell>Worship address</TableCell>
+                              <TableCell align="right" sx={{ width: 100 }}>
+                                Students
+                              </TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {churchChart.map((row) => (
+                              <TableRow key={`${row.church}|${row.address}`} hover>
+                                <TableCell sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                                  {row.church}
+                                </TableCell>
+                                <TableCell sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                                  {row.address || '—'}
+                                </TableCell>
+                                <TableCell align="right">{row.count}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    }
+                    cards={
+                      <Box sx={{ maxHeight: 360, overflowY: 'auto', width: '100%', pr: 0.5 }}>
+                        <Stack spacing={1.5}>
+                          {churchChart.map((row) => (
+                            <ListCard
+                              key={`${row.church}|${row.address}`}
+                              action={
+                                <Typography variant="caption" color="text.secondary">
+                                  {row.count === 1 ? '1 student' : `${row.count} students`}
+                                </Typography>
+                              }
+                            >
+                              <Typography fontWeight={600} sx={{ wordBreak: 'break-word' }}>
+                                {row.church}
+                              </Typography>
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                                sx={{ wordBreak: 'break-word' }}
+                              >
+                                {row.address || '—'}
+                              </Typography>
+                            </ListCard>
+                          ))}
+                        </Stack>
+                      </Box>
+                    }
+                  />
                 ) : (
                   <Typography variant="body2" color="text.secondary">
                     No church data yet.
@@ -708,6 +759,102 @@ export function DashboardPage() {
             <Card sx={{ height: '100%' }}>
               <CardContent>
                 <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                  Grades per tier by gender
+                </Typography>
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                  Overall grade band counts split by boys and girls (D = Distinction, M = Merit, UC =
+                  Upper Credit, LC = Lower Credit, P = Pass)
+                </Typography>
+                {gradesByGender.length > 0 ? (
+                  <ResponsiveTableLayout
+                    table={
+                      <TableContainer sx={{ maxHeight: 480 }}>
+                        <Table size="small" stickyHeader>
+                          <TableHead>
+                            <TableRow>
+                              <TableCell>Tier</TableCell>
+                              <TableCell>Gender</TableCell>
+                              <TableCell align="right">D</TableCell>
+                              <TableCell align="right">M</TableCell>
+                              <TableCell align="right">UC</TableCell>
+                              <TableCell align="right">LC</TableCell>
+                              <TableCell align="right">P</TableCell>
+                              <TableCell align="right">Graded</TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {gradesByGender.flatMap((row) =>
+                              (
+                                [
+                                  { label: 'Boys', counts: row.boys },
+                                  { label: 'Girls', counts: row.girls },
+                                ] as const
+                              ).map((g, idx) => (
+                                <TableRow key={`${row.level_id}-${g.label}`} hover>
+                                  {idx === 0 ? (
+                                    <TableCell
+                                      rowSpan={2}
+                                      sx={{ fontWeight: 600, verticalAlign: 'top' }}
+                                    >
+                                      {row.level_name}
+                                    </TableCell>
+                                  ) : null}
+                                  <TableCell>{g.label}</TableCell>
+                                  <TableCell align="right">{g.counts.distinction}</TableCell>
+                                  <TableCell align="right">{g.counts.merit}</TableCell>
+                                  <TableCell align="right">{g.counts.upper_credit}</TableCell>
+                                  <TableCell align="right">{g.counts.lower_credit}</TableCell>
+                                  <TableCell align="right">{g.counts.pass}</TableCell>
+                                  <TableCell align="right">{g.counts.total_graded}</TableCell>
+                                </TableRow>
+                              )),
+                            )}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    }
+                    cards={gradesByGender.map((row) => (
+                      <ListCard key={row.level_id}>
+                        <Typography fontWeight={600} sx={{ wordBreak: 'break-word' }}>
+                          {row.level_name}
+                        </Typography>
+                        {(
+                          [
+                            { label: 'Boys', counts: row.boys },
+                            { label: 'Girls', counts: row.girls },
+                          ] as const
+                        ).map((g) => (
+                          <Box key={g.label} sx={{ mt: 1 }}>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              sx={{ fontWeight: 600, display: 'block' }}
+                            >
+                              {g.label} — {g.counts.total_graded} graded
+                            </Typography>
+                            <Typography variant="body2">
+                              D {g.counts.distinction} · M {g.counts.merit} · UC{' '}
+                              {g.counts.upper_credit} · LC {g.counts.lower_credit} · P{' '}
+                              {g.counts.pass}
+                            </Typography>
+                          </Box>
+                        ))}
+                      </ListCard>
+                    ))}
+                  />
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    No graded students yet — the gender breakdown appears once module scores are
+                    recorded.
+                  </Typography>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid size={{ xs: 12 }}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent>
+                <Typography variant="subtitle1" fontWeight={600} gutterBottom>
                   Attendance — last 7 days
                 </Typography>
                 <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
@@ -745,6 +892,62 @@ export function DashboardPage() {
                     </Typography>
                   )}
                 </Box>
+                {attendanceGenderRows.length > 0 && (
+                  <Box sx={{ mt: 2 }}>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      display="block"
+                      sx={{ mb: 1 }}
+                    >
+                      Present students over the last 7 days by tier and gender (counts each day a
+                      student attended)
+                    </Typography>
+                    <ResponsiveTableLayout
+                      table={
+                        <TableContainer>
+                          <Table size="small">
+                            <TableHead>
+                              <TableRow>
+                                <TableCell>Tier</TableCell>
+                                <TableCell align="right">Boys</TableCell>
+                                <TableCell align="right">Girls</TableCell>
+                                <TableCell align="right">Total</TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {attendanceGenderRows.map((row) => (
+                                <TableRow key={row.level_id} hover>
+                                  <TableCell sx={{ fontWeight: 600 }}>{row.level_name}</TableCell>
+                                  <TableCell align="right">{row.boys}</TableCell>
+                                  <TableCell align="right">{row.girls}</TableCell>
+                                  <TableCell align="right">{row.total}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                      }
+                      cards={attendanceGenderRows.map((row) => (
+                        <ListCard
+                          key={row.level_id}
+                          action={
+                            <Typography variant="caption" color="text.secondary">
+                              {row.total} total
+                            </Typography>
+                          }
+                        >
+                          <Typography fontWeight={600} sx={{ wordBreak: 'break-word' }}>
+                            {row.level_name}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Boys {row.boys} · Girls {row.girls}
+                          </Typography>
+                        </ListCard>
+                      ))}
+                    />
+                  </Box>
+                )}
               </CardContent>
             </Card>
           </Grid>

@@ -111,7 +111,6 @@ const NATIONALITIES_SORTED = [
   'Vietnamese',
   'Yemeni',
   'Zimbabwean',
-  'Other',
 ] as const;
 
 export const NATIONALITIES = ['British', ...NATIONALITIES_SORTED] as const;
