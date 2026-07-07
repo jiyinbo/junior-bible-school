@@ -291,7 +291,7 @@ class RegistrationAdminController extends Controller
         $data = $request->validate([
             'first_name' => ['sometimes', 'string', 'max:120'],
             'last_name' => ['sometimes', 'string', 'max:120'],
-            'email' => ['sometimes', 'email', 'max:255'],
+            'email' => ['sometimes', 'nullable', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:40'],
             'guardian_name' => ['nullable', 'string', 'max:255'],
             'guardian_relationship' => ['nullable', 'string', 'max:120'],

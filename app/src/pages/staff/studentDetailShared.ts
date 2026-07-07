@@ -7,7 +7,7 @@ export type StudentDetail = {
   registration_number: string;
   first_name: string;
   last_name: string;
-  email: string;
+  email: string | null;
   phone: string | null;
   guardian_name: string | null;
   guardian_relationship: string | null;

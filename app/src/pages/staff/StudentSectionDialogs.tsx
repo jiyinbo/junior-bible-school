@@ -155,7 +155,7 @@ export function StudentSectionDialogs({
       setContact({
         first_name: student.first_name,
         last_name: student.last_name,
-        email: student.email,
+        email: student.email ?? '',
         phone: student.phone ?? '',
       });
     }
@@ -294,7 +294,7 @@ export function StudentSectionDialogs({
             {
               first_name: contact.first_name.trim(),
               last_name: contact.last_name.trim(),
-              email: contact.email.trim(),
+              email: emptyToNull(contact.email),
               phone: emptyToNull(contact.phone),
             },
             'Contact details saved.',
@@ -322,7 +322,7 @@ export function StudentSectionDialogs({
           fieldLabel="Email"
           value={contact.email}
           onChange={(email) => setContact((current) => ({ ...current, email }))}
-          required
+          helperText="Leave blank if not available"
         />
         <UkPhoneTextField
           label="Phone"

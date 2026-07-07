@@ -237,7 +237,7 @@ export function StudentDetailPage() {
           >
             <FieldRow label="First name" value={student.first_name} />
             <FieldRow label="Last name" value={student.last_name} />
-            <FieldRow label="Email" value={student.email} />
+            <FieldRow label="Email" value={formatStudentField(student.email)} />
             <FieldRow label="Phone" value={formatStudentField(student.phone)} />
           </EditableDetailSection>
         </Grid>
