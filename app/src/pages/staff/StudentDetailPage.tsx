@@ -27,6 +27,7 @@ import { PageHeader } from "../../staff/PageHeader";
 import { useStaffAuth } from "../../staff/StaffAuthContext";
 import { EditableDetailSection } from "./EditableDetailSection";
 import { StudentModuleScoreRow } from "./StudentModuleScoreRow";
+import { StudentModuleScoreCard } from "./StudentModuleScoreCard";
 import {
   StudentSectionDialogs,
   type StudentEditSection,
@@ -486,6 +487,16 @@ export function StudentDetailPage() {
               showAdminColumn={isAdmin}
               moduleRows={progress.modules.map((module) => (
                 <StudentModuleScoreRow
+                  key={module.module_id}
+                  studentId={studentId ?? ""}
+                  module={module}
+                  isAdmin={isAdmin}
+                  onSaved={load}
+                  onError={setError}
+                />
+              ))}
+              moduleCards={progress.modules.map((module) => (
+                <StudentModuleScoreCard
                   key={module.module_id}
                   studentId={studentId ?? ""}
                   module={module}

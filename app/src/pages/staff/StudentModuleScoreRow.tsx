@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Button, Chip, Stack, TableCell, TableRow, TextField, Typography } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import { toastSuccess } from '../../feedback/toast';
@@ -6,19 +6,21 @@ import { apiJson, parseApiError } from '../../api/http';
 import type { StudentProgressModule } from '../../components/StudentProgressPanel';
 import { formatModuleGrade, gradeChipColor } from '../../utils/grading';
 
-export function StudentModuleScoreRow({
-  studentId,
-  module,
-  isAdmin,
-  onSaved,
-  onError,
-}: {
+export type ModuleScoreEditorProps = {
   studentId: string;
   module: StudentProgressModule;
   isAdmin: boolean;
   onSaved: () => void;
   onError: (msg: string) => void;
-}) {
+};
+
+/** Shared inline score-editing state used by both the table row and the mobile card. */
+export function useModuleScoreEditor({
+  studentId,
+  module,
+  onSaved,
+  onError,
+}: Omit<ModuleScoreEditorProps, 'isAdmin'>) {
   const [editing, setEditing] = useState(false);
   const [score, setScore] = useState('');
   const [maxScore, setMaxScore] = useState('');
@@ -70,6 +72,61 @@ export function StudentModuleScoreRow({
     }
   };
 
+  return {
+    editing,
+    setEditing,
+    score,
+    setScore,
+    maxScore,
+    setMaxScore,
+    busy,
+    startEdit,
+    save,
+    clear,
+  };
+}
+
+/** Grade chip (or em dash) shared by the row and card. */
+export function moduleGradeChip(module: StudentProgressModule): ReactNode {
+  if (module.test_taken && module.grade_short) {
+    return (
+      <Chip
+        size="small"
+        label={formatModuleGrade(module)}
+        color={gradeChipColor(module.test_passed, module.grade_short, 'module')}
+      />
+    );
+  }
+  return '—';
+}
+
+/** Status chip shared by the row and card. */
+export function moduleStatusChip(module: StudentProgressModule): ReactNode {
+  if (!module.test_taken) {
+    return <Chip size="small" label="Not taken" />;
+  }
+  if (module.test_passed) {
+    return <Chip size="small" color="success" label="Credit (D+)" />;
+  }
+  return (
+    <Chip
+      size="small"
+      color="error"
+      label={module.grade_short === 'NS' ? 'No show' : 'Below credit'}
+    />
+  );
+}
+
+export function StudentModuleScoreRow({
+  studentId,
+  module,
+  isAdmin,
+  onSaved,
+  onError,
+}: ModuleScoreEditorProps) {
+  const { editing, setEditing, score, setScore, maxScore, setMaxScore, busy, startEdit, save, clear } =
+    useModuleScoreEditor({ studentId, module, onSaved, onError });
+
   return (
     <TableRow>
       <TableCell>{module.module_name}</TableCell>
@@ -105,25 +162,9 @@ export function StudentModuleScoreRow({
         </TableCell>
       )}
       <TableCell>{module.test_taken && module.percent != null ? `${module.percent}%` : '—'}</TableCell>
-      <TableCell>
-        {module.test_taken && module.grade_short ? (
-          <Chip
-            size="small"
-            label={formatModuleGrade(module)}
-            color={gradeChipColor(module.test_passed, module.grade_short, 'module')}
-          />
-        ) : (
-          '—'
-        )}
-      </TableCell>
+      <TableCell>{moduleGradeChip(module)}</TableCell>
       <TableCell>{module.source ?? '—'}</TableCell>
-      <TableCell>
-        {!module.test_taken && <Chip size="small" label="Not taken" />}
-        {module.test_taken && module.test_passed && <Chip size="small" color="success" label="Credit (D+)" />}
-        {module.test_taken && !module.test_passed && (
-          <Chip size="small" color="error" label={module.grade_short === 'NS' ? 'No show' : 'Below credit'} />
-        )}
-      </TableCell>
+      <TableCell>{moduleStatusChip(module)}</TableCell>
       {isAdmin && (
         <TableCell align="right">
           {editing ? (

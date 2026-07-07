@@ -14,6 +14,7 @@ import {
   Typography,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { ResponsiveTableLayout } from './ResponsiveTableLayout';
 import { GradingKeyTable } from './GradingKeyTable';
 import { ProgressSummaryStrip, type ProgressStatItem } from './ProgressSummaryStrip';
 import {
@@ -257,6 +258,8 @@ type StudentModulesTableProps = {
   progress: StudentProgressData;
   variant?: 'student' | 'staff';
   moduleRows?: ReactNode;
+  /** Optional mobile card equivalent of moduleRows; when set, the table becomes responsive. */
+  moduleCards?: ReactNode;
   showAdminColumn?: boolean;
   adminColumnFooter?: ReactNode;
 };
@@ -265,6 +268,7 @@ export function StudentModulesTable({
   progress,
   variant = 'student',
   moduleRows,
+  moduleCards,
   showAdminColumn = false,
   adminColumnFooter,
 }: StudentModulesTableProps) {
@@ -281,33 +285,49 @@ export function StudentModulesTable({
     );
   }
 
+  const table = (
+    <Table size="small">
+      <TableHead>
+        <TableRow>
+          <TableCell>Module</TableCell>
+          {isStudent ? (
+            <TableCell>Status</TableCell>
+          ) : (
+            <>
+              <TableCell>Score</TableCell>
+              <TableCell>%</TableCell>
+              <TableCell>Grade</TableCell>
+              <TableCell>Source</TableCell>
+              <TableCell>Status</TableCell>
+            </>
+          )}
+          {showAdminColumn && <TableCell align="right" />}
+        </TableRow>
+      </TableHead>
+      <TableBody>
+        {moduleRows ??
+          modules.map((m) => (
+            <ModuleResultReadOnlyRow key={m.module_id} module={m} variant={variant} />
+          ))}
+      </TableBody>
+    </Table>
+  );
+
+  if (moduleCards) {
+    return (
+      <>
+        <ResponsiveTableLayout
+          table={<Box sx={{ overflowX: 'auto' }}>{table}</Box>}
+          cards={moduleCards}
+        />
+        {adminColumnFooter}
+      </>
+    );
+  }
+
   return (
     <Box sx={{ overflowX: 'auto' }}>
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell>Module</TableCell>
-            {isStudent ? (
-              <TableCell>Status</TableCell>
-            ) : (
-              <>
-                <TableCell>Score</TableCell>
-                <TableCell>%</TableCell>
-                <TableCell>Grade</TableCell>
-                <TableCell>Source</TableCell>
-                <TableCell>Status</TableCell>
-              </>
-            )}
-            {showAdminColumn && <TableCell align="right" />}
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {moduleRows ??
-            modules.map((m) => (
-              <ModuleResultReadOnlyRow key={m.module_id} module={m} variant={variant} />
-            ))}
-        </TableBody>
-      </Table>
+      {table}
       {adminColumnFooter}
     </Box>
   );
@@ -342,6 +362,7 @@ type StudentProgressPanelProps = {
   /** Per-module table; off on student portal (timetable lists courses; summary strip shows X/Y completed). */
   showModuleTable?: boolean;
   moduleRows?: ReactNode;
+  moduleCards?: ReactNode;
   showGradingScales?: boolean;
   showAdminColumn?: boolean;
   adminColumnFooter?: ReactNode;
@@ -353,6 +374,7 @@ export function StudentProgressPanel({
   variant = 'staff',
   showModuleTable,
   moduleRows,
+  moduleCards,
   showGradingScales,
   showAdminColumn = false,
   adminColumnFooter,
@@ -393,6 +415,7 @@ export function StudentProgressPanel({
               progress={p}
               variant={variant}
               moduleRows={moduleRows}
+              moduleCards={moduleCards}
               showAdminColumn={showAdminColumn}
               adminColumnFooter={adminColumnFooter}
             />

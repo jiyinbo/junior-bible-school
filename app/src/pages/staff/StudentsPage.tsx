@@ -392,7 +392,19 @@ export function StudentsPage() {
         title="Students"
         subtitle="View registration details, attendance and test progress, and mark tier completion for statement and certificate access."
         action={
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 1,
+              width: { xs: '100%', sm: 'auto' },
+              justifyContent: { sm: 'flex-end' },
+              '& .MuiButton-root': {
+                flex: { xs: '1 1 45%', sm: '0 0 auto' },
+                whiteSpace: 'nowrap',
+              },
+            }}
+          >
             <Button
               variant="outlined"
               startIcon={<BadgeOutlinedIcon />}
@@ -431,7 +443,7 @@ export function StudentsPage() {
                 {exporting ? 'Exporting…' : 'Export CSV'}
               </Button>
             )}
-          </Stack>
+          </Box>
         }
       />
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
