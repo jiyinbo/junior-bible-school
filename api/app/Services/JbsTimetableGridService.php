@@ -50,7 +50,7 @@ class JbsTimetableGridService
         }
 
         $template = [
-            ['09:00', '09:30', 'activity', 'REGISTRATION / DEVOTION', true],
+            ['09:00', '09:30', 'activity', 'DEVOTION', true],
             ['09:30', '10:10', 'teaching', null, false],
             ['10:10', '10:20', 'activity', 'BREAK', true],
             ['10:20', '11:00', 'teaching', null, false],
@@ -64,7 +64,7 @@ class JbsTimetableGridService
             ['14:00', '14:40', 'teaching', null, false],
             ['14:40', '14:50', 'activity', 'BREAK', true],
             ['14:50', '15:30', 'teaching', null, false],
-            ['15:30', '15:40', 'activity', 'BREAK', true],
+            ['15:30', '15:40', 'activity', 'TEST', true],
             ['15:40', '16:00', 'activity', 'CLEANING & ARRANGEMENT', true],
             ['16:00', null, 'activity', 'HOME TIME', true],
         ];

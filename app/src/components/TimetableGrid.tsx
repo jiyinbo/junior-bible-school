@@ -75,28 +75,45 @@ export function TimetableGrid({ grid }: { grid: TimetableGridData }) {
   }
 
   return (
-    <Box sx={{ overflowX: 'auto' }}>
+    <Box sx={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
       <Table
         size="small"
         sx={{
-          minWidth: 720,
+          minWidth: 96 + grid.periods.length * 104,
           tableLayout: 'fixed',
           '& td, & th': {
             border: '1px solid',
             borderColor: 'divider',
             textAlign: 'center',
-            px: 0.5,
-            py: 0.5,
-            fontSize: '0.7rem',
-            lineHeight: 1.15,
+            verticalAlign: 'middle',
+            px: 0.75,
+            py: 0.75,
+            fontSize: '0.72rem',
+            lineHeight: 1.2,
+            width: 104,
+            whiteSpace: 'normal',
+            overflowWrap: 'anywhere',
+            wordBreak: 'break-word',
           },
         }}
       >
         <TableHead>
           <TableRow>
-            <TableCell sx={{ bgcolor: 'grey.100', minWidth: 84, fontWeight: 700 }}>Date / Time</TableCell>
+            <TableCell
+              sx={{
+                bgcolor: 'grey.200',
+                fontWeight: 700,
+                position: 'sticky',
+                left: 0,
+                zIndex: 3,
+                width: 96,
+                boxShadow: '2px 0 4px -2px rgba(0,0,0,0.25)',
+              }}
+            >
+              Date / Time
+            </TableCell>
             {grid.periods.map((p) => (
-              <TableCell key={p.id} sx={{ bgcolor: 'grey.100', fontWeight: 600 }}>
+              <TableCell key={p.id} sx={{ bgcolor: 'grey.100', fontWeight: 700 }}>
                 {p.time_label ?? ''}
               </TableCell>
             ))}
@@ -105,7 +122,17 @@ export function TimetableGrid({ grid }: { grid: TimetableGridData }) {
         <TableBody>
           {grid.rows.map((row) => (
             <TableRow key={row.day_id}>
-              <TableCell sx={{ bgcolor: 'grey.100', fontWeight: 700, whiteSpace: 'nowrap' }}>
+              <TableCell
+                sx={{
+                  bgcolor: 'grey.100',
+                  fontWeight: 700,
+                  whiteSpace: 'nowrap',
+                  position: 'sticky',
+                  left: 0,
+                  zIndex: 1,
+                  boxShadow: '2px 0 4px -2px rgba(0,0,0,0.25)',
+                }}
+              >
                 {row.date_label}
               </TableCell>
               {row.cells.map((cell) => (

@@ -68,6 +68,15 @@ class TimetableAdminController extends Controller
         return $this->sessionGrid($jbs_session->fresh());
     }
 
+    public function clearSetup(Request $request, JbsSession $jbs_session): JsonResponse
+    {
+        $jbs_session->timetablePeriods()->delete();
+        $jbs_session->timetableDays()->delete();
+        $this->audit()->record('timetable.setup_cleared', $request, $jbs_session);
+
+        return response()->json(['message' => 'Timetable setup cleared.']);
+    }
+
     public function storePeriod(Request $request, JbsSession $jbs_session): JsonResponse
     {
         $data = $this->validatePeriod($request);

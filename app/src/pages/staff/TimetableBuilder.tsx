@@ -10,6 +10,7 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
+  DialogContentText,
   DialogTitle,
   Divider,
   FormControlLabel,
@@ -79,6 +80,8 @@ export function TimetableBuilder({ sessionId, tiers, canManage }: Props) {
   const [cell, setCell] = useState<CellTarget | null>(null);
   const [period, setPeriod] = useState<PeriodDraft | null>(null);
   const [newDay, setNewDay] = useState('');
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [clearing, setClearing] = useState(false);
 
   const load = useCallback(() => {
     if (tierId === '') return;
@@ -120,6 +123,20 @@ export function TimetableBuilder({ sessionId, tiers, canManage }: Props) {
       load();
     } catch (e) {
       setError(parseApiError(e));
+    }
+  };
+
+  const clearSetup = async () => {
+    setClearing(true);
+    try {
+      await apiJson(`/api/v1/admin/sessions/${sessionId}/timetable/setup`, { method: 'DELETE' });
+      toastSuccess('Timetable setup cleared.');
+      setConfirmClear(false);
+      load();
+    } catch (e) {
+      setError(parseApiError(e));
+    } finally {
+      setClearing(false);
     }
   };
 
@@ -341,6 +358,14 @@ export function TimetableBuilder({ sessionId, tiers, canManage }: Props) {
                   </Button>
                 </Stack>
               </Box>
+
+              {((grid?.periods.length ?? 0) > 0 || (grid?.days.length ?? 0) > 0) && (
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <Button size="small" color="error" onClick={() => setConfirmClear(true)}>
+                    Clear all
+                  </Button>
+                </Box>
+              )}
             </Stack>
           </AccordionDetails>
         </Accordion>
@@ -357,78 +382,107 @@ export function TimetableBuilder({ sessionId, tiers, canManage }: Props) {
               Define at least one time column and one day above to start placing modules.
             </Typography>
           ) : (
-            <Box sx={{ overflowX: 'auto' }}>
+            <Box sx={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                Click any cell to place a module or activity. All-day columns show their default label until overridden.
+                Click any cell to place a module or activity. All-day columns show their default label until
+                overridden. Scroll sideways to reach later periods — the date column stays pinned.
               </Typography>
               <Table
                 size="small"
                 sx={{
-                  minWidth: 720,
+                  minWidth: 96 + grid.periods.length * 104,
                   tableLayout: 'fixed',
                   '& td, & th': {
                     border: '1px solid',
                     borderColor: 'divider',
                     textAlign: 'center',
-                    px: 0.5,
-                    py: 0.5,
-                    fontSize: '0.7rem',
+                    verticalAlign: 'middle',
+                    px: 0.75,
+                    py: 0.75,
+                    fontSize: '0.72rem',
+                    lineHeight: 1.2,
+                    width: 104,
+                    whiteSpace: 'normal',
+                    overflowWrap: 'anywhere',
+                    wordBreak: 'break-word',
                   },
                 }}
               >
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ bgcolor: 'grey.100', fontWeight: 700, minWidth: 84 }}>Date / Time</TableCell>
+                    <TableCell
+                      sx={{
+                        bgcolor: 'grey.200',
+                        fontWeight: 700,
+                        position: 'sticky',
+                        left: 0,
+                        zIndex: 3,
+                        width: 96,
+                        boxShadow: '2px 0 4px -2px rgba(0,0,0,0.25)',
+                      }}
+                    >
+                      Date / Time
+                    </TableCell>
                     {grid.periods.map((p) => (
-                      <TableCell key={p.id} sx={{ bgcolor: 'grey.100', fontWeight: 600 }}>
+                      <TableCell key={p.id} sx={{ bgcolor: 'grey.100', fontWeight: 700 }}>
                         {p.time_label ?? '—'}
-                        {p.label && (
-                          <Typography variant="caption" display="block" color="text.secondary">
-                            {p.label}
-                          </Typography>
-                        )}
                       </TableCell>
                     ))}
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {grid.days.map((d) => (
-                    <TableRow key={d.id}>
-                      <TableCell sx={{ bgcolor: 'grey.100', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                        {d.date_label}
-                      </TableCell>
-                      {grid.periods.map((p) => {
-                        const e = entriesByCell.get(`${d.id}:${p.id}`);
-                        const content = e?.code ?? e?.activity_label ?? (p.applies_all_days ? p.label : '');
-                        const placeholder = !e && p.applies_all_days;
-                        return (
-                          <Tooltip key={p.id} title={e?.name ?? ''} disableHoverListener={!e?.name}>
-                            <TableCell
-                              onClick={() => openCell(d.id, p)}
-                              sx={{
-                                cursor: 'pointer',
-                                bgcolor: e?.module_id
-                                  ? 'transparent'
-                                  : e?.activity_label || placeholder
-                                    ? '#dce7f3'
-                                    : 'transparent',
-                                color: placeholder ? 'text.disabled' : 'text.primary',
-                                fontWeight: e ? 700 : 400,
-                                '&:hover': { outline: '2px solid', outlineColor: 'primary.light' },
-                              }}
-                            >
-                              {content || '+'}
-                              {e && e.span > 1 && (
-                                <Typography variant="caption" display="block" color="text.secondary">
-                                  ×{e.span}
-                                </Typography>
-                              )}
-                            </TableCell>
-                          </Tooltip>
-                        );
-                      })}
-                    </TableRow>
-                  ))}
+                  {grid.days.map((d) => {
+                    const cells: JSX.Element[] = [];
+                    for (let i = 0; i < grid.periods.length; i++) {
+                      const p = grid.periods[i];
+                      const e = entriesByCell.get(`${d.id}:${p.id}`);
+                      const span = e ? Math.max(1, Math.min(e.span, grid.periods.length - i)) : 1;
+                      const content = e?.code ?? e?.activity_label ?? (p.applies_all_days ? p.label : '');
+                      const placeholder = !e && p.applies_all_days;
+                      cells.push(
+                        <Tooltip key={p.id} title={e?.name ?? ''} disableHoverListener={!e?.name}>
+                          <TableCell
+                            colSpan={span > 1 ? span : undefined}
+                            onClick={() => openCell(d.id, p)}
+                            sx={{
+                              cursor: 'pointer',
+                              bgcolor: e?.module_id
+                                ? 'transparent'
+                                : e?.activity_label || placeholder
+                                  ? '#dce7f3'
+                                  : 'transparent',
+                              color: placeholder ? 'text.disabled' : 'text.primary',
+                              fontWeight: e ? 700 : 400,
+                              '&:hover': { outline: '2px solid', outlineColor: 'primary.light' },
+                            }}
+                          >
+                            {content || '+'}
+                          </TableCell>
+                        </Tooltip>,
+                      );
+                      if (span > 1) {
+                        i += span - 1;
+                      }
+                    }
+                    return (
+                      <TableRow key={d.id}>
+                        <TableCell
+                          sx={{
+                            bgcolor: 'grey.100',
+                            fontWeight: 700,
+                            whiteSpace: 'nowrap',
+                            position: 'sticky',
+                            left: 0,
+                            zIndex: 1,
+                            boxShadow: '2px 0 4px -2px rgba(0,0,0,0.25)',
+                          }}
+                        >
+                          {d.date_label}
+                        </TableCell>
+                        {cells}
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </Box>
@@ -565,6 +619,29 @@ export function TimetableBuilder({ sessionId, tiers, canManage }: Props) {
           <Button onClick={() => setPeriod(null)}>Cancel</Button>
           <Button variant="contained" onClick={() => void savePeriod()}>
             Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={confirmClear}
+        onClose={() => (clearing ? undefined : setConfirmClear(false))}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Clear timetable setup</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Remove all time columns and days for this session? Cell placements across every tier are removed
+            too. This cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmClear(false)} disabled={clearing}>
+            Cancel
+          </Button>
+          <Button color="error" variant="contained" onClick={() => void clearSetup()} disabled={clearing}>
+            {clearing ? 'Clearing…' : 'Clear all'}
           </Button>
         </DialogActions>
       </Dialog>

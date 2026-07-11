@@ -92,6 +92,7 @@ Route::prefix('v1')->group(function (): void {
 
             // Timetable builder (admin-only edits).
             Route::post('sessions/{jbs_session}/timetable/seed', [TimetableAdminController::class, 'seedPeriods']);
+            Route::delete('sessions/{jbs_session}/timetable/setup', [TimetableAdminController::class, 'clearSetup']);
             Route::post('sessions/{jbs_session}/timetable/periods', [TimetableAdminController::class, 'storePeriod']);
             Route::patch('timetable/periods/{jbs_timetable_period}', [TimetableAdminController::class, 'updatePeriod']);
             Route::delete('timetable/periods/{jbs_timetable_period}', [TimetableAdminController::class, 'destroyPeriod']);
