@@ -220,10 +220,10 @@ CREATE TABLE `jbs_module_assignments` (
   CONSTRAINT `jbs_module_assignments_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Timetable: shared day columns (periods) + day rows per session, module/activity cells per tier
+-- Timetable: time columns per tier, day rows per session, module/activity cells per tier
 CREATE TABLE `jbs_timetable_periods` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `jbs_session_id` bigint unsigned NOT NULL,
+  `jbs_level_id` bigint unsigned NOT NULL,
   `sort_order` smallint unsigned NOT NULL DEFAULT 0,
   `start_time` time DEFAULT NULL,
   `end_time` time DEFAULT NULL,
@@ -233,8 +233,8 @@ CREATE TABLE `jbs_timetable_periods` (
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
-  KEY `jbs_timetable_periods_jbs_session_id_sort_order_index` (`jbs_session_id`,`sort_order`),
-  CONSTRAINT `jbs_timetable_periods_jbs_session_id_foreign` FOREIGN KEY (`jbs_session_id`) REFERENCES `jbs_sessions` (`id`) ON DELETE CASCADE
+  KEY `jbs_timetable_periods_jbs_level_id_sort_order_index` (`jbs_level_id`,`sort_order`),
+  CONSTRAINT `jbs_timetable_periods_jbs_level_id_foreign` FOREIGN KEY (`jbs_level_id`) REFERENCES `jbs_levels` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `jbs_timetable_days` (

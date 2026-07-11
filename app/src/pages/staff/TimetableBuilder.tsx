@@ -117,20 +117,22 @@ export function TimetableBuilder({ sessionId, tiers, canManage }: Props) {
   };
 
   const seedTemplate = async () => {
+    if (tierId === '') return;
     try {
-      await apiJson(`/api/v1/admin/sessions/${sessionId}/timetable/seed`, { method: 'POST' });
-      toastSuccess('Standard day template loaded.');
+      await apiJson(`/api/v1/admin/levels/${tierId}/timetable/seed`, { method: 'POST' });
+      toastSuccess('Standard day template loaded for this tier.');
       load();
     } catch (e) {
       setError(parseApiError(e));
     }
   };
 
-  const clearSetup = async () => {
+  const clearPeriods = async () => {
+    if (tierId === '') return;
     setClearing(true);
     try {
-      await apiJson(`/api/v1/admin/sessions/${sessionId}/timetable/setup`, { method: 'DELETE' });
-      toastSuccess('Timetable setup cleared.');
+      await apiJson(`/api/v1/admin/levels/${tierId}/timetable/periods`, { method: 'DELETE' });
+      toastSuccess('Time columns cleared for this tier.');
       setConfirmClear(false);
       load();
     } catch (e) {
@@ -141,7 +143,7 @@ export function TimetableBuilder({ sessionId, tiers, canManage }: Props) {
   };
 
   const savePeriod = async () => {
-    if (!period) return;
+    if (!period || tierId === '') return;
     const payload = {
       start_time: period.start_time || null,
       end_time: period.end_time || null,
@@ -153,7 +155,7 @@ export function TimetableBuilder({ sessionId, tiers, canManage }: Props) {
       if (period.id) {
         await apiJson(`/api/v1/admin/timetable/periods/${period.id}`, { method: 'PATCH', json: payload });
       } else {
-        await apiJson(`/api/v1/admin/sessions/${sessionId}/timetable/periods`, { method: 'POST', json: payload });
+        await apiJson(`/api/v1/admin/levels/${tierId}/timetable/periods`, { method: 'POST', json: payload });
       }
       toastSuccess('Column saved.');
       setPeriod(null);
@@ -277,7 +279,12 @@ export function TimetableBuilder({ sessionId, tiers, canManage }: Props) {
             <Stack spacing={3}>
               <Box>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-                  <Typography variant="subtitle2">Time columns</Typography>
+                  <Box>
+                    <Typography variant="subtitle2">Time columns</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Per tier — switch tier above to edit a different schedule.
+                    </Typography>
+                  </Box>
                   <Stack direction="row" spacing={1}>
                     {(grid?.periods.length ?? 0) === 0 && (
                       <Button size="small" onClick={() => void seedTemplate()}>
@@ -287,6 +294,11 @@ export function TimetableBuilder({ sessionId, tiers, canManage }: Props) {
                     <Button size="small" variant="outlined" onClick={() => setPeriod(emptyPeriodDraft)}>
                       Add column
                     </Button>
+                    {(grid?.periods.length ?? 0) > 0 && (
+                      <Button size="small" color="error" onClick={() => setConfirmClear(true)}>
+                        Clear all
+                      </Button>
+                    )}
                   </Stack>
                 </Stack>
                 {(grid?.periods.length ?? 0) === 0 ? (
@@ -358,14 +370,6 @@ export function TimetableBuilder({ sessionId, tiers, canManage }: Props) {
                   </Button>
                 </Stack>
               </Box>
-
-              {((grid?.periods.length ?? 0) > 0 || (grid?.days.length ?? 0) > 0) && (
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <Button size="small" color="error" onClick={() => setConfirmClear(true)}>
-                    Clear all
-                  </Button>
-                </Box>
-              )}
             </Stack>
           </AccordionDetails>
         </Accordion>
@@ -629,18 +633,18 @@ export function TimetableBuilder({ sessionId, tiers, canManage }: Props) {
         maxWidth="xs"
         fullWidth
       >
-        <DialogTitle>Clear timetable setup</DialogTitle>
+        <DialogTitle>Clear all time columns</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Remove all time columns and days for this session? Cell placements across every tier are removed
-            too. This cannot be undone.
+            Remove all time columns for {grid?.tier.name ?? 'this tier'}? Cell placements on this tier are
+            removed too. Days are kept. This cannot be undone.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setConfirmClear(false)} disabled={clearing}>
             Cancel
           </Button>
-          <Button color="error" variant="contained" onClick={() => void clearSetup()} disabled={clearing}>
+          <Button color="error" variant="contained" onClick={() => void clearPeriods()} disabled={clearing}>
             {clearing ? 'Clearing…' : 'Clear all'}
           </Button>
         </DialogActions>

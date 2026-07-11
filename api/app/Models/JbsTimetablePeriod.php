@@ -11,7 +11,7 @@ class JbsTimetablePeriod extends Model
     protected $table = 'jbs_timetable_periods';
 
     protected $fillable = [
-        'jbs_session_id',
+        'jbs_level_id',
         'sort_order',
         'start_time',
         'end_time',
@@ -27,9 +27,9 @@ class JbsTimetablePeriod extends Model
         ];
     }
 
-    public function session(): BelongsTo
+    public function level(): BelongsTo
     {
-        return $this->belongsTo(JbsSession::class, 'jbs_session_id');
+        return $this->belongsTo(JbsLevel::class, 'jbs_level_id');
     }
 
     public function entries(): HasMany

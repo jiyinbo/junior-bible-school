@@ -41,11 +41,6 @@ class JbsSession extends Model
         return $this->hasMany(JbsStudentRegistration::class, 'jbs_session_id');
     }
 
-    public function timetablePeriods(): HasMany
-    {
-        return $this->hasMany(JbsTimetablePeriod::class, 'jbs_session_id')->orderBy('sort_order');
-    }
-
     public function timetableDays(): HasMany
     {
         return $this->hasMany(JbsTimetableDay::class, 'jbs_session_id')->orderBy('sort_order')->orderBy('day_date');

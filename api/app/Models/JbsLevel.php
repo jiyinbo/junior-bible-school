@@ -39,4 +39,9 @@ class JbsLevel extends Model
     {
         return $this->hasMany(JbsTimetableEntry::class, 'jbs_level_id');
     }
+
+    public function timetablePeriods(): HasMany
+    {
+        return $this->hasMany(JbsTimetablePeriod::class, 'jbs_level_id')->orderBy('sort_order');
+    }
 }

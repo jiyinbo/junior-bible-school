@@ -41,11 +41,11 @@ class JbsTimetableGridService
     }
 
     /**
-     * Create a typical JBS day template (columns) when none exist.
+     * Create a typical JBS day template (columns) for a tier when none exist yet.
      */
-    public function seedDefaultPeriods(JbsSession $session): void
+    public function seedDefaultPeriods(JbsLevel $level): void
     {
-        if ($session->timetablePeriods()->exists()) {
+        if ($level->timetablePeriods()->exists()) {
             return;
         }
 
@@ -71,7 +71,7 @@ class JbsTimetableGridService
 
         foreach ($template as $i => [$start, $end, $kind, $label, $allDays]) {
             JbsTimetablePeriod::query()->create([
-                'jbs_session_id' => $session->id,
+                'jbs_level_id' => $level->id,
                 'sort_order' => $i,
                 'start_time' => $start,
                 'end_time' => $end,
@@ -140,11 +140,11 @@ class JbsTimetableGridService
      */
     public function gridForLevel(JbsLevel $level): array
     {
-        $level->loadMissing(['session', 'modules.assignment.teacher']);
+        $level->loadMissing(['session', 'modules.assignment.teacher', 'timetablePeriods']);
         $session = $level->session;
 
         /** @var list<JbsTimetablePeriod> $periods */
-        $periods = $session->timetablePeriods()->get()->values()->all();
+        $periods = $level->timetablePeriods->values()->all();
         /** @var list<JbsTimetableDay> $days */
         $days = $session->timetableDays()->get()->values()->all();
 

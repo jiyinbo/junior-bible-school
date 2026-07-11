@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('jbs_timetable_periods', function (Blueprint $table): void {
             $table->id();
-            $table->foreignId('jbs_session_id')->constrained('jbs_sessions')->cascadeOnDelete();
+            $table->foreignId('jbs_level_id')->constrained('jbs_levels')->cascadeOnDelete();
             $table->unsignedSmallInteger('sort_order')->default(0);
             $table->time('start_time')->nullable();
             $table->time('end_time')->nullable();
@@ -21,7 +21,7 @@ return new class extends Migration
             $table->boolean('applies_all_days')->default(false);
             $table->timestamps();
 
-            $table->index(['jbs_session_id', 'sort_order']);
+            $table->index(['jbs_level_id', 'sort_order']);
         });
     }
 

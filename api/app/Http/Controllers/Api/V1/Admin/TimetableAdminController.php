@@ -40,12 +40,11 @@ class TimetableAdminController extends Controller
     public function sessionGrid(JbsSession $jbs_session): JsonResponse
     {
         $this->grid->ensureDays($jbs_session);
-        $jbs_session->load(['levels', 'timetablePeriods', 'timetableDays']);
+        $jbs_session->load(['levels', 'timetableDays']);
 
         return response()->json([
             'data' => [
                 'session' => ['id' => $jbs_session->id, 'name' => $jbs_session->name],
-                'periods' => $jbs_session->timetablePeriods->map(fn (JbsTimetablePeriod $p) => $this->periodPayload($p))->all(),
                 'days' => $jbs_session->timetableDays->map(fn (JbsTimetableDay $d) => $this->dayPayload($d))->all(),
                 'tiers' => $jbs_session->levels->map(fn (JbsLevel $l) => ['id' => $l->id, 'name' => $l->name])->all(),
             ],
@@ -60,27 +59,26 @@ class TimetableAdminController extends Controller
         return response()->json(['data' => $this->grid->gridForLevel($jbs_level)]);
     }
 
-    public function seedPeriods(Request $request, JbsSession $jbs_session): JsonResponse
+    public function seedPeriods(Request $request, JbsLevel $jbs_level): JsonResponse
     {
-        $this->grid->seedDefaultPeriods($jbs_session);
-        $this->audit()->record('timetable.template_seeded', $request, $jbs_session);
+        $this->grid->seedDefaultPeriods($jbs_level);
+        $this->audit()->record('timetable.template_seeded', $request, $jbs_level, metadata: ['tier' => $jbs_level->name]);
 
-        return $this->sessionGrid($jbs_session->fresh());
+        return response()->json(['data' => $this->grid->gridForLevel($jbs_level->fresh())]);
     }
 
-    public function clearSetup(Request $request, JbsSession $jbs_session): JsonResponse
+    public function clearPeriods(Request $request, JbsLevel $jbs_level): JsonResponse
     {
-        $jbs_session->timetablePeriods()->delete();
-        $jbs_session->timetableDays()->delete();
-        $this->audit()->record('timetable.setup_cleared', $request, $jbs_session);
+        $jbs_level->timetablePeriods()->delete();
+        $this->audit()->record('timetable.periods_cleared', $request, $jbs_level, metadata: ['tier' => $jbs_level->name]);
 
-        return response()->json(['message' => 'Timetable setup cleared.']);
+        return response()->json(['message' => 'Time columns cleared.']);
     }
 
-    public function storePeriod(Request $request, JbsSession $jbs_session): JsonResponse
+    public function storePeriod(Request $request, JbsLevel $jbs_level): JsonResponse
     {
         $data = $this->validatePeriod($request);
-        $period = $jbs_session->timetablePeriods()->create($this->periodAttributes($data, $jbs_session));
+        $period = $jbs_level->timetablePeriods()->create($this->periodAttributes($data, $jbs_level));
         $this->audit()->created($request, 'timetable.period_created', $period);
 
         return response()->json(['data' => $this->periodPayload($period)], 201);
@@ -89,7 +87,7 @@ class TimetableAdminController extends Controller
     public function updatePeriod(Request $request, JbsTimetablePeriod $jbs_timetable_period): JsonResponse
     {
         $data = $this->validatePeriod($request, partial: true);
-        $jbs_timetable_period->update($this->periodAttributes($data, $jbs_timetable_period->session, partial: true));
+        $jbs_timetable_period->update($this->periodAttributes($data, $jbs_timetable_period->level, partial: true));
         $this->audit()->record('timetable.period_updated', $request, $jbs_timetable_period);
 
         return response()->json(['data' => $this->periodPayload($jbs_timetable_period->fresh())]);
@@ -149,7 +147,7 @@ class TimetableAdminController extends Controller
         $day = JbsTimetableDay::query()->findOrFail($data['jbs_timetable_day_id']);
         $period = JbsTimetablePeriod::query()->findOrFail($data['jbs_timetable_period_id']);
         abort_unless($day->jbs_session_id === $jbs_level->jbs_session_id, 422, 'Day is not in this session.');
-        abort_unless($period->jbs_session_id === $jbs_level->jbs_session_id, 422, 'Period is not in this session.');
+        abort_unless($period->jbs_level_id === $jbs_level->id, 422, 'Period is not in this tier.');
 
         $moduleId = $data['jbs_module_id'] ?? null;
         if ($moduleId !== null) {
@@ -207,7 +205,7 @@ class TimetableAdminController extends Controller
         ]);
     }
 
-    private function periodAttributes(array $data, JbsSession $session, bool $partial = false): array
+    private function periodAttributes(array $data, JbsLevel $level, bool $partial = false): array
     {
         $attrs = [];
         foreach (['start_time', 'end_time', 'kind', 'label', 'applies_all_days', 'sort_order'] as $key) {
@@ -216,7 +214,7 @@ class TimetableAdminController extends Controller
             }
         }
         if (! $partial && ! array_key_exists('sort_order', $attrs)) {
-            $attrs['sort_order'] = (int) $session->timetablePeriods()->max('sort_order') + 1;
+            $attrs['sort_order'] = (int) $level->timetablePeriods()->max('sort_order') + 1;
         }
 
         return $attrs;

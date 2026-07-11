@@ -91,9 +91,9 @@ Route::prefix('v1')->group(function (): void {
             Route::post('modules/{jbs_module}/assignment', [AssignmentController::class, 'store']);
 
             // Timetable builder (admin-only edits).
-            Route::post('sessions/{jbs_session}/timetable/seed', [TimetableAdminController::class, 'seedPeriods']);
-            Route::delete('sessions/{jbs_session}/timetable/setup', [TimetableAdminController::class, 'clearSetup']);
-            Route::post('sessions/{jbs_session}/timetable/periods', [TimetableAdminController::class, 'storePeriod']);
+            Route::post('levels/{jbs_level}/timetable/seed', [TimetableAdminController::class, 'seedPeriods']);
+            Route::post('levels/{jbs_level}/timetable/periods', [TimetableAdminController::class, 'storePeriod']);
+            Route::delete('levels/{jbs_level}/timetable/periods', [TimetableAdminController::class, 'clearPeriods']);
             Route::patch('timetable/periods/{jbs_timetable_period}', [TimetableAdminController::class, 'updatePeriod']);
             Route::delete('timetable/periods/{jbs_timetable_period}', [TimetableAdminController::class, 'destroyPeriod']);
             Route::post('sessions/{jbs_session}/timetable/days', [TimetableAdminController::class, 'storeDay']);
