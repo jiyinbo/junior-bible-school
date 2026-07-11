@@ -28,8 +28,8 @@ import {
   LABEL_NEXT_OF_KIN_EMAIL,
   LABEL_NEXT_OF_KIN_FULL_NAME,
   LABEL_NEXT_OF_KIN_PHONE,
-  NATIONALITIES,
 } from '../registration/constants';
+import { NationalityField } from '../registration/NationalityField';
 import { emptyToNull, patchStudent } from './studentPatch';
 import type { StudentDetail, TierOption } from './studentDetailShared';
 
@@ -429,19 +429,11 @@ export function StudentSectionDialogs({
             }}
           />
         </Stack>
-        <TextField
-          select
-          label="Nationality"
+        <NationalityField
           value={personal.nationality}
-          onChange={(e) => setPersonal((current) => ({ ...current, nationality: e.target.value }))}
-          fullWidth
-        >
-          {NATIONALITIES.map((nationality) => (
-            <MenuItem key={nationality} value={nationality}>
-              {nationality}
-            </MenuItem>
-          ))}
-        </TextField>
+          onChange={(nationality) => setPersonal((current) => ({ ...current, nationality }))}
+          required
+        />
         <TextField
           label="Address"
           value={personal.address}

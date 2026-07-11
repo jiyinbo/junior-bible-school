@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Autocomplete,
   Button,
+  createFilterOptions,
   MenuItem,
   Paper,
   Stack,
@@ -24,17 +25,36 @@ type LevelOption = {
   label: string;
 };
 
+type UnscoredStudent = {
+  id: number;
+  registration_number: string;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+};
+
 function sessionLevelKey(m: ModuleOption): string {
   return `${m.session}\u0001${m.level}`;
 }
+
+function studentLabel(student: UnscoredStudent): string {
+  return `${student.registration_number} · ${student.full_name}`;
+}
+
+const filterStudents = createFilterOptions<UnscoredStudent>({
+  stringify: (option) =>
+    `${option.registration_number} ${option.first_name} ${option.last_name} ${option.full_name}`,
+});
 
 export function ScoresPage() {
   const { user, isAdmin } = useStaffAuth();
   const canScoreAllModules = isAdmin || user?.role === 'assistant';
   const [modules, setModules] = useState<ModuleOption[]>([]);
-  const [regNum, setRegNum] = useState('');
   const [levelKey, setLevelKey] = useState('');
   const [moduleId, setModuleId] = useState<number | ''>('');
+  const [students, setStudents] = useState<UnscoredStudent[]>([]);
+  const [loadingStudents, setLoadingStudents] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<UnscoredStudent | null>(null);
   const [score, setScore] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -67,28 +87,53 @@ export function ScoresPage() {
     [modulesForLevel, moduleId],
   );
 
+  const loadStudents = useCallback(async (modId: number) => {
+    setLoadingStudents(true);
+    try {
+      const response = await apiJson<{ data: UnscoredStudent[] }>(
+        `/api/v1/staff/scores/unscored-students?jbs_module_id=${modId}`,
+      );
+      setStudents(response.data);
+    } catch {
+      setError('Could not load students.');
+      setStudents([]);
+    } finally {
+      setLoadingStudents(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (moduleId !== '' && !modulesForLevel.some((m) => m.module.id === moduleId)) {
       setModuleId('');
     }
   }, [levelKey, modulesForLevel, moduleId]);
 
+  useEffect(() => {
+    setSelectedStudent(null);
+    if (moduleId === '') {
+      setStudents([]);
+      return;
+    }
+    void loadStudents(moduleId);
+  }, [moduleId, loadStudents]);
+
   const submitManual = async () => {
-    if (!regNum.trim() || moduleId === '') return;
+    if (!selectedStudent || moduleId === '' || score === '') return;
     setError(null);
     try {
       await apiJson('/api/v1/staff/scores/manual', {
         method: 'POST',
         json: {
-          registration_number: regNum.trim(),
+          registration_number: selectedStudent.registration_number,
           jbs_module_id: moduleId,
           score: Number(score),
           max_score: 100,
         },
       });
       toastSuccess('Score saved.');
-      setRegNum('');
+      setSelectedStudent(null);
       setScore('');
+      await loadStudents(moduleId);
     } catch (e) {
       setError(parseApiError(e));
     }
@@ -100,8 +145,8 @@ export function ScoresPage() {
         title="Enter scores"
         subtitle={
           canScoreAllModules
-            ? 'Record paper test results for any module. Choose session and tier, then search for the module.'
-            : 'Record paper test results for your assigned modules. Choose tier, then search for the module.'
+            ? 'Choose session and tier, pick a module, then search for a student who has not been scored yet.'
+            : 'Choose tier and module, then search for a student who has not been scored yet.'
         }
       />
       {error && (
@@ -112,12 +157,6 @@ export function ScoresPage() {
 
       <Paper sx={{ p: 3, maxWidth: 520 }}>
         <Stack spacing={2}>
-          <TextField
-            label="Registration number"
-            value={regNum}
-            onChange={(e) => setRegNum(e.target.value)}
-            fullWidth
-          />
           <TextField
             select
             label="Session · tier"
@@ -156,6 +195,36 @@ export function ScoresPage() {
               />
             )}
           />
+          <Autocomplete
+            options={students}
+            value={selectedStudent}
+            onChange={(_, option) => setSelectedStudent(option)}
+            getOptionLabel={studentLabel}
+            isOptionEqualToValue={(a, b) => a.id === b.id}
+            filterOptions={filterStudents}
+            disabled={moduleId === ''}
+            loading={loadingStudents}
+            fullWidth
+            autoHighlight
+            openOnFocus
+            noOptionsText={
+              moduleId === ''
+                ? 'Select a module first'
+                : loadingStudents
+                  ? 'Loading students…'
+                  : 'No unscored students in this tier'
+            }
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Student"
+                required
+                placeholder={
+                  moduleId === '' ? 'Select a module first' : 'Search by name or registration number…'
+                }
+              />
+            )}
+          />
           <TextField
             label="Score"
             type="number"
@@ -165,7 +234,11 @@ export function ScoresPage() {
             helperText="Out of 100"
             fullWidth
           />
-          <Button variant="contained" onClick={() => void submitManual()}>
+          <Button
+            variant="contained"
+            disabled={!selectedStudent || moduleId === '' || score === ''}
+            onClick={() => void submitManual()}
+          >
             Save score
           </Button>
         </Stack>

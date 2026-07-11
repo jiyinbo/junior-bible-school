@@ -329,15 +329,6 @@ export function ModuleTestPage() {
                 Close test
               </Button>
             )}
-            {canEdit && (
-              <Button
-                variant="contained"
-                onClick={() => void saveQuestions()}
-                sx={{ width: { xs: '100%', sm: 'auto' } }}
-              >
-                Save questions
-              </Button>
-            )}
             <Button
               variant="outlined"
               startIcon={<PictureAsPdfIcon />}
@@ -457,9 +448,19 @@ export function ModuleTestPage() {
       ))}
 
       {canEdit && (
-        <Button startIcon={<AddIcon />} onClick={() => setQuestions((qs) => [...qs, emptyQuestion()])}>
-          Add question
-        </Button>
+        <Stack spacing={2} sx={{ mt: 1 }}>
+          <Button startIcon={<AddIcon />} onClick={() => setQuestions((qs) => [...qs, emptyQuestion()])}>
+            Add question
+          </Button>
+          <Button
+            variant="contained"
+            size="large"
+            onClick={() => void saveQuestions()}
+            sx={{ alignSelf: { xs: 'stretch', sm: 'flex-start' } }}
+          >
+            Save questions
+          </Button>
+        </Stack>
       )}
     </>
   );

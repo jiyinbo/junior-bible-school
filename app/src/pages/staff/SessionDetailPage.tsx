@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link as RouterLink, useParams } from "react-router-dom";
+import { Link as RouterLink, useLocation, useParams } from "react-router-dom";
 import {
   Alert,
   Box,
@@ -26,8 +26,6 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import ChevronRightIcon from "@mui/icons-material/ChevronRight";
-import EditNoteOutlinedIcon from "@mui/icons-material/EditNoteOutlined";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import Accordion from "@mui/material/Accordion";
 import AccordionDetails from "@mui/material/AccordionDetails";
@@ -55,8 +53,12 @@ import {
   programmeStatusLabel,
   registrationChipColor,
   registrationStatusLabel,
-  testActionLabel,
+  countTestsSetUp,
+  sortModulesByTestSetup,
   testChipColor,
+  testLinkLabel,
+  testNeedsSetup,
+  type TestSummary,
 } from "../../utils/sessionStatus";
 
 type StaffUser = { id: number; name: string; email: string; role: string };
@@ -65,7 +67,7 @@ type ModuleRow = {
   id: number;
   name: string;
   code: string | null;
-  test: { id: number; status: string } | null;
+  test: { id: number; status: string; question_count: number } | null;
   assigned_teacher: { id: number; name: string } | null;
 };
 
@@ -111,55 +113,31 @@ const teachersOnly = (staff: StaffUser[]) =>
 
 function TestManageButton({
   moduleId,
-  status,
-  compact,
+  test,
 }: {
   moduleId: number;
-  status?: string;
-  compact?: boolean;
+  test: TestSummary;
 }) {
-  const label = testActionLabel(status);
-  const chipColor = testChipColor(status);
-  const variant = status === "open" ? "contained" : "outlined";
-  const color =
-    chipColor === "success"
-      ? "success"
-      : chipColor === "warning"
-        ? "warning"
-        : "primary";
+  const label = testLinkLabel(test);
+  const color = testChipColor(test);
 
   return (
-    <Button
+    <Chip
       component={RouterLink}
       to={`/staff/modules/${moduleId}/test`}
+      clickable
       size="small"
-      variant={variant}
+      label={label}
       color={color}
-      startIcon={<EditNoteOutlinedIcon fontSize="inherit" />}
-      endIcon={
-        compact ? undefined : (
-          <ChevronRightIcon sx={{ fontSize: 18, opacity: 0.85 }} />
-        )
-      }
-      sx={{
-        textTransform: "none",
-        fontWeight: 600,
-        whiteSpace: "nowrap",
-        px: compact ? 1 : 1.25,
-        minWidth: compact ? 0 : undefined,
-        height: compact ? 40 : undefined,
-        minHeight: compact ? 40 : undefined,
-        boxShadow: variant === "outlined" ? 1 : undefined,
-        "&:hover": { boxShadow: 2 },
-      }}
-    >
-      {label}
-    </Button>
+      variant={test?.status === "open" ? "filled" : "outlined"}
+      title={testNeedsSetup(test) ? "Click to add test questions" : undefined}
+    />
   );
 }
 
 export function SessionDetailPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
+  const location = useLocation();
   const { isAdmin } = useStaffAuth();
   const canManage = isAdmin;
   const [tab, setTab] = useState(0);
@@ -227,16 +205,37 @@ export function SessionDetailPage() {
     apiJson<{ data: StaffUser[] }>("/api/v1/admin/staff-users")
       .then((r) => setStaff(r.data))
       .catch(() => {});
+  }, [loadSession, location.key]);
+
+  useEffect(() => {
+    if (tab !== 1) return;
+    loadSession();
+  }, [tab, loadSession]);
+
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === "visible") {
+        loadSession();
+      }
+    };
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("focus", refresh);
+    return () => {
+      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("focus", refresh);
+    };
   }, [loadSession]);
 
   const stats = useMemo(() => {
-    if (!session) return { levels: 0, modules: 0, assigned: 0, openTests: 0 };
+    if (!session) return { levels: 0, modules: 0, assigned: 0, openTests: 0, testsSetUp: 0 };
     const modules = session.levels.flatMap((l) => l.modules);
+    const { ready: testsSetUp } = countTestsSetUp(modules);
     return {
       levels: session.levels.length,
       modules: modules.length,
       assigned: modules.filter((m) => m.assigned_teacher).length,
       openTests: modules.filter((m) => m.test?.status === "open").length,
+      testsSetUp,
     };
   }, [session]);
 
@@ -450,6 +449,14 @@ export function SessionDetailPage() {
                 variant="outlined"
                 label={`${stats.assigned}/${stats.modules} teachers assigned`}
               />
+              {stats.modules > 0 && (
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  color={stats.testsSetUp === stats.modules ? "success" : "warning"}
+                  label={`${stats.testsSetUp}/${stats.modules} tests set up`}
+                />
+              )}
               {stats.openTests > 0 && (
                 <Chip
                   size="small"
@@ -645,6 +652,11 @@ export function SessionDetailPage() {
             const unassigned = level.modules.filter(
               (m) => !m.assigned_teacher,
             ).length;
+            const { ready: testsSetUp, total: moduleCount } = countTestsSetUp(
+              level.modules,
+            );
+            const testsNeeded = moduleCount - testsSetUp;
+            const sortedModules = sortModulesByTestSetup(level.modules);
             return (
               <Accordion
                 key={level.id}
@@ -677,6 +689,18 @@ export function SessionDetailPage() {
                       {level.modules.length} module
                       {level.modules.length === 1 ? "" : "s"}
                       {unassigned > 0 ? ` · ${unassigned} need a teacher` : ""}
+                      {testsNeeded > 0 ? (
+                        <>
+                          {" · "}
+                          <Box component="span" sx={{ color: "warning.main", fontWeight: 600 }}>
+                            {testsNeeded} need test setup
+                          </Box>
+                        </>
+                      ) : moduleCount > 0 ? (
+                        " · all tests set up"
+                      ) : (
+                        ""
+                      )}
                     </Typography>
                   </Box>
                 </AccordionSummary>
@@ -719,7 +743,7 @@ export function SessionDetailPage() {
                         spacing={1.5}
                         sx={{ display: { xs: "flex", md: "none" }, mb: 2 }}
                       >
-                        {level.modules.map((mod) => (
+                        {sortedModules.map((mod) => (
                           <LevelModuleRow
                             key={mod.id}
                             layout="card"
@@ -737,11 +761,7 @@ export function SessionDetailPage() {
                             }
                             deletingModuleId={deletingModuleId}
                             testButton={
-                              <TestManageButton
-                                moduleId={mod.id}
-                                status={mod.test?.status}
-                                compact
-                              />
+                              <TestManageButton moduleId={mod.id} test={mod.test} />
                             }
                           />
                         ))}
@@ -781,7 +801,7 @@ export function SessionDetailPage() {
                             </TableRow>
                           </TableHead>
                           <TableBody>
-                            {level.modules.map((mod) => (
+                            {sortedModules.map((mod) => (
                               <LevelModuleRow
                                 key={mod.id}
                                 layout="table"
@@ -799,11 +819,7 @@ export function SessionDetailPage() {
                                 }
                                 deletingModuleId={deletingModuleId}
                                 testButton={
-                                  <TestManageButton
-                                    moduleId={mod.id}
-                                    status={mod.test?.status}
-                                    compact
-                                  />
+                                  <TestManageButton moduleId={mod.id} test={mod.test} />
                                 }
                               />
                             ))}

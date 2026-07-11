@@ -3,6 +3,11 @@ import type { SessionDateField } from './sessionDates';
 
 export type SessionDatesInput = Record<SessionDateField, Dayjs | null>;
 
+export type TestSummary = {
+  status: string;
+  question_count?: number;
+} | null | undefined;
+
 export function registrationStatusLabel(dates: SessionDatesInput, isPast: boolean): string {
   if (isPast) return 'Past session';
   const now = dayjs();
@@ -55,21 +60,73 @@ export function programmeChipColor(
   return 'default';
 }
 
-export function testChipColor(status: string | undefined): 'default' | 'success' | 'warning' {
-  if (status === 'open') return 'success';
-  if (status === 'closed') return 'warning';
-  return 'default';
+export function testQuestionCount(test: TestSummary): number {
+  return test?.question_count ?? 0;
 }
 
-export function testActionLabel(status: string | undefined): string {
-  switch (status) {
+export function testHasQuestions(test: TestSummary): boolean {
+  return testQuestionCount(test) > 0;
+}
+
+export function testNeedsSetup(test: TestSummary): boolean {
+  return !test || (test.status === 'draft' && !testHasQuestions(test));
+}
+
+export function testIsSetUp(test: TestSummary): boolean {
+  return !testNeedsSetup(test);
+}
+
+export function testLinkLabel(test: TestSummary): string {
+  if (testNeedsSetup(test)) {
+    return 'Set up test';
+  }
+
+  const count = testQuestionCount(test);
+
+  switch (test.status) {
     case 'open':
-      return 'Test open';
+      return 'Open';
     case 'closed':
-      return 'Test closed';
+      return 'Closed';
     case 'draft':
-      return 'Draft test';
+      return count === 1 ? '1 question' : `${count} questions`;
     default:
       return 'Set up test';
   }
+}
+
+export function testChipColor(
+  test: TestSummary,
+): 'default' | 'success' | 'warning' | 'info' {
+  if (testNeedsSetup(test)) return 'warning';
+  if (test.status === 'open') return 'success';
+  if (test.status === 'closed') return 'default';
+  return 'info';
+}
+
+export function testSetupSortOrder(test: TestSummary): number {
+  if (testNeedsSetup(test)) return 0;
+  if (test?.status === 'draft') return 1;
+  if (test?.status === 'open') return 2;
+  return 3;
+}
+
+export function sortModulesByTestSetup<T extends { test: TestSummary; name: string }>(
+  modules: T[],
+): T[] {
+  return [...modules].sort((a, b) => {
+    const orderDiff = testSetupSortOrder(a.test) - testSetupSortOrder(b.test);
+    if (orderDiff !== 0) return orderDiff;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+export function countTestsSetUp<T extends { test: TestSummary }>(modules: T[]): {
+  ready: number;
+  total: number;
+} {
+  return {
+    ready: modules.filter((module) => testIsSetUp(module.test)).length,
+    total: modules.length,
+  };
 }

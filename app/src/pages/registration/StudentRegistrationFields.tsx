@@ -15,9 +15,9 @@ import {
   LABEL_NEXT_OF_KIN_EMAIL,
   LABEL_NEXT_OF_KIN_FULL_NAME,
   LABEL_NEXT_OF_KIN_PHONE,
-  NATIONALITIES,
 } from './constants';
 import { FormRow, FormSection } from './FormLayout';
+import { NationalityField } from './NationalityField';
 import type { ChildForm } from './types';
 
 export type StudentFieldValues = Pick<
@@ -110,22 +110,13 @@ export function StudentRegistrationFields({ values, errors, onChange }: Props) {
               },
             }}
           />
-          <TextField
-            select
-            label="Nationality"
+          <NationalityField
             value={values.nationality}
-            onChange={(e) => onChange({ nationality: e.target.value })}
+            onChange={(nationality) => onChange({ nationality })}
             error={Boolean(errors.nationality)}
             helperText={errors.nationality}
             required
-            fullWidth
-          >
-            {NATIONALITIES.map((n) => (
-              <MenuItem key={n} value={n}>
-                {n}
-              </MenuItem>
-            ))}
-          </TextField>
+          />
         </FormRow>
       </FormSection>
 

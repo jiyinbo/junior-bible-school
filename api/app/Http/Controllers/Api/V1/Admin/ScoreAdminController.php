@@ -11,6 +11,35 @@ use Illuminate\Http\Request;
 
 class ScoreAdminController extends Controller
 {
+    public function unscoredStudents(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'jbs_module_id' => ['required', 'integer', 'exists:jbs_modules,id'],
+        ]);
+
+        $module = JbsModule::query()->findOrFail($data['jbs_module_id']);
+        abort_unless($request->user()->managesModule($module), 403);
+
+        $students = JbsStudentRegistration::query()
+            ->where('jbs_level_id', $module->jbs_level_id)
+            ->whereDoesntHave('scoreOutcomes', fn ($query) => $query->where('jbs_module_id', $module->id))
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->orderBy('registration_number')
+            ->limit(500)
+            ->get(['id', 'registration_number', 'first_name', 'last_name']);
+
+        return response()->json([
+            'data' => $students->map(fn (JbsStudentRegistration $registration) => [
+                'id' => $registration->id,
+                'registration_number' => $registration->registration_number,
+                'first_name' => $registration->first_name,
+                'last_name' => $registration->last_name,
+                'full_name' => $registration->fullName(),
+            ]),
+        ]);
+    }
+
     public function manual(Request $request): JsonResponse
     {
         $data = $request->validate([

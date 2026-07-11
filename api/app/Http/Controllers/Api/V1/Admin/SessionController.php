@@ -20,7 +20,7 @@ class SessionController extends Controller
     {
         $jbs_session->load([
             'levels.modules.assignment.teacher',
-            'levels.modules.test',
+            'levels.modules.test' => fn ($query) => $query->withCount('questions'),
         ]);
 
         return response()->json([
@@ -47,6 +47,7 @@ class SessionController extends Controller
                         'test' => $mod->test ? [
                             'id' => $mod->test->id,
                             'status' => $mod->test->status,
+                            'question_count' => $mod->test->questions_count,
                         ] : null,
                         'assigned_teacher' => $mod->assignment?->teacher ? [
                             'id' => $mod->assignment->teacher->id,
