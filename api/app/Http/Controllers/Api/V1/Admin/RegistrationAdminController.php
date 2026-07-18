@@ -49,14 +49,10 @@ class RegistrationAdminController extends Controller
      * @param  array<string, mixed>  $filters
      * @return Builder<JbsStudentRegistration>
      */
-    private function filteredQuery(array $filters): Builder
+    private function filteredQuery(array $filters, ?string $sort = null, string $sortDir = 'asc'): Builder
     {
         $query = JbsStudentRegistration::query()
-            ->with(['session', 'level'])
-            ->orderBy('jbs_session_id')
-            ->orderBy('jbs_level_id')
-            ->orderBy('last_name')
-            ->orderBy('first_name');
+            ->with(['session', 'level']);
 
         if (! empty($filters['jbs_session_id'])) {
             $query->where('jbs_session_id', $filters['jbs_session_id']);
@@ -80,7 +76,35 @@ class RegistrationAdminController extends Controller
             $query->whereNotNull('allergies')->where('allergies', '!=', '');
         }
 
+        $dir = $sortDir === 'desc' ? 'desc' : 'asc';
+        if ($sort === 'name') {
+            $query->orderBy('last_name', $dir)
+                ->orderBy('first_name', $dir)
+                ->orderBy('registration_number', $dir);
+        } else {
+            $query->orderBy('jbs_session_id')
+                ->orderBy('jbs_level_id')
+                ->orderBy('last_name')
+                ->orderBy('first_name');
+        }
+
         return $query;
+    }
+
+    /**
+     * @return array{sort: string|null, sort_dir: string}
+     */
+    private function sortParams(Request $request): array
+    {
+        $data = $request->validate([
+            'sort' => ['nullable', 'string', 'in:name'],
+            'sort_dir' => ['nullable', 'string', 'in:asc,desc'],
+        ]);
+
+        return [
+            'sort' => $data['sort'] ?? null,
+            'sort_dir' => ($data['sort_dir'] ?? 'asc') === 'desc' ? 'desc' : 'asc',
+        ];
     }
 
     /**
@@ -110,6 +134,7 @@ class RegistrationAdminController extends Controller
     public function index(Request $request): JsonResponse
     {
         $filters = $this->filterParams($request);
+        $sort = $this->sortParams($request);
         $pagination = $request->validate([
             'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
@@ -117,7 +142,8 @@ class RegistrationAdminController extends Controller
         $perPage = (int) ($pagination['per_page'] ?? 25);
         $page = (int) ($pagination['page'] ?? 1);
 
-        $paginator = $this->filteredQuery($filters)->paginate(perPage: $perPage, page: $page);
+        $paginator = $this->filteredQuery($filters, $sort['sort'], $sort['sort_dir'])
+            ->paginate(perPage: $perPage, page: $page);
 
         return response()->json([
             'data' => $paginator->getCollection()->map(fn (JbsStudentRegistration $reg) => $this->registrationListRow($reg)),

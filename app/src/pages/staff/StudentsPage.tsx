@@ -19,6 +19,7 @@ import {
   TableHead,
   TablePagination,
   TableRow,
+  TableSortLabel,
   TextField,
   Typography,
 } from '@mui/material';
@@ -229,6 +230,8 @@ export function StudentsPage() {
   });
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [sortBy, setSortBy] = useState<'name' | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -236,6 +239,16 @@ export function StudentsPage() {
   const [printingDoc, setPrintingDoc] = useState<null | 'statement' | 'certificate'>(null);
 
   const resetPage = () => setPage(0);
+
+  const toggleNameSort = () => {
+    resetPage();
+    if (sortBy !== 'name') {
+      setSortBy('name');
+      setSortDir('asc');
+      return;
+    }
+    setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+  };
 
   useEffect(() => {
     apiJson<{ data: SessionOption[] }>('/api/v1/admin/sessions')
@@ -263,6 +276,10 @@ export function StudentsPage() {
     if (completedFilter === 'yes') params.set('level_completed', '1');
     if (completedFilter === 'no') params.set('level_completed', '0');
     if (allergiesOnly) params.set('has_allergies', '1');
+    if (sortBy) {
+      params.set('sort', sortBy);
+      params.set('sort_dir', sortDir);
+    }
     params.set('page', String(page + 1));
     params.set('per_page', String(rowsPerPage));
     setLoading(true);
@@ -274,7 +291,7 @@ export function StudentsPage() {
       })
       .catch(() => setError('Could not load students.'))
       .finally(() => setLoading(false));
-  }, [sessionId, levelId, query, completedFilter, allergiesOnly, page, rowsPerPage]);
+  }, [sessionId, levelId, query, completedFilter, allergiesOnly, sortBy, sortDir, page, rowsPerPage]);
 
   useEffect(() => {
     load();
@@ -288,6 +305,10 @@ export function StudentsPage() {
     if (completedFilter === 'yes') params.set('level_completed', '1');
     if (completedFilter === 'no') params.set('level_completed', '0');
     if (allergiesOnly) params.set('has_allergies', '1');
+    if (sortBy) {
+      params.set('sort', sortBy);
+      params.set('sort_dir', sortDir);
+    }
     return params;
   };
 
@@ -555,7 +576,15 @@ export function StudentsPage() {
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Student</TableCell>
+                    <TableCell sortDirection={sortBy === 'name' ? sortDir : false}>
+                      <TableSortLabel
+                        active={sortBy === 'name'}
+                        direction={sortBy === 'name' ? sortDir : 'asc'}
+                        onClick={toggleNameSort}
+                      >
+                        Student
+                      </TableSortLabel>
+                    </TableCell>
                     <TableCell>Tier</TableCell>
                     <TableCell>Progress</TableCell>
                     <TableCell>Status</TableCell>

@@ -54,6 +54,7 @@ Route::prefix('v1')->group(function (): void {
             Route::get('attendance/sessions', [AttendanceController::class, 'sessionsIndex']);
             Route::post('attendance/scan', [AttendanceController::class, 'scan']);
             Route::get('my-modules', MyModulesController::class);
+            Route::get('scores/tier-board', [ScoreAdminController::class, 'tierBoard']);
             Route::get('scores/unscored-students', [ScoreAdminController::class, 'unscoredStudents']);
             Route::post('scores/manual', [ScoreAdminController::class, 'manual']);
         });

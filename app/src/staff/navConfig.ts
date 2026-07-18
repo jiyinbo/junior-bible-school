@@ -35,7 +35,7 @@ export const staffNavItems: NavItem[] = [
   { label: 'Register student', path: '/staff/registrations', icon: PersonAddIcon, roles: ['admin', 'assistant'], section: 'programme' },
   { label: 'Attendance', path: '/staff/attendance', icon: QrCodeScannerIcon, roles: ['admin', 'teacher', 'assistant'], section: 'teaching' },
   { label: 'My modules', path: '/staff/modules', icon: MenuBookIcon, roles: ['admin', 'teacher'], section: 'teaching' },
-  { label: 'Enter scores', path: '/staff/scores', icon: GradeIcon, roles: ['admin', 'teacher', 'assistant'], section: 'teaching' },
+  { label: 'Scores', path: '/staff/scores', icon: GradeIcon, roles: ['admin', 'teacher', 'assistant'], section: 'teaching' },
   { label: 'Students', path: '/staff/students', icon: GroupsIcon, roles: ['admin', 'assistant'], section: 'students' },
   { label: 'Send email', path: '/staff/send-email', icon: EmailIcon, roles: ['admin'], section: 'administration' },
   { label: 'Staff users', path: '/staff/users', icon: PeopleIcon, roles: ['admin'], section: 'administration' },

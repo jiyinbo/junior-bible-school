@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Box,
@@ -18,12 +18,17 @@ import {
   TableBody,
   TableCell,
   TableHead,
+  TablePagination,
   TableRow,
+  TableSortLabel,
   TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
-import { ResponsiveTableLayout } from '../../components/ResponsiveTableLayout';
+import {
+  EmptyTableMessage,
+  ResponsiveTableLayout,
+} from '../../components/ResponsiveTableLayout';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { FormRowButton, InlineFormRow } from '../../components/InlineFormRow';
@@ -34,6 +39,15 @@ import { useStaffAuth } from '../../staff/StaffAuthContext';
 
 type StaffUser = { id: number; name: string; email: string; role: string };
 type StaffRole = 'admin' | 'teacher' | 'assistant';
+type SortKey = 'name' | 'email' | 'role';
+type SortDir = 'asc' | 'desc';
+
+const ROWS_PER_PAGE_OPTIONS = [10, 25, 50];
+
+function compareStaff(a: StaffUser, b: StaffUser, key: SortKey, dir: SortDir): number {
+  const cmp = a[key].localeCompare(b[key], undefined, { sensitivity: 'base' });
+  return dir === 'asc' ? cmp : -cmp;
+}
 
 function StaffUserEditForm({
   name,
@@ -287,14 +301,123 @@ function StaffUserRow({
   );
 }
 
-export function UsersPage() {
-  const { user: currentUser } = useStaffAuth();
-  const [staff, setStaff] = useState<StaffUser[]>([]);
-  const [error, setError] = useState<string | null>(null);
+function CreateStaffUserDialog({
+  open,
+  onClose,
+  onCreated,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<StaffRole>('teacher');
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setName('');
+    setEmail('');
+    setPassword('');
+    setRole('teacher');
+    setError(null);
+  }, [open]);
+
+  const create = async () => {
+    setError(null);
+    setSaving(true);
+    try {
+      await apiJson('/api/v1/admin/staff-users', {
+        method: 'POST',
+        json: { name: name.trim(), email: email.trim(), password, role },
+      });
+      toastSuccess('Staff account created.');
+      onCreated();
+      onClose();
+    } catch (e) {
+      setError(parseApiError(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const canSubmit = name.trim() !== '' && email.trim() !== '' && password.length >= 8;
+
+  return (
+    <Dialog open={open} onClose={saving ? undefined : onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>Create account</DialogTitle>
+      <DialogContent>
+        <Stack spacing={2} sx={{ pt: 1 }}>
+          {error && <Alert severity="error">{error}</Alert>}
+          <TextField
+            label="Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            fullWidth
+            required
+            autoFocus
+          />
+          <TextField
+            label="Email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            fullWidth
+            required
+          />
+          <TextField
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            fullWidth
+            required
+            helperText="Password must be at least 8 characters."
+          />
+          <TextField
+            select
+            label="Role"
+            value={role}
+            onChange={(e) => setRole(e.target.value as StaffRole)}
+            fullWidth
+            required
+          >
+            <MenuItem value="teacher">Teacher</MenuItem>
+            <MenuItem value="assistant">Assistant</MenuItem>
+            <MenuItem value="admin">Admin</MenuItem>
+          </TextField>
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={saving}>
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          disabled={saving || !canSubmit}
+          onClick={() => void create()}
+        >
+          {saving ? 'Creating…' : 'Create'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+export function UsersPage() {
+  const { user: currentUser } = useStaffAuth();
+  const [staff, setStaff] = useState<StaffUser[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [filterQuery, setFilterQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState<'' | StaffRole>('');
+  const [sortKey, setSortKey] = useState<SortKey>('name');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const load = () => {
     apiJson<{ data: StaffUser[] }>('/api/v1/admin/staff-users')
@@ -309,95 +432,135 @@ export function UsersPage() {
     load();
   }, []);
 
-  const create = async () => {
-    setError(null);
-    try {
-      await apiJson('/api/v1/admin/staff-users', {
-        method: 'POST',
-        json: { name: name.trim(), email: email.trim(), password, role },
-      });
-      setName('');
-      setEmail('');
-      setPassword('');
-      setRole('teacher');
-      toastSuccess('Staff account created.');
-      load();
-    } catch (e) {
-      setError(parseApiError(e));
+  useEffect(() => {
+    setPage(0);
+  }, [filterQuery, roleFilter, sortKey, sortDir]);
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+      return;
     }
+    setSortKey(key);
+    setSortDir('asc');
   };
+
+  const filteredStaff = useMemo(() => {
+    const q = filterQuery.trim().toLowerCase();
+    let rows = staff;
+
+    if (q) {
+      rows = rows.filter(
+        (u) => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q),
+      );
+    }
+    if (roleFilter) {
+      rows = rows.filter((u) => u.role === roleFilter);
+    }
+
+    return [...rows].sort((a, b) => compareStaff(a, b, sortKey, sortDir));
+  }, [staff, filterQuery, roleFilter, sortKey, sortDir]);
+
+  const maxPage = Math.max(0, Math.ceil(filteredStaff.length / rowsPerPage) - 1);
+  const currentPage = Math.min(page, maxPage);
+  const visibleStaff = filteredStaff.slice(
+    currentPage * rowsPerPage,
+    currentPage * rowsPerPage + rowsPerPage,
+  );
 
   return (
     <>
       <PageHeader
         title="Staff users"
         subtitle="Create admin, assistant or teacher accounts. Assign teachers to modules on a session detail page."
+        action={
+          <Button variant="contained" onClick={() => setCreateOpen(true)}>
+            Create account
+          </Button>
+        }
       />
       {error && (
         <Typography color="error" sx={{ mb: 2 }}>
           {error}
         </Typography>
       )}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          Create account
-        </Typography>
-        <InlineFormRow>
+      <Paper sx={{ p: { xs: 2, md: 2 }, overflow: 'hidden' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 2,
+            alignItems: 'center',
+            mb: 2,
+          }}
+        >
           <TextField
-            label="Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
             size="small"
-            sx={{ flex: 1, minWidth: 140 }}
-          />
-          <TextField
-            label="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            size="small"
-            sx={{ flex: 1, minWidth: 200 }}
-          />
-          <TextField
-            label="Password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            size="small"
-            sx={{ flex: 1, minWidth: 140 }}
+            label="Filter staff"
+            placeholder="Name or email"
+            value={filterQuery}
+            onChange={(e) => setFilterQuery(e.target.value)}
+            sx={{ minWidth: 220, flex: '1 1 220px' }}
           />
           <TextField
             select
-            label="Role"
-            value={role}
-            onChange={(e) => setRole(e.target.value as StaffRole)}
             size="small"
-            sx={{ minWidth: 120 }}
+            label="Role"
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value as '' | StaffRole)}
+            sx={{ minWidth: 140 }}
           >
-            <MenuItem value="teacher">Teacher</MenuItem>
-            <MenuItem value="assistant">Assistant</MenuItem>
+            <MenuItem value="">All roles</MenuItem>
             <MenuItem value="admin">Admin</MenuItem>
+            <MenuItem value="assistant">Assistant</MenuItem>
+            <MenuItem value="teacher">Teacher</MenuItem>
           </TextField>
-          <FormRowButton onClick={() => void create()}>Create</FormRowButton>
-        </InlineFormRow>
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-          Password must be at least 8 characters.
-        </Typography>
-      </Paper>
-      <Paper sx={{ p: { xs: 2, md: 2 }, overflow: 'hidden' }}>
+        </Box>
         <ResponsiveTableLayout
-          isEmpty={staff.length === 0}
+          isEmpty={filteredStaff.length === 0}
+          empty={
+            <EmptyTableMessage>
+              {staff.length === 0
+                ? 'No staff users yet.'
+                : 'No staff users match the current filters.'}
+            </EmptyTableMessage>
+          }
           table={
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Email</TableCell>
-                  <TableCell>Role</TableCell>
+                  <TableCell sortDirection={sortKey === 'name' ? sortDir : false}>
+                    <TableSortLabel
+                      active={sortKey === 'name'}
+                      direction={sortKey === 'name' ? sortDir : 'asc'}
+                      onClick={() => toggleSort('name')}
+                    >
+                      Name
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell sortDirection={sortKey === 'email' ? sortDir : false}>
+                    <TableSortLabel
+                      active={sortKey === 'email'}
+                      direction={sortKey === 'email' ? sortDir : 'asc'}
+                      onClick={() => toggleSort('email')}
+                    >
+                      Email
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell sortDirection={sortKey === 'role' ? sortDir : false}>
+                    <TableSortLabel
+                      active={sortKey === 'role'}
+                      direction={sortKey === 'role' ? sortDir : 'asc'}
+                      onClick={() => toggleSort('role')}
+                    >
+                      Role
+                    </TableSortLabel>
+                  </TableCell>
                   <TableCell align="right" />
                 </TableRow>
               </TableHead>
               <TableBody>
-                {staff.map((u) => (
+                {visibleStaff.map((u) => (
                   <StaffUserRow
                     key={u.id}
                     layout="table"
@@ -410,7 +573,7 @@ export function UsersPage() {
               </TableBody>
             </Table>
           }
-          cards={staff.map((u) => (
+          cards={visibleStaff.map((u) => (
             <StaffUserRow
               key={u.id}
               layout="card"
@@ -421,7 +584,43 @@ export function UsersPage() {
             />
           ))}
         />
+        {filteredStaff.length > 0 && (
+          <TablePagination
+            component="div"
+            count={filteredStaff.length}
+            page={currentPage}
+            onPageChange={(_, nextPage) => setPage(nextPage)}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={(e) => {
+              setRowsPerPage(Number(e.target.value));
+              setPage(0);
+            }}
+            rowsPerPageOptions={ROWS_PER_PAGE_OPTIONS}
+            labelDisplayedRows={({ from, to, count }) =>
+              count === 0 ? '0 staff' : `${from}–${to} of ${count}`
+            }
+            sx={{
+              borderTop: 1,
+              borderColor: 'divider',
+              px: { xs: 0, md: 0 },
+              '.MuiTablePagination-toolbar': {
+                flexWrap: 'wrap',
+                gap: 1,
+                px: 0,
+              },
+              '.MuiTablePagination-selectLabel, .MuiTablePagination-displayedRows': {
+                m: 0,
+              },
+            }}
+          />
+        )}
       </Paper>
+
+      <CreateStaffUserDialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={load}
+      />
     </>
   );
 }
