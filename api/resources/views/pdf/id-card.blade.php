@@ -4,13 +4,8 @@
     $navy = '#1a3352';
     $w = $cardWidthMm ?? 53.98;
     $h = $cardHeightMm ?? 85.60;
-    $sessionName = $registration->session->name;
-    $sessionSubtitle = Str::limit(trim(preg_replace('/\s*-\s*\d{4}\s*$/', '', $sessionName) ?: $sessionName), 44);
     $levelLabel = Str::limit($registration->level->name, 36);
     $studentName = Str::limit($registration->fullName(), 32, '');
-    $year = $registration->session->session_ends_at?->format('Y')
-        ?? $registration->session->session_starts_at?->format('Y')
-        ?? (preg_match('/\d{4}/', $sessionName, $m) ? $m[0] : now()->format('Y'));
 
     // The header, body and footer are absolutely positioned inside a single
     // page-sized box. Keeping everything out of the normal document flow stops
@@ -67,12 +62,9 @@
 
     {{-- Header. DomPDF does not honour vertical-align:middle on table cells,
          so the content is nudged down with padding to sit centred in the band. --}}
-    <div style="position:absolute;top:0;left:0;width:100%;height:{{ $headerH }}mm;background-color:{{ $navy }};color:#ffffff;overflow:hidden;text-align:center;padding-top:2.7mm;">
-        <div style="font-size:6.4pt;font-weight:bold;letter-spacing:0.6pt;line-height:1.15;text-transform:uppercase;">
-            Junior Bible School
-        </div>
-        <div style="font-size:4.6pt;margin-top:0.5mm;line-height:1.15;opacity:0.95;">
-            {{ $sessionSubtitle }}
+    <div style="position:absolute;top:0;left:0;width:100%;height:{{ $headerH }}mm;background-color:{{ $navy }};color:#ffffff;overflow:hidden;text-align:center;padding-top:2.4mm;">
+        <div style="font-size:5.4pt;font-weight:bold;letter-spacing:0.4pt;line-height:1.2;text-transform:uppercase;padding:0 1.5mm;">
+            SUMMER JUNIOR<br/>BIBLE SCHOOL
         </div>
     </div>
 
@@ -155,9 +147,9 @@
     </div>
 
     {{-- Footer --}}
-    <div style="position:absolute;bottom:0;left:0;width:100%;height:{{ $footerH }}mm;background-color:{{ $navy }};color:#ffffff;overflow:hidden;text-align:center;padding-top:1.2mm;">
-        <div style="font-size:11pt;font-weight:bold;letter-spacing:1pt;line-height:1;">
-            {{ $year }}
+    <div style="position:absolute;bottom:0;left:0;width:100%;height:{{ $footerH }}mm;background-color:{{ $navy }};color:#ffffff;overflow:hidden;text-align:center;padding-top:1.5mm;">
+        <div style="font-size:7pt;font-weight:bold;letter-spacing:0.6pt;line-height:1;text-transform:uppercase;">
+            AUGUST, 2026
         </div>
     </div>
 

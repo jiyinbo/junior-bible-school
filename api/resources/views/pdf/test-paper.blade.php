@@ -8,19 +8,6 @@
         body { margin: 0; font-family: DejaVu Sans, sans-serif; color: #111; font-size: 9pt; line-height: 1.22; }
         h1 { font-size: 12pt; margin: 0 0 1mm; color: #1a3352; }
         .meta { font-size: 7.5pt; color: #444; margin-bottom: 2.5mm; }
-        .student-box {
-            width: 100%;
-            border: 0.75pt solid #333;
-            border-collapse: collapse;
-            margin-bottom: 2.5mm;
-            font-size: 8.5pt;
-        }
-        .student-box td { padding: 1.2mm 2mm; border: 0.5pt solid #ccc; vertical-align: bottom; }
-        .student-box .label { width: 16%; font-weight: bold; background: #f7f9fc; white-space: nowrap; }
-        .student-box .field { min-height: 4.5mm; }
-        .student-box .field-wide { width: 58%; }
-        .student-box .label-side { width: 10%; }
-        .student-box .field-narrow { width: 16%; }
         .instructions {
             background: #f7f9fc;
             border: 0.5pt solid #c5ced8;
@@ -74,21 +61,6 @@
         @endif
         · {{ $questions->count() }} question{{ $questions->count() === 1 ? '' : 's' }}
     </div>
-
-    <table class="student-box" cellpadding="0" cellspacing="0">
-        <tr>
-            <td class="label">Student name</td>
-            <td class="field field-wide">&nbsp;</td>
-            <td class="label label-side">Date</td>
-            <td class="field field-narrow">&nbsp;</td>
-        </tr>
-        <tr>
-            <td class="label">Reg. no.</td>
-            <td class="field field-wide">&nbsp;</td>
-            <td class="label label-side">Score</td>
-            <td class="field field-narrow">&nbsp;</td>
-        </tr>
-    </table>
 
     <div class="instructions">
         Mark your answer(s) beside each option.

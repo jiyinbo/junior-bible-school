@@ -18,19 +18,11 @@ import type { EnrolledParticipant } from '../pages/registration/types';
 const NAVY = '#1a3352';
 const CARD_WIDTH = 240;
 const LOGO_WATERMARK_SRC = '/logo.png';
-
-function sessionSubtitle(name: string): string {
-  return name.replace(/\s*-\s*\d{4}\s*$/, '').trim() || name;
-}
-
-function sessionYear(name: string): string {
-  const match = name.match(/\d{4}/);
-  return match ? match[0] : String(new Date().getFullYear());
-}
+const CARD_HEADER_LINE_1 = 'SUMMER JUNIOR';
+const CARD_HEADER_LINE_2 = 'BIBLE SCHOOL';
+const CARD_FOOTER = 'AUGUST, 2026';
 
 export function IdCardPreview({ participant: p }: { participant: EnrolledParticipant }) {
-  const year = sessionYear(p.session_name);
-
   return (
     <Box
       sx={{
@@ -61,24 +53,14 @@ export function IdCardPreview({ participant: p }: { participant: EnrolledPartici
             display: 'block',
             fontSize: '0.65rem',
             fontWeight: 700,
-            letterSpacing: 0.6,
+            letterSpacing: 0.5,
             textTransform: 'uppercase',
             lineHeight: 1.2,
           }}
         >
-          Junior Bible School
-        </Typography>
-        <Typography
-          sx={{
-            display: 'block',
-            fontSize: '0.6rem',
-            opacity: 0.95,
-            lineHeight: 1.25,
-            mt: 0.25,
-            wordBreak: 'break-word',
-          }}
-        >
-          {sessionSubtitle(p.session_name)}
+          {CARD_HEADER_LINE_1}
+          <br />
+          {CARD_HEADER_LINE_2}
         </Typography>
       </Box>
 
@@ -225,12 +207,13 @@ export function IdCardPreview({ participant: p }: { participant: EnrolledPartici
         <Typography
           sx={{
             fontWeight: 700,
-            letterSpacing: 1,
+            letterSpacing: 0.8,
             lineHeight: 1.2,
-            fontSize: '1.1rem',
+            fontSize: '0.75rem',
+            textTransform: 'uppercase',
           }}
         >
-          {year}
+          {CARD_FOOTER}
         </Typography>
       </Box>
     </Box>

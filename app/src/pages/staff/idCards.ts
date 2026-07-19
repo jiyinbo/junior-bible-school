@@ -6,6 +6,9 @@ export const CARD_WIDTH_MM = 53.98;
 export const CARD_HEIGHT_MM = 85.6;
 const CAMPUS_LINE_1 = 'Winners Chapel International';
 const CAMPUS_LINE_2 = 'Dartford Campus';
+const CARD_HEADER_LINE_1 = 'SUMMER JUNIOR';
+const CARD_HEADER_LINE_2 = 'BIBLE SCHOOL';
+const CARD_FOOTER = 'AUGUST, 2026';
 
 const NAVY: [number, number, number] = [26, 51, 82];
 
@@ -15,17 +18,6 @@ export type IdCardStudent = {
   level_name: string;
   session_name: string;
 };
-
-function sessionSubtitle(sessionName: string): string {
-  const stripped = sessionName.replace(/\s*-\s*\d{4}\s*$/, '').trim();
-  const value = stripped || sessionName;
-  return value.length > 44 ? `${value.slice(0, 44)}…` : value;
-}
-
-function sessionYear(sessionName: string): string {
-  const match = sessionName.match(/\d{4}/);
-  return match ? match[0] : String(new Date().getFullYear());
-}
 
 async function qrDataUrl(value: string): Promise<string> {
   return QRCode.toDataURL(value, { margin: 0, width: 320, errorCorrectionLevel: 'M' });
@@ -58,14 +50,9 @@ function drawCard(
 
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7);
-  doc.text('JUNIOR BIBLE SCHOOL', cx, y + 4.8, { align: 'center' });
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(5);
-  doc.text(sessionSubtitle(student.session_name), cx, y + 7.8, {
-    align: 'center',
-    maxWidth: w - 4,
-  });
+  doc.setFontSize(6);
+  doc.text(CARD_HEADER_LINE_1, cx, y + 4.6, { align: 'center' });
+  doc.text(CARD_HEADER_LINE_2, cx, y + 7.6, { align: 'center' });
 
   // Footer band (square off the top corners).
   doc.setFillColor(...NAVY);
@@ -73,8 +60,8 @@ function drawCard(
   doc.rect(x, y + h - footerH, w, radius, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.text(sessionYear(student.session_name), cx, y + h - 1.7, { align: 'center' });
+  doc.setFontSize(7.5);
+  doc.text(CARD_FOOTER, cx, y + h - 1.9, { align: 'center' });
 
   // Re-stroke the outer rounded border over the header/footer fills.
   doc.setDrawColor(...NAVY);
