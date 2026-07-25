@@ -70,10 +70,11 @@ class JbsGradingServiceTest extends TestCase
     }
 
     #[Test]
-    public function graduation_requires_fewer_than_three_missed_tests(): void
+    public function graduation_allows_up_to_three_missed_modules(): void
     {
-        $this->assertTrue($this->grading->eligibleForGraduation(10, 8));
-        $this->assertFalse($this->grading->eligibleForGraduation(10, 7));
-        $this->assertFalse($this->grading->eligibleForGraduation(5, 2));
+        $this->assertTrue($this->grading->eligibleForGraduation(10, 8)); // 2 missing
+        $this->assertTrue($this->grading->eligibleForGraduation(10, 7)); // 3 missing
+        $this->assertFalse($this->grading->eligibleForGraduation(10, 6)); // 4 missing
+        $this->assertFalse($this->grading->eligibleForGraduation(5, 1)); // 4 missing
     }
 }

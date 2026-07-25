@@ -97,6 +97,52 @@ function csvEscape(value: string): string {
   return value;
 }
 
+function downloadCsv(lines: string[], filename: string): void {
+  const blob = new Blob([`${lines.join('\n')}\n`], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export type MissingScoreRow = {
+  id: number;
+  full_name: string;
+  registration_number: string;
+  missing_modules: string[];
+};
+
+/** Students who are missing at least one module score in the tier. */
+export function studentsWithMissingScores(
+  modules: TierModule[],
+  students: TierStudentRow[],
+): MissingScoreRow[] {
+  return students
+    .map((student) => ({
+      id: student.id,
+      full_name: student.full_name,
+      registration_number: student.registration_number,
+      missing_modules: modules
+        .filter((m) => student.modules[String(m.id)] == null)
+        .map((m) => m.name),
+    }))
+    .filter((row) => row.missing_modules.length > 0);
+}
+
+/** Download students with missing module scores as CSV. */
+export function exportMissingScoresCsv(rows: MissingScoreRow[], filename: string): void {
+  const headers = ['Student', 'Registration number', 'Missing modules'];
+  const lines = [
+    headers.map(csvEscape).join(','),
+    ...rows.map((row) =>
+      [row.full_name, row.registration_number, row.missing_modules.join('; ')].map(csvEscape).join(','),
+    ),
+  ];
+  downloadCsv(lines, filename);
+}
+
 /** Download the tier scores board as CSV (client-side). */
 export function exportTierBoardCsv(
   modules: TierModule[],
@@ -119,7 +165,10 @@ export function exportTierBoardCsv(
       const cells = [
         student.full_name,
         student.registration_number,
-        ...modules.map((m) => formatModuleCell(student.modules[String(m.id)] ?? null)),
+        ...modules.map((m) => {
+          const cell = student.modules[String(m.id)] ?? null;
+          return cell ? formatModuleCell(cell) : '';
+        }),
         student.overall_score === null ? '' : String(student.overall_score),
         student.overall_max_score === null ? '' : String(student.overall_max_score),
         student.overall_percent === null ? '' : String(student.overall_percent),
@@ -129,11 +178,5 @@ export function exportTierBoardCsv(
     }),
   ];
 
-  const blob = new Blob([`${lines.join('\n')}\n`], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+  downloadCsv(lines, filename);
 }

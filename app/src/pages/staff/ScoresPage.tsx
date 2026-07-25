@@ -161,7 +161,11 @@ export function ScoresPage() {
               <ScoresTopThree students={board.top3} />
               <ScoresBandCounts students={board.students} />
             </Box>
-            <ScoresMatrixTable modules={board.modules} students={board.students} />
+            <ScoresMatrixTable
+              modules={board.modules}
+              students={board.students}
+              tierLabel={selectedLevelLabel}
+            />
           </>
         ) : null}
       </Stack>

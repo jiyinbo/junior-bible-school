@@ -20,9 +20,50 @@ class JbsStudentProgressService
             ->value('days');
     }
 
+    /**
+     * Tier completion is derived from module scores: more than
+     * {@see JbsGradingService::MAX_MISSED_TESTS_FOR_GRADUATION} modules without a score
+     * means not complete. The DB flag is kept in sync for list filters and dashboards.
+     */
     public function isLevelCompleted(JbsStudentRegistration $registration): bool
     {
-        return (bool) $registration->level_completed;
+        return $this->syncLevelCompletion($registration);
+    }
+
+    /**
+     * Recompute and persist level_completed from missing module scores.
+     * Safe to call often — only writes when the flag changes.
+     */
+    public function syncLevelCompletion(
+        JbsStudentRegistration $registration,
+        ?int $testsTotal = null,
+        ?int $testsTaken = null,
+    ): bool {
+        $registration->loadMissing(['session', 'level.modules']);
+
+        $testsTotal ??= $registration->level->modules->count();
+        $testsTaken ??= (int) JbsModuleScoreOutcome::query()
+            ->where('jbs_student_registration_id', $registration->id)
+            ->whereIn('jbs_module_id', $registration->level->modules->pluck('id'))
+            ->count();
+
+        $programmePhase = $registration->session->programmePhase();
+        $pending = $this->isGraduationPending($programmePhase, $testsTaken);
+        $completed = ! $pending && $this->grading->eligibleForGraduation($testsTotal, $testsTaken);
+
+        if ((bool) $registration->level_completed === $completed) {
+            return $completed;
+        }
+
+        $registration->forceFill([
+            'level_completed' => $completed,
+            'level_completed_at' => $completed
+                ? ($registration->level_completed_at ?? now())
+                : null,
+            'level_completed_by_user_id' => null,
+        ])->save();
+
+        return $completed;
     }
 
     public function assertDocumentsAllowed(JbsStudentRegistration $registration): void
@@ -38,7 +79,9 @@ class JbsStudentProgressService
             return '';
         }
 
-        return 'Your level has not been marked as completed yet. Statement and certificate will be available once an administrator confirms your successful completion for this session.';
+        $max = JbsGradingService::MAX_MISSED_TESTS_FOR_GRADUATION;
+
+        return "Your tier is not complete yet. Statement and certificate will be available once you have scores for all but {$max} modules (or fewer missing).";
     }
 
     /**
@@ -129,10 +172,11 @@ class JbsStudentProgressService
         $graduationPending = $this->isGraduationPending($programmePhase, $testsTaken);
         $testsMissed = $graduationPending
             ? 0
-            : $this->countMissedTests($registration, $outcomes, $programmePhase);
+            : $this->grading->missedTestsCount($testsTotal, $testsTaken);
         $eligibleForGraduation = $graduationPending
             ? null
-            : $testsMissed < JbsGradingService::MAX_MISSED_TESTS_FOR_GRADUATION;
+            : $this->grading->eligibleForGraduation($testsTotal, $testsTaken);
+        $levelCompleted = $this->syncLevelCompletion($registration, $testsTotal, $testsTaken);
 
         $scoredPercents = array_values(array_filter(
             array_column($modules, 'percent'),
@@ -152,7 +196,7 @@ class JbsStudentProgressService
             'programme_phase' => $programmePhase,
             'graduation_pending' => $graduationPending,
             'eligible_for_graduation' => $eligibleForGraduation,
-            'level_completed' => $this->isLevelCompleted($registration),
+            'level_completed' => $levelCompleted,
             'level_completed_at' => $registration->level_completed_at,
             'modules' => $modules,
             'overall_percent' => $overallPercent,
@@ -177,42 +221,5 @@ class JbsStudentProgressService
         }
 
         return false;
-    }
-
-    /**
-     * Tests count as missed only after the programme has started and the test window is closed
-     * (or the session has ended) without a recorded result.
-     *
-     * @param  \Illuminate\Support\Collection<int, JbsModuleScoreOutcome>  $outcomes
-     */
-    private function countMissedTests(
-        JbsStudentRegistration $registration,
-        $outcomes,
-        string $programmePhase,
-    ): int {
-        if ($programmePhase === 'upcoming') {
-            return 0;
-        }
-
-        $missed = 0;
-
-        foreach ($registration->level->modules as $module) {
-            $test = $module->test;
-            if ($test === null || ! $test->questions()->exists()) {
-                continue;
-            }
-
-            if ($outcomes->has($module->id)) {
-                continue;
-            }
-
-            $test->refreshAndCloseIfExpired();
-
-            if (in_array($programmePhase, ['ended', 'past'], true) || ! $test->isOpen()) {
-                $missed++;
-            }
-        }
-
-        return $missed;
     }
 }

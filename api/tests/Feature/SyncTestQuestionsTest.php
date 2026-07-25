@@ -104,6 +104,10 @@ class SyncTestQuestionsTest extends TestCase
 
         $response->assertOk();
         $this->assertStringContainsString('application/pdf', (string) $response->headers->get('content-type'));
+        $this->assertStringContainsString(
+            'filename="jbs-test-bcc-course-one.pdf"',
+            (string) $response->headers->get('content-disposition'),
+        );
         $this->assertStringStartsWith('%PDF', $response->getContent());
     }
 }

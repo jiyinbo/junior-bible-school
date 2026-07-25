@@ -35,7 +35,8 @@ class AdminMailController extends Controller
         return response()->json([
             'data' => [
                 'audiences' => [
-                    ['key' => JbsAdminMailService::AUDIENCE_PARENT_ONE, 'label' => 'One parent / guardian (by student)'],
+                    ['key' => JbsAdminMailService::AUDIENCE_PARENT_ONE, 'label' => 'Selected parents / guardians (by student)'],
+                    ['key' => JbsAdminMailService::AUDIENCE_STUDENT_ONE, 'label' => 'Selected students (with email on file)'],
                     ['key' => JbsAdminMailService::AUDIENCE_PARENTS_TIER, 'label' => 'All parents in a tier'],
                     ['key' => JbsAdminMailService::AUDIENCE_PARENTS_SESSION, 'label' => 'All parents in a session (all tiers)'],
                     ['key' => JbsAdminMailService::AUDIENCE_STAFF_TEACHERS, 'label' => 'All teachers'],
@@ -78,6 +79,8 @@ class AdminMailController extends Controller
                 'id' => $reg->id,
                 'registration_number' => $reg->registration_number,
                 'full_name' => $reg->fullName(),
+                'email' => $reg->email,
+                'has_student_email' => filled($reg->email),
                 'guardian_name' => $reg->guardian_name,
                 'guardian_email' => $reg->guardian_email,
                 'has_guardian_email' => filled($reg->guardian_email),
@@ -124,6 +127,7 @@ class AdminMailController extends Controller
                 'jbs_session_id' => $data['jbs_session_id'] ?? null,
                 'jbs_level_id' => $data['jbs_level_id'] ?? null,
                 'registration_id' => $data['registration_id'] ?? null,
+                'registration_ids' => $data['registration_ids'] ?? null,
                 'recipient_count' => count($recipients),
                 'sent' => $result['sent'],
                 'failed' => $result['failed'],
@@ -158,6 +162,8 @@ class AdminMailController extends Controller
             'jbs_session_id' => ['nullable', 'integer', 'exists:jbs_sessions,id'],
             'jbs_level_id' => ['nullable', 'integer', 'exists:jbs_levels,id'],
             'registration_id' => ['nullable', 'integer', 'exists:jbs_student_registrations,id'],
+            'registration_ids' => ['nullable', 'array', 'max:200'],
+            'registration_ids.*' => ['integer', 'exists:jbs_student_registrations,id'],
         ];
 
         if ($requireBody) {

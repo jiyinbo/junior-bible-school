@@ -34,7 +34,7 @@ export const MODULE_GRADING_SCALE: GradingBand[] = [
   { min_percent: 1, max_percent: 29, label: 'F', short: 'F', range: '<30%', passed: false },
 ];
 
-export const GRADUATION_MAX_MISSED_TESTS = 2;
+export const GRADUATION_MAX_MISSED_TESTS = 3;
 
 export type GradeFields = {
   percent?: number | null;

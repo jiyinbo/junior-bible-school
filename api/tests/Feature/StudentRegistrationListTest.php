@@ -126,4 +126,77 @@ class StudentRegistrationListTest extends TestCase
         $desc->assertJsonPath('data.0.full_name', 'Alan Turing');
         $desc->assertJsonPath('data.2.full_name', 'Grace Hopper');
     }
+
+    public function test_admin_can_sort_registrations_by_created_at_and_tier(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $session = JbsSession::query()->create(['name' => 'Summer', 'slug' => 'summer', 'is_past' => false]);
+        $basic = JbsLevel::query()->create([
+            'jbs_session_id' => $session->id,
+            'name' => 'Basic',
+            'registration_prefix' => 'B',
+            'sort_order' => 0,
+        ]);
+        $advanced = JbsLevel::query()->create([
+            'jbs_session_id' => $session->id,
+            'name' => 'Advanced',
+            'registration_prefix' => 'A',
+            'sort_order' => 1,
+        ]);
+
+        $makeStudent = function (JbsLevel $level, string $first, string $last, string $reg, string $createdAt) use ($session): JbsStudentRegistration {
+            $regModel = JbsStudentRegistration::query()->create([
+                'jbs_session_id' => $session->id,
+                'jbs_level_id' => $level->id,
+                'registration_number' => $reg,
+                'first_name' => $first,
+                'last_name' => $last,
+                'email' => strtolower(str_replace('/', '', $reg)).'@example.com',
+                'phone' => '07123456789',
+                'guardian_name' => 'Parent',
+                'guardian_relationship' => 'Mother',
+                'guardian_phone' => '07987654321',
+                'guardian_email' => 'parent@example.com',
+                'gender' => 'Female',
+                'date_of_birth' => '2014-01-15',
+                'nationality' => 'British',
+                'address' => '1 Street',
+                'born_again' => true,
+                'place_of_worship' => 'Church',
+                'place_of_worship_address' => 'Town',
+                'pastor_name' => 'Pastor',
+                'activity_group' => 'Youth',
+                'current_school' => 'School',
+                'current_school_year' => 'Year 9',
+                'next_of_kin_name' => 'Kin',
+            ]);
+            $regModel->forceFill(['created_at' => $createdAt])->saveQuietly();
+
+            return $regModel->fresh();
+        };
+
+        $makeStudent($advanced, 'Zoe', 'Late', 'A/0001', '2026-07-03 10:00:00');
+        $makeStudent($basic, 'Amy', 'Early', 'B/0001', '2026-07-01 10:00:00');
+        $makeStudent($basic, 'Ben', 'Middle', 'B/0002', '2026-07-02 10:00:00');
+
+        $byDate = $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/v1/admin/registrations?jbs_session_id='.$session->id.'&sort=created_at&sort_dir=asc');
+
+        $byDate->assertOk();
+        $byDate->assertJsonPath('data.0.full_name', 'Amy Early');
+        $byDate->assertJsonPath('data.1.full_name', 'Ben Middle');
+        $byDate->assertJsonPath('data.2.full_name', 'Zoe Late');
+        $byDate->assertJsonStructure(['data' => [['created_at', 'level_sort_order']]]);
+        $byDate->assertJsonPath('data.0.level_sort_order', 0);
+        $byDate->assertJsonPath('data.2.level_sort_order', 1);
+
+        $byTier = $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/v1/admin/registrations?jbs_session_id='.$session->id.'&sort=tier&sort_dir=asc');
+
+        $byTier->assertOk();
+        $byTier->assertJsonPath('data.0.level_name', 'Basic');
+        $byTier->assertJsonPath('data.0.full_name', 'Amy Early');
+        $byTier->assertJsonPath('data.1.level_name', 'Basic');
+        $byTier->assertJsonPath('data.2.level_name', 'Advanced');
+    }
 }

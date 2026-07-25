@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Models\JbsStudentRegistration;
 
 /**
- * @deprecated Use JbsStudentProgressService — completion is admin-marked on the registration.
+ * @deprecated Use JbsStudentProgressService — completion is derived from missing module scores.
  */
 class JbsCompletionService
 {

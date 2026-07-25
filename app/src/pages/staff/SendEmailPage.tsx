@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Checkbox,
+  Chip,
+  createFilterOptions,
   Dialog,
   DialogActions,
   DialogContent,
@@ -30,6 +33,7 @@ import { toastSuccess } from '../../feedback/toast';
 
 type AudienceKey =
   | 'parent_one'
+  | 'student_one'
   | 'parents_tier'
   | 'parents_session'
   | 'staff_teachers'
@@ -44,6 +48,8 @@ type RegistrationOption = {
   id: number;
   registration_number: string;
   full_name: string;
+  email: string | null;
+  has_student_email: boolean;
   guardian_name: string | null;
   guardian_email: string | null;
   has_guardian_email: boolean;
@@ -52,6 +58,8 @@ type RegistrationOption = {
 type Recipient = { email: string; name: string; label: string };
 
 const PARENT_AUDIENCES: AudienceKey[] = ['parent_one', 'parents_tier', 'parents_session'];
+const STUDENT_SELECT_AUDIENCES: AudienceKey[] = ['parent_one', 'student_one'];
+const SESSION_AUDIENCES: AudienceKey[] = [...PARENT_AUDIENCES, 'student_one'];
 const MAX_ATTACHMENTS = 3;
 const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 const ALLOWED_ATTACHMENT_TYPES = [
@@ -66,10 +74,28 @@ const ALLOWED_ATTACHMENT_TYPES = [
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 ];
 
+const filterRegistrations = createFilterOptions<RegistrationOption>({
+  stringify: (option) =>
+    `${option.full_name} ${option.registration_number} ${option.email ?? ''} ${option.guardian_email ?? ''} ${option.level_name ?? ''}`,
+});
+
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function studentOptionLabel(option: RegistrationOption, mode: 'parent' | 'student'): string {
+  const email =
+    mode === 'parent'
+      ? option.guardian_email
+        ? ` — ${option.guardian_email}`
+        : ' — no guardian email'
+      : option.email
+        ? ` — ${option.email}`
+        : ' — no student email';
+  const tier = option.level_name ? ` · ${option.level_name}` : '';
+  return `${option.full_name} (${option.registration_number})${tier}${email}`;
 }
 
 export function SendEmailPage() {
@@ -79,7 +105,7 @@ export function SendEmailPage() {
   const [audience, setAudience] = useState<AudienceKey | ''>('');
   const [sessionId, setSessionId] = useState<number | ''>('');
   const [levelId, setLevelId] = useState<number | ''>('');
-  const [registrationId, setRegistrationId] = useState<number | ''>('');
+  const [selectedRegistrations, setSelectedRegistrations] = useState<RegistrationOption[]>([]);
   const [registrationOptions, setRegistrationOptions] = useState<RegistrationOption[]>([]);
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
@@ -121,35 +147,37 @@ export function SendEmailPage() {
     [levels, sessionId],
   );
 
-  const needsSession = audience !== '' && PARENT_AUDIENCES.includes(audience);
-  const needsTier = audience === 'parents_tier' || audience === 'parent_one';
-  const needsRegistration = audience === 'parent_one';
+  const needsSession = audience !== '' && SESSION_AUDIENCES.includes(audience);
+  const needsTier = audience === 'parents_tier';
+  const needsRegistration = audience !== '' && STUDENT_SELECT_AUDIENCES.includes(audience);
+  const selectionMode: 'parent' | 'student' = audience === 'student_one' ? 'student' : 'parent';
+  const showOptionalTier = needsRegistration && sessionId !== '';
 
   const loadRegistrations = useCallback(async () => {
     if (!needsRegistration || sessionId === '') {
       setRegistrationOptions([]);
+      setSelectedRegistrations([]);
       return;
     }
     setLoadingRegistrations(true);
     try {
       const params = new URLSearchParams({ jbs_session_id: String(sessionId) });
-      if (needsTier && levelId !== '') {
+      if (levelId !== '') {
         params.set('jbs_level_id', String(levelId));
       }
       const r = await apiJson<{ data: RegistrationOption[] }>(
         `/api/v1/admin/mail/registration-options?${params}`,
       );
       setRegistrationOptions(r.data);
-      if (registrationId !== '' && !r.data.some((row) => row.id === registrationId)) {
-        setRegistrationId('');
-      }
+      setSelectedRegistrations((prev) => prev.filter((row) => r.data.some((opt) => opt.id === row.id)));
     } catch {
       setRegistrationOptions([]);
+      setSelectedRegistrations([]);
       setError('Could not load students for this session.');
     } finally {
       setLoadingRegistrations(false);
     }
-  }, [needsRegistration, needsTier, sessionId, levelId, registrationId]);
+  }, [needsRegistration, sessionId, levelId]);
 
   useEffect(() => {
     void loadRegistrations();
@@ -159,15 +187,17 @@ export function SendEmailPage() {
     const data: Record<string, unknown> = { audience };
     if (sessionId !== '') data.jbs_session_id = sessionId;
     if (levelId !== '') data.jbs_level_id = levelId;
-    if (registrationId !== '') data.registration_id = registrationId;
+    if (needsRegistration) {
+      data.registration_ids = selectedRegistrations.map((r) => r.id);
+    }
     return data;
-  }, [audience, sessionId, levelId, registrationId]);
+  }, [audience, sessionId, levelId, needsRegistration, selectedRegistrations]);
 
   const canPreview =
     audience !== '' &&
     (!needsSession || sessionId !== '') &&
     (!needsTier || levelId !== '') &&
-    (!needsRegistration || registrationId !== '');
+    (!needsRegistration || selectedRegistrations.length > 0);
 
   const previewRecipients = async () => {
     if (!canPreview) return;
@@ -235,7 +265,9 @@ export function SendEmailPage() {
     fd.append('audience', audience);
     if (sessionId !== '') fd.append('jbs_session_id', String(sessionId));
     if (levelId !== '') fd.append('jbs_level_id', String(levelId));
-    if (registrationId !== '') fd.append('registration_id', String(registrationId));
+    for (const reg of selectedRegistrations) {
+      fd.append('registration_ids[]', String(reg.id));
+    }
     fd.append('subject', subject.trim());
     fd.append('body', body.trim());
     fd.append('confirm', '1');
@@ -274,7 +306,7 @@ export function SendEmailPage() {
     <>
       <PageHeader
         title="Send email"
-        subtitle="Send a message to parents / guardians or staff. Emails go to parent / guardian addresses on file, not students."
+        subtitle="Send a message to parents / guardians, students with email on file, or staff."
       />
 
       {error && (
@@ -304,12 +336,17 @@ export function SendEmailPage() {
               setAudience(e.target.value as AudienceKey);
               setRecipients([]);
               setRecipientCount(null);
-              setRegistrationId('');
+              setSelectedRegistrations([]);
+              setLevelId('');
             }}
             required
             fullWidth
             disabled={loadingOptions}
-            helperText="Parents are contacted using the parent / guardian email from each registration."
+            helperText={
+              audience === 'student_one'
+                ? 'Only students with their own email on file can be selected.'
+                : 'Parents are contacted using the parent / guardian email from each registration.'
+            }
           >
             <MenuItem value="" disabled>
               Select recipient group
@@ -329,7 +366,7 @@ export function SendEmailPage() {
               onChange={(e) => {
                 setSessionId(e.target.value === '' ? '' : Number(e.target.value));
                 setLevelId('');
-                setRegistrationId('');
+                setSelectedRegistrations([]);
                 setRecipients([]);
                 setRecipientCount(null);
               }}
@@ -347,22 +384,27 @@ export function SendEmailPage() {
             </TextField>
           )}
 
-          {needsTier && sessionId !== '' && (
+          {(needsTier || showOptionalTier) && sessionId !== '' && (
             <TextField
               select
               label="Tier"
               value={levelId}
               onChange={(e) => {
                 setLevelId(e.target.value === '' ? '' : Number(e.target.value));
-                setRegistrationId('');
+                setSelectedRegistrations([]);
                 setRecipients([]);
                 setRecipientCount(null);
               }}
-              required
+              required={needsTier}
               fullWidth
+              helperText={
+                showOptionalTier && !needsTier
+                  ? 'Optional — narrow the student list by tier'
+                  : undefined
+              }
             >
-              <MenuItem value="" disabled>
-                Select tier
+              <MenuItem value="" disabled={needsTier}>
+                {needsTier ? 'Select tier' : 'All tiers'}
               </MenuItem>
               {levelsForSession.map((l) => (
                 <MenuItem key={l.id} value={l.id}>
@@ -373,36 +415,80 @@ export function SendEmailPage() {
           )}
 
           {needsRegistration && sessionId !== '' && (
-            <TextField
-              select
-              label="Student"
-              value={registrationId}
-              onChange={(e) => {
-                setRegistrationId(e.target.value === '' ? '' : Number(e.target.value));
+            <Autocomplete
+              multiple
+              options={registrationOptions}
+              value={selectedRegistrations}
+              onChange={(_, value) => {
+                setSelectedRegistrations(value);
                 setRecipients([]);
                 setRecipientCount(null);
               }}
-              required
-              fullWidth
-              disabled={loadingRegistrations || (needsTier && levelId === '')}
-              helperText={
-                needsTier && levelId === ''
-                  ? 'Select a tier first'
-                  : loadingRegistrations
-                    ? 'Loading students…'
-                    : 'Parent / guardian email must be on file'
+              filterOptions={filterRegistrations}
+              getOptionLabel={(option) => studentOptionLabel(option, selectionMode)}
+              isOptionEqualToValue={(a, b) => a.id === b.id}
+              getOptionDisabled={(option) =>
+                selectionMode === 'parent' ? !option.has_guardian_email : !option.has_student_email
               }
-            >
-              <MenuItem value="" disabled>
-                Select student
-              </MenuItem>
-              {registrationOptions.map((r) => (
-                <MenuItem key={r.id} value={r.id} disabled={!r.has_guardian_email}>
-                  {r.full_name} ({r.registration_number})
-                  {r.guardian_email ? ` — ${r.guardian_email}` : ' — no guardian email'}
-                </MenuItem>
-              ))}
-            </TextField>
+              disabled={loadingRegistrations}
+              fullWidth
+              autoHighlight
+              openOnFocus
+              disableCloseOnSelect
+              noOptionsText={
+                loadingRegistrations ? 'Loading students…' : 'No students found for this selection'
+              }
+              renderTags={(value, getTagProps) =>
+                value.map((option, index) => {
+                  const { key, ...tagProps } = getTagProps({ index });
+                  return (
+                    <Chip
+                      key={key}
+                      size="small"
+                      label={`${option.full_name} (${option.registration_number})`}
+                      {...tagProps}
+                    />
+                  );
+                })
+              }
+              renderOption={(props, option) => {
+                const { key, ...optionProps } = props as typeof props & { key?: string };
+                const email =
+                  selectionMode === 'parent'
+                    ? (option.guardian_email ?? 'No guardian email')
+                    : (option.email ?? 'No student email');
+                return (
+                  <li key={key ?? option.id} {...optionProps}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', py: 0.25 }}>
+                      <Typography variant="body2">
+                        {option.full_name} ({option.registration_number})
+                        {option.level_name ? ` · ${option.level_name}` : ''}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {email}
+                      </Typography>
+                    </Box>
+                  </li>
+                );
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Students"
+                  required
+                  placeholder={
+                    selectedRegistrations.length === 0 ? 'Search and select one or more students' : ''
+                  }
+                  helperText={
+                    loadingRegistrations
+                      ? 'Loading students…'
+                      : selectionMode === 'parent'
+                        ? 'Select one or more students — email goes to each parent / guardian on file'
+                        : 'Select one or more students — email goes to each student address on file'
+                  }
+                />
+              )}
+            />
           )}
 
           <TextField
@@ -501,7 +587,13 @@ export function SendEmailPage() {
             <Typography variant="body2" color="text.secondary">
               {recipientCount === 0
                 ? 'No valid email addresses found for this selection.'
-                : `${recipientCount} recipient${recipientCount === 1 ? '' : 's'} (duplicate parent emails are merged).`}
+                : `${recipientCount} recipient${recipientCount === 1 ? '' : 's'}${
+                    audience === 'parent_one' || audience === 'parents_tier' || audience === 'parents_session'
+                      ? ' (duplicate parent emails are merged)'
+                      : audience === 'student_one'
+                        ? ' (duplicate student emails are merged)'
+                        : ''
+                  }.`}
             </Typography>
           )}
 

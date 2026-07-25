@@ -10,11 +10,9 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
-  FormControlLabel,
   Grid,
   Paper,
   Stack,
-  Switch,
   Typography,
 } from "@mui/material";
 import { apiJson, downloadPdfGet, parseApiError } from "../../api/http";
@@ -77,14 +75,11 @@ export function StudentDetailPage() {
     null,
   );
   const [tiers, setTiers] = useState<TierOption[]>([]);
-  const [completed, setCompleted] = useState(false);
-  const [savingCompletion, setSavingCompletion] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!student) return;
-    setCompleted(student.progress.level_completed);
     apiJson<{ data: { levels: TierOption[] } }>(
       `/api/v1/admin/sessions/${student.session.id}`,
     )
@@ -122,30 +117,6 @@ export function StudentDetailPage() {
       }
     } catch (e) {
       setError(parseApiError(e));
-    }
-  };
-
-  const saveCompletion = async (value: boolean) => {
-    if (!studentId) return;
-    setSavingCompletion(true);
-    setError(null);
-    try {
-      await apiJson(`/api/v1/admin/registrations/${studentId}/completion`, {
-        method: "PATCH",
-        json: { level_completed: value },
-      });
-      setCompleted(value);
-      toastSuccess(
-        value
-          ? "Marked as completed — student can download statement and certificate."
-          : "Tier completion removed.",
-      );
-      load();
-    } catch (e) {
-      setError(parseApiError(e));
-      setCompleted(student?.progress.level_completed ?? false);
-    } finally {
-      setSavingCompletion(false);
     }
   };
 
@@ -222,12 +193,6 @@ export function StudentDetailPage() {
                 />
               }
             />
-            {student.level_completed_by && (
-              <FieldRow
-                label="Marked by"
-                value={student.level_completed_by.name}
-              />
-            )}
           </EditableDetailSection>
         </Grid>
         <Grid size={{ xs: 12, md: 6 }}>
@@ -379,36 +344,17 @@ export function StudentDetailPage() {
                 <Typography variant="h6" gutterBottom>
                   Tier completion
                 </Typography>
-                <FormControlLabel
-                  sx={{ alignItems: "flex-start", mr: 0 }}
-                  control={
-                    <Switch
-                      checked={completed}
-                      disabled={savingCompletion}
-                      onChange={(e) => void saveCompletion(e.target.checked)}
-                    />
-                  }
-                  label={
-                    <Typography
-                      variant="body2"
-                      sx={{ pt: 0.75, wordBreak: "break-word" }}
-                    >
-                      {completed
-                        ? "Successfully completed this tier"
-                        : "Not marked complete"}
-                    </Typography>
-                  }
+                <Chip
+                  size="small"
+                  label={tierStatus.label}
+                  color={tierStatus.color}
+                  sx={{ mb: 1.5 }}
                 />
-                {student.level_completed_by && (
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    display="block"
-                    sx={{ mt: 1 }}
-                  >
-                    Last set by {student.level_completed_by.name}
-                  </Typography>
-                )}
+                <Typography variant="body2" color="text.secondary">
+                  Updated automatically from module scores. Students with scores
+                  for all but 3 modules (or fewer missing) are complete and
+                  eligible for graduation. Attendance is not used.
+                </Typography>
               </Paper>
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
@@ -435,7 +381,7 @@ export function StudentDetailPage() {
                   <Button
                     size="small"
                     variant="outlined"
-                    disabled={!completed}
+                    disabled={!progress.level_completed}
                     onClick={() => void download("statement")}
                   >
                     Statement
@@ -443,7 +389,7 @@ export function StudentDetailPage() {
                   <Button
                     size="small"
                     variant="contained"
-                    disabled={!completed}
+                    disabled={!progress.level_completed}
                     onClick={() => void download("certificate")}
                   >
                     Certificate

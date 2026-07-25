@@ -81,6 +81,24 @@ class RegistrationAdminController extends Controller
             $query->orderBy('last_name', $dir)
                 ->orderBy('first_name', $dir)
                 ->orderBy('registration_number', $dir);
+        } elseif ($sort === 'created_at') {
+            $query->orderBy('created_at', $dir)
+                ->orderBy('registration_number', $dir);
+        } elseif ($sort === 'tier') {
+            $query->orderBy(
+                JbsLevel::query()
+                    ->select('sort_order')
+                    ->whereColumn('jbs_levels.id', 'jbs_student_registrations.jbs_level_id')
+                    ->limit(1),
+                $dir,
+            )->orderBy(
+                JbsLevel::query()
+                    ->select('name')
+                    ->whereColumn('jbs_levels.id', 'jbs_student_registrations.jbs_level_id')
+                    ->limit(1),
+                $dir,
+            )->orderBy('last_name', $dir)
+                ->orderBy('first_name', $dir);
         } else {
             $query->orderBy('jbs_session_id')
                 ->orderBy('jbs_level_id')
@@ -97,7 +115,7 @@ class RegistrationAdminController extends Controller
     private function sortParams(Request $request): array
     {
         $data = $request->validate([
-            'sort' => ['nullable', 'string', 'in:name'],
+            'sort' => ['nullable', 'string', 'in:name,created_at,tier'],
             'sort_dir' => ['nullable', 'string', 'in:asc,desc'],
         ]);
 
@@ -121,6 +139,8 @@ class RegistrationAdminController extends Controller
             'email' => $reg->email,
             'session_name' => $reg->session->name,
             'level_name' => $reg->level->name,
+            'level_sort_order' => (int) $reg->level->sort_order,
+            'created_at' => $reg->created_at?->toIso8601String(),
             'allergies' => $reg->allergies,
             'level_completed' => $summary['level_completed'],
             'programme_phase' => $summary['programme_phase'],
@@ -460,46 +480,6 @@ class RegistrationAdminController extends Controller
                 'level_completed_by' => $reg->levelCompletedBy ? [
                     'name' => $reg->levelCompletedBy->name,
                 ] : null,
-            ],
-        ]);
-    }
-
-    public function updateCompletion(Request $request, JbsStudentRegistration $jbs_student_registration): JsonResponse
-    {
-        $data = $request->validate([
-            'level_completed' => ['required', 'boolean'],
-        ]);
-
-        $completed = (bool) $data['level_completed'];
-        $old = [
-            'level_completed' => $jbs_student_registration->level_completed,
-            'level_completed_at' => $jbs_student_registration->level_completed_at?->toDateTimeString(),
-        ];
-
-        $jbs_student_registration->update([
-            'level_completed' => $completed,
-            'level_completed_at' => $completed ? now() : null,
-            'level_completed_by_user_id' => $completed ? $request->user()->id : null,
-        ]);
-
-        $reg = $jbs_student_registration->fresh()->load(['session', 'level', 'levelCompletedBy']);
-
-        $this->audit()->updated(
-            $request,
-            'registration.completion_updated',
-            $reg,
-            $old,
-            [
-                'level_completed' => $reg->level_completed,
-                'level_completed_at' => $reg->level_completed_at?->toDateTimeString(),
-            ],
-        );
-
-        return response()->json([
-            'data' => [
-                'id' => $reg->id,
-                'level_completed' => $reg->level_completed,
-                'progress' => $this->progress->summary($reg),
             ],
         ]);
     }

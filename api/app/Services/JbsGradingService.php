@@ -13,7 +13,7 @@ class JbsGradingService
     /** Minimum module percent for a credit grade (D or better). */
     public const MODULE_CREDIT_PERCENT = 40;
 
-    /** Missed tests at or above this count exclude a student from graduation presentation. */
+    /** More than this many modules without scores → not complete / not eligible for graduation. */
     public const MAX_MISSED_TESTS_FOR_GRADUATION = 3;
 
     /** @var list<array{min: int, label: string, short: string}> */
@@ -175,7 +175,7 @@ class JbsGradingService
 
     public function eligibleForGraduation(int $testsTotal, int $testsTaken): bool
     {
-        return $this->missedTestsCount($testsTotal, $testsTaken) < self::MAX_MISSED_TESTS_FOR_GRADUATION;
+        return $this->missedTestsCount($testsTotal, $testsTaken) <= self::MAX_MISSED_TESTS_FOR_GRADUATION;
     }
 
     /**

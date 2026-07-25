@@ -348,8 +348,8 @@ export function GradingScaleDetails({ variant }: { variant: 'student' | 'staff' 
       <GradingKeyTable scale={MODULE_GRADING_SCALE} compact variant="module" />
       <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
         {isStudent
-          ? `Students who miss more than ${GRADUATION_MAX_MISSED_TESTS} tests (3 or more) are not presented for graduation.`
-          : 'Miss 3 or more tests → not presented for graduation.'}
+          ? `Students who miss more than ${GRADUATION_MAX_MISSED_TESTS} modules (4 or more without scores) are not presented for graduation.`
+          : `More than ${GRADUATION_MAX_MISSED_TESTS} modules without scores → not complete / not presented for graduation.`}
       </Typography>
     </>
   );

@@ -36,6 +36,8 @@ import type { DocumentData } from './certificates';
 type SessionOption = { id: number; name: string };
 type LevelOption = { id: number; name: string };
 
+type SortKey = 'name' | 'tier' | 'created_at';
+
 type StudentRow = {
   id: number;
   registration_number: string;
@@ -43,6 +45,8 @@ type StudentRow = {
   email: string;
   session_name: string;
   level_name: string;
+  level_sort_order: number;
+  created_at: string | null;
   allergies: string | null;
   level_completed: boolean;
   programme_phase: string;
@@ -51,6 +55,27 @@ type StudentRow = {
   tests_passed: number;
   tests_total: number;
 };
+
+function formatRegDate(iso: string | null): string {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' });
+  } catch {
+    return iso;
+  }
+}
+
+/** Group print order: session, tier (sort_order), then registration datetime, then reg #. */
+function compareForIdCardPrint(a: StudentRow, b: StudentRow): number {
+  const session = a.session_name.localeCompare(b.session_name);
+  if (session !== 0) return session;
+  const tier = (a.level_sort_order ?? 0) - (b.level_sort_order ?? 0);
+  if (tier !== 0) return tier;
+  const aTime = a.created_at ? Date.parse(a.created_at) : 0;
+  const bTime = b.created_at ? Date.parse(b.created_at) : 0;
+  if (aTime !== bTime) return aTime - bTime;
+  return a.registration_number.localeCompare(b.registration_number);
+}
 
 type ListMeta = {
   current_page: number;
@@ -116,6 +141,7 @@ function StudentTableRow({ row }: { row: StudentRow }) {
         </Typography>
       </TableCell>
       <TableCell sx={{ whiteSpace: 'nowrap' }}>{row.level_name}</TableCell>
+      <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatRegDate(row.created_at)}</TableCell>
       <TableCell sx={{ minWidth: 120 }}>
         <Typography variant="body2">{row.attendance_days} days</Typography>
         <Typography variant="caption" color="text.secondary" display="block">
@@ -197,6 +223,7 @@ function StudentCard({ row }: { row: StudentRow }) {
             gap: 1,
           }}
         >
+          <StudentCardStat label="Reg date" value={formatRegDate(row.created_at)} />
           <StudentCardStat label="Attendance" value={row.attendance_days} />
           <StudentCardStat
             label="Tests"
@@ -230,7 +257,7 @@ export function StudentsPage() {
   });
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
-  const [sortBy, setSortBy] = useState<'name' | null>(null);
+  const [sortBy, setSortBy] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -240,10 +267,10 @@ export function StudentsPage() {
 
   const resetPage = () => setPage(0);
 
-  const toggleNameSort = () => {
+  const toggleSort = (key: SortKey) => {
     resetPage();
-    if (sortBy !== 'name') {
-      setSortBy('name');
+    if (sortBy !== key) {
+      setSortBy(key);
       setSortDir('asc');
       return;
     }
@@ -327,12 +354,18 @@ export function StudentsPage() {
     }
   };
 
-  const fetchAllMatching = async (): Promise<StudentRow[]> => {
+  const fetchAllMatching = async (
+    sortOverride?: { sort: SortKey; sortDir: 'asc' | 'desc' },
+  ): Promise<StudentRow[]> => {
     const all: StudentRow[] = [];
     const perPage = 100;
     let pageNum = 1;
     for (;;) {
       const params = buildFilterParams();
+      if (sortOverride) {
+        params.set('sort', sortOverride.sort);
+        params.set('sort_dir', sortOverride.sortDir);
+      }
       params.set('page', String(pageNum));
       params.set('per_page', String(perPage));
       const r = await apiJson<{ data: StudentRow[]; meta: ListMeta }>(
@@ -354,6 +387,7 @@ export function StudentsPage() {
         setError('No students match your filters, so there are no ID cards to print.');
         return;
       }
+      const ordered = [...students].sort(compareForIdCardPrint);
       const tierName = levelId !== '' ? levels.find((l) => l.id === levelId)?.name : undefined;
       const scope = (tierName ?? 'all-tiers')
         .toLowerCase()
@@ -362,7 +396,7 @@ export function StudentsPage() {
       const date = new Date().toISOString().slice(0, 10);
       const { generateIdCardsPdf } = await import('./idCards');
       await generateIdCardsPdf(
-        students.map((s) => ({
+        ordered.map((s) => ({
           registration_number: s.registration_number,
           full_name: s.full_name,
           level_name: s.level_name,
@@ -411,7 +445,7 @@ export function StudentsPage() {
     <>
       <PageHeader
         title="Students"
-        subtitle="View registration details, attendance and test progress, and mark tier completion for statement and certificate access."
+        subtitle="View registration details, attendance and test progress. Tier completion is automatic from module scores (statement and certificate when complete)."
         action={
           <Box
             sx={{
@@ -562,8 +596,9 @@ export function StudentsPage() {
         </Box>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
           “Print ID cards” builds an A4 PDF (9 cards per page) for every student matching these
-          filters. “Print statements” and “Print certificates” cover only graduating
-          (tier-completed) students that match — select a tier to print that tier only.
+          filters, grouped by tier then registration date (oldest first). “Print statements” and
+          “Print certificates” cover only graduating (tier-completed) students that match —
+          select a tier to print that tier only.
         </Typography>
       </Paper>
 
@@ -580,12 +615,29 @@ export function StudentsPage() {
                       <TableSortLabel
                         active={sortBy === 'name'}
                         direction={sortBy === 'name' ? sortDir : 'asc'}
-                        onClick={toggleNameSort}
+                        onClick={() => toggleSort('name')}
                       >
                         Student
                       </TableSortLabel>
                     </TableCell>
-                    <TableCell>Tier</TableCell>
+                    <TableCell sortDirection={sortBy === 'tier' ? sortDir : false}>
+                      <TableSortLabel
+                        active={sortBy === 'tier'}
+                        direction={sortBy === 'tier' ? sortDir : 'asc'}
+                        onClick={() => toggleSort('tier')}
+                      >
+                        Tier
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell sortDirection={sortBy === 'created_at' ? sortDir : false}>
+                      <TableSortLabel
+                        active={sortBy === 'created_at'}
+                        direction={sortBy === 'created_at' ? sortDir : 'asc'}
+                        onClick={() => toggleSort('created_at')}
+                      >
+                        Reg date
+                      </TableSortLabel>
+                    </TableCell>
                     <TableCell>Progress</TableCell>
                     <TableCell>Status</TableCell>
                     <TableCell>Allergies / medical</TableCell>
@@ -595,7 +647,7 @@ export function StudentsPage() {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={6}>
+                      <TableCell colSpan={7}>
                         <Typography color="text.secondary" sx={{ py: 2 }}>
                           Loading students…
                         </Typography>

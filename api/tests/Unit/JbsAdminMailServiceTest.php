@@ -59,15 +59,70 @@ class JbsAdminMailServiceTest extends TestCase
         $this->assertSame('teacher@example.com', $recipients[0]['email']);
     }
 
-    private function createRegistration(int $sessionId, int $levelId, string $firstName, string $guardianEmail): void
+    #[Test]
+    public function resolves_selected_students_parents_and_dedupes(): void
     {
-        JbsStudentRegistration::query()->create([
+        $session = JbsSession::query()->create(['name' => 'S', 'slug' => 's2', 'is_past' => false]);
+        $level = JbsLevel::query()->create([
+            'jbs_session_id' => $session->id,
+            'name' => 'Basic',
+            'registration_prefix' => 'B',
+        ]);
+
+        $ada = $this->createRegistration($session->id, $level->id, 'Ada', 'parent@example.com');
+        $bob = $this->createRegistration($session->id, $level->id, 'Bob', 'parent@example.com');
+        $this->createRegistration($session->id, $level->id, 'Cara', 'other@example.com');
+
+        $recipients = $this->mail->resolveRecipients(
+            JbsAdminMailService::AUDIENCE_PARENT_ONE,
+            ['registration_ids' => [$ada, $bob]],
+        );
+
+        $this->assertCount(1, $recipients);
+        $this->assertSame('parent@example.com', $recipients[0]['email']);
+        $this->assertStringContainsString('Ada', $recipients[0]['label']);
+        $this->assertStringContainsString('Bob', $recipients[0]['label']);
+    }
+
+    #[Test]
+    public function resolves_selected_students_by_student_email(): void
+    {
+        $session = JbsSession::query()->create(['name' => 'S', 'slug' => 's3', 'is_past' => false]);
+        $level = JbsLevel::query()->create([
+            'jbs_session_id' => $session->id,
+            'name' => 'Basic',
+            'registration_prefix' => 'B',
+        ]);
+
+        $ada = $this->createRegistration($session->id, $level->id, 'Ada', 'parent@example.com', 'ada@example.com');
+        $bob = $this->createRegistration($session->id, $level->id, 'Bob', 'other@example.com', 'bob@example.com');
+        $this->createRegistration($session->id, $level->id, 'Cara', 'cara-parent@example.com', null);
+
+        $recipients = $this->mail->resolveRecipients(
+            JbsAdminMailService::AUDIENCE_STUDENT_ONE,
+            ['registration_ids' => [$ada, $bob]],
+        );
+
+        $this->assertCount(2, $recipients);
+        $emails = array_column($recipients, 'email');
+        sort($emails);
+        $this->assertSame(['ada@example.com', 'bob@example.com'], $emails);
+    }
+
+    private function createRegistration(
+        int $sessionId,
+        int $levelId,
+        string $firstName,
+        string $guardianEmail,
+        ?string $studentEmail = null,
+    ): int {
+        $reg = JbsStudentRegistration::query()->create([
             'jbs_session_id' => $sessionId,
             'jbs_level_id' => $levelId,
-            'registration_number' => 'B/'.strtoupper(substr($firstName, 0, 3)),
+            'registration_number' => 'B/'.strtoupper(substr($firstName, 0, 3)).random_int(10, 99),
             'first_name' => $firstName,
             'last_name' => 'Test',
-            'email' => null,
+            'email' => $studentEmail,
             'guardian_name' => 'Parent Test',
             'guardian_relationship' => 'Mother',
             'guardian_phone' => '07123456789',
@@ -86,5 +141,7 @@ class JbsAdminMailServiceTest extends TestCase
             'next_of_kin_name' => 'Kin',
             'next_of_kin_phone' => '07987654321',
         ]);
+
+        return $reg->id;
     }
 }

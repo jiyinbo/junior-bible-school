@@ -104,7 +104,6 @@ Route::prefix('v1')->group(function (): void {
 
             Route::get('registrations/export', [RegistrationAdminController::class, 'export']);
             Route::get('documents/data', [RegistrationAdminController::class, 'bulkDocumentData']);
-            Route::patch('registrations/{jbs_student_registration}/completion', [RegistrationAdminController::class, 'updateCompletion']);
             Route::patch('registrations/{jbs_student_registration}/scores', [RegistrationAdminController::class, 'updateScore']);
             Route::delete('registrations/{jbs_student_registration}/scores', [RegistrationAdminController::class, 'deleteScore']);
             Route::delete('registrations/{jbs_student_registration}', [RegistrationAdminController::class, 'destroy']);

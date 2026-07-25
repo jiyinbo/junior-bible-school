@@ -186,8 +186,13 @@ export function ModuleTestPage() {
     if (!moduleId) return;
     setError(null);
     try {
-      const slug = context?.module.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase() || moduleId;
-      await downloadPdfGet(`/api/v1/admin/modules/${moduleId}/tests/pdf`, `jbs-test-${slug}.pdf`);
+      const toSlug = (value: string) => value.replace(/[^a-z0-9]+/gi, '-').toLowerCase().replace(/^-|-$/g, '');
+      const tierSlug = context?.level.name ? toSlug(context.level.name) : '';
+      const moduleSlug = context?.module.name ? toSlug(context.module.name) : moduleId;
+      const filename = tierSlug
+        ? `jbs-test-${tierSlug}-${moduleSlug}.pdf`
+        : `jbs-test-${moduleSlug}.pdf`;
+      await downloadPdfGet(`/api/v1/admin/modules/${moduleId}/tests/pdf`, filename);
     } catch (e) {
       setError(parseApiError(e));
     }

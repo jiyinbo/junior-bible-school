@@ -212,11 +212,17 @@ class TestAdminController extends Controller
             'questions' => $questions,
         ])->setPaper('a4', 'portrait');
 
-        $slug = preg_replace('/[^a-z0-9]+/i', '-', strtolower(trim($jbs_module->name)));
+        $slugify = static fn (string $value): string => trim(
+            (string) preg_replace('/[^a-z0-9]+/i', '-', strtolower(trim($value))),
+            '-'
+        );
+        $tierSlug = $slugify($jbs_module->level->name);
+        $moduleSlug = $slugify($jbs_module->name);
+        $filename = ($tierSlug !== '' ? 'jbs-test-'.$tierSlug.'-'.$moduleSlug : 'jbs-test-'.$moduleSlug).'.pdf';
 
         return response($pdf->output(), 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="jbs-test-'.$slug.'.pdf"',
+            'Content-Disposition' => 'inline; filename="'.$filename.'"',
         ]);
     }
 

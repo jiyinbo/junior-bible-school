@@ -16,6 +16,8 @@ class JbsAdminMailService
 {
     public const AUDIENCE_PARENT_ONE = 'parent_one';
 
+    public const AUDIENCE_STUDENT_ONE = 'student_one';
+
     public const AUDIENCE_PARENTS_TIER = 'parents_tier';
 
     public const AUDIENCE_PARENTS_SESSION = 'parents_session';
@@ -33,6 +35,7 @@ class JbsAdminMailService
     {
         return [
             self::AUDIENCE_PARENT_ONE,
+            self::AUDIENCE_STUDENT_ONE,
             self::AUDIENCE_PARENTS_TIER,
             self::AUDIENCE_PARENTS_SESSION,
             self::AUDIENCE_STAFF_TEACHERS,
@@ -50,6 +53,7 @@ class JbsAdminMailService
     {
         return match ($audience) {
             self::AUDIENCE_PARENT_ONE => $this->parentOne($params),
+            self::AUDIENCE_STUDENT_ONE => $this->studentOne($params),
             self::AUDIENCE_PARENTS_TIER => $this->parentsForTier($params),
             self::AUDIENCE_PARENTS_SESSION => $this->parentsForSession($params),
             self::AUDIENCE_STAFF_TEACHERS => $this->staffByRole(['teacher']),
@@ -102,37 +106,101 @@ class JbsAdminMailService
      */
     private function parentOne(array $params): array
     {
-        $registrationId = $params['registration_id'] ?? null;
-        if (! $registrationId) {
+        $ids = $this->registrationIdsFromParams($params);
+        if ($ids === []) {
             throw ValidationException::withMessages([
-                'registration_id' => ['Select a student registration.'],
+                'registration_ids' => ['Select at least one student.'],
             ]);
         }
 
-        $reg = JbsStudentRegistration::query()
+        $regs = JbsStudentRegistration::query()
             ->with(['session', 'level'])
-            ->find($registrationId);
+            ->whereIn('id', $ids)
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->get();
 
-        if ($reg === null) {
+        if ($regs->count() !== count($ids)) {
             throw ValidationException::withMessages([
-                'registration_id' => ['Registration not found.'],
+                'registration_ids' => ['One or more selected students were not found.'],
             ]);
         }
 
-        $email = $this->normalizeEmail($reg->guardian_email);
-        if ($email === null) {
+        $missingEmail = $regs->first(fn (JbsStudentRegistration $reg): bool => $this->normalizeEmail($reg->guardian_email) === null);
+        if ($missingEmail !== null) {
             throw ValidationException::withMessages([
-                'registration_id' => ['This registration has no parent / guardian email on file.'],
+                'registration_ids' => [
+                    "{$missingEmail->fullName()} ({$missingEmail->registration_number}) has no parent / guardian email on file.",
+                ],
             ]);
         }
 
-        $name = trim((string) $reg->guardian_name) ?: 'Parent / guardian';
+        return $this->collectParentEmails(
+            JbsStudentRegistration::query()->whereIn('id', $ids),
+        );
+    }
 
-        return [[
-            'email' => $email,
-            'name' => $name,
-            'label' => "{$name} — {$reg->fullName()} ({$reg->registration_number})",
-        ]];
+    /**
+     * @param  array<string, mixed>  $params
+     * @return list<array{email: string, name: string, label: string}>
+     */
+    private function studentOne(array $params): array
+    {
+        $ids = $this->registrationIdsFromParams($params);
+        if ($ids === []) {
+            throw ValidationException::withMessages([
+                'registration_ids' => ['Select at least one student.'],
+            ]);
+        }
+
+        $regs = JbsStudentRegistration::query()
+            ->with(['session', 'level'])
+            ->whereIn('id', $ids)
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->get();
+
+        if ($regs->count() !== count($ids)) {
+            throw ValidationException::withMessages([
+                'registration_ids' => ['One or more selected students were not found.'],
+            ]);
+        }
+
+        $missingEmail = $regs->first(fn (JbsStudentRegistration $reg): bool => $this->normalizeEmail($reg->email) === null);
+        if ($missingEmail !== null) {
+            throw ValidationException::withMessages([
+                'registration_ids' => [
+                    "{$missingEmail->fullName()} ({$missingEmail->registration_number}) has no student email on file.",
+                ],
+            ]);
+        }
+
+        return $this->collectStudentEmails(
+            JbsStudentRegistration::query()->whereIn('id', $ids),
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $params
+     * @return list<int>
+     */
+    private function registrationIdsFromParams(array $params): array
+    {
+        $ids = [];
+
+        if (isset($params['registration_ids']) && is_array($params['registration_ids'])) {
+            foreach ($params['registration_ids'] as $id) {
+                $ids[] = (int) $id;
+            }
+        }
+
+        if (isset($params['registration_id']) && $params['registration_id'] !== null && $params['registration_id'] !== '') {
+            $ids[] = (int) $params['registration_id'];
+        }
+
+        $ids = array_values(array_unique(array_filter($ids, fn (int $id): bool => $id > 0)));
+
+        return $ids;
     }
 
     /**
@@ -233,6 +301,56 @@ class JbsAdminMailService
                 'email' => $group['email'],
                 'name' => $group['name'],
                 'label' => $group['name'].' — '.implode(', ', $students),
+            ];
+        }
+
+        usort($recipients, fn (array $a, array $b): int => strcasecmp($a['email'], $b['email']));
+
+        return $recipients;
+    }
+
+    /**
+     * @param  Builder<JbsStudentRegistration>  $query
+     * @return list<array{email: string, name: string, label: string}>
+     */
+    private function collectStudentEmails(Builder $query): array
+    {
+        $rows = $query
+            ->orderBy('email')
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->get(['email', 'first_name', 'last_name', 'registration_number']);
+
+        /** @var array<string, array{email: string, name: string, students: list<string>}> $byEmail */
+        $byEmail = [];
+
+        foreach ($rows as $reg) {
+            $email = $this->normalizeEmail($reg->email);
+            if ($email === null) {
+                continue;
+            }
+
+            $name = trim("{$reg->first_name} {$reg->last_name}") ?: 'Student';
+            $detail = "{$name} ({$reg->registration_number})";
+
+            if (! isset($byEmail[$email])) {
+                $byEmail[$email] = [
+                    'email' => $email,
+                    'name' => $name,
+                    'students' => [],
+                ];
+            }
+
+            $byEmail[$email]['students'][] = $detail;
+        }
+
+        $recipients = [];
+        foreach ($byEmail as $group) {
+            $students = array_values(array_unique($group['students']));
+            $recipients[] = [
+                'email' => $group['email'],
+                'name' => $group['name'],
+                'label' => implode(', ', $students),
             ];
         }
 

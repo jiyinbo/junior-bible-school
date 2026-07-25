@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   Box,
-  Checkbox,
-  FormControlLabel,
+  Button,
   Paper,
   Table,
   TableBody,
@@ -20,9 +19,11 @@ import {
   formatModuleCell,
   formatOverall,
   moduleHeading,
+  studentsWithMissingScores,
   type TierModule,
   type TierStudentRow,
 } from './scoresShared';
+import { MissingScoresDialog } from './MissingScoresDialog';
 
 type SortKey = 'name' | 'overall' | `module:${number}`;
 type SortDir = 'asc' | 'desc';
@@ -30,6 +31,7 @@ type SortDir = 'asc' | 'desc';
 type Props = {
   modules: TierModule[];
   students: TierStudentRow[];
+  tierLabel: string;
 };
 
 function compareNullableNumber(a: number | null, b: number | null, dir: SortDir): number {
@@ -45,13 +47,18 @@ function compareString(a: string, b: string, dir: SortDir): number {
   return dir === 'asc' ? cmp : -cmp;
 }
 
-export function ScoresMatrixTable({ modules, students }: Props) {
+export function ScoresMatrixTable({ modules, students, tierLabel }: Props) {
   const theme = useTheme();
   const useShortHeadings = useMediaQuery(theme.breakpoints.down('md'));
   const [query, setQuery] = useState('');
-  const [missingOnly, setMissingOnly] = useState(false);
+  const [missingOpen, setMissingOpen] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>('name');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
+
+  const missingRows = useMemo(
+    () => studentsWithMissingScores(modules, students),
+    [modules, students],
+  );
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -74,12 +81,6 @@ export function ScoresMatrixTable({ modules, students }: Props) {
       );
     }
 
-    if (missingOnly) {
-      filtered = filtered.filter((s) =>
-        modules.some((m) => s.modules[String(m.id)] == null),
-      );
-    }
-
     const sorted = [...filtered].sort((a, b) => {
       if (sortKey === 'name') return compareString(a.full_name, b.full_name, sortDir);
       if (sortKey === 'overall') {
@@ -95,7 +96,7 @@ export function ScoresMatrixTable({ modules, students }: Props) {
     });
 
     return sorted;
-  }, [students, modules, query, missingOnly, sortKey, sortDir]);
+  }, [students, query, sortKey, sortDir]);
 
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, md: 0 }, overflow: 'hidden' }}>
@@ -118,23 +119,17 @@ export function ScoresMatrixTable({ modules, students }: Props) {
           onChange={(e) => setQuery(e.target.value)}
           sx={{ minWidth: 220, flex: '1 1 220px' }}
         />
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={missingOnly}
-              onChange={(e) => setMissingOnly(e.target.checked)}
-              size="small"
-            />
-          }
-          label="Missing scores only"
-        />
+        <Button variant="outlined" onClick={() => setMissingOpen(true)}>
+          View missing scores
+          {missingRows.length > 0 ? ` (${missingRows.length})` : ''}
+        </Button>
       </Box>
 
       {rows.length === 0 ? (
         <Typography color="text.secondary" sx={{ px: { xs: 0, md: 2 }, pb: 2.5 }}>
           {students.length === 0
             ? 'No students registered in this tier.'
-            : 'No students match the current filters.'}
+            : 'No students match the current filter.'}
         </Typography>
       ) : (
         <TableContainer sx={{ maxWidth: '100%', overflowX: 'auto' }}>
@@ -232,6 +227,13 @@ export function ScoresMatrixTable({ modules, students }: Props) {
           </Table>
         </TableContainer>
       )}
+
+      <MissingScoresDialog
+        open={missingOpen}
+        onClose={() => setMissingOpen(false)}
+        rows={missingRows}
+        tierLabel={tierLabel}
+      />
     </Paper>
   );
 }
