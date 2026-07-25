@@ -87,6 +87,8 @@ export function StudentTestPage() {
   const [submitting, setSubmitting] = useState(false);
   const [remainingSec, setRemainingSec] = useState<number | null>(null);
   const autoSubmittedRef = useRef(false);
+  const submittingRef = useRef(false);
+  const doSubmitRef = useRef<() => Promise<void>>(async () => {});
 
   const portalHref = reg ? `/student?reg=${encodeURIComponent(reg)}` : '/student';
 
@@ -136,7 +138,8 @@ export function StudentTestPage() {
   }, [loadTest]);
 
   const doSubmit = useCallback(async () => {
-    if (!testId || submitting) return;
+    if (!testId || submittingRef.current) return;
+    submittingRef.current = true;
     setSubmitting(true);
     setError(null);
     const payload: Record<string, number | number[]> = {};
@@ -163,32 +166,49 @@ export function StudentTestPage() {
     } catch (e) {
       toastError(parseApiError(e));
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
-  }, [answers, pin, questions, reg, submitting, testId]);
+  }, [answers, pin, questions, reg, testId]);
+
+  doSubmitRef.current = doSubmit;
 
   useEffect(() => {
-    if (phase !== 'taking' || !meta?.closes_at) {
+    if (phase !== 'taking' || !meta) {
       setRemainingSec(null);
       return;
     }
 
-    const closesAt = new Date(meta.closes_at).getTime();
-    const serverSkew = meta.server_time ? Date.now() - new Date(meta.server_time).getTime() : 0;
+    // Anchor to server remaining time + client elapsed so the interval is not tied to
+    // answer changes (previously doSubmit in the effect deps restarted the timer).
+    let initialRemaining = meta.remaining_seconds;
+    if (initialRemaining == null && meta.closes_at) {
+      const closesAt = new Date(meta.closes_at).getTime();
+      const serverNow = meta.server_time ? new Date(meta.server_time).getTime() : Date.now();
+      if (!Number.isNaN(closesAt) && !Number.isNaN(serverNow)) {
+        initialRemaining = Math.max(0, Math.floor((closesAt - serverNow) / 1000));
+      }
+    }
+    if (initialRemaining == null) {
+      setRemainingSec(null);
+      return;
+    }
 
+    const startedAt = Date.now();
     const tick = () => {
-      const left = Math.max(0, Math.floor((closesAt - (Date.now() - serverSkew)) / 1000));
+      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+      const left = Math.max(0, initialRemaining - elapsed);
       setRemainingSec(left);
-      if (left <= 0 && !autoSubmittedRef.current && !submitting) {
+      if (left <= 0 && !autoSubmittedRef.current) {
         autoSubmittedRef.current = true;
-        void doSubmit();
+        void doSubmitRef.current();
       }
     };
 
     tick();
-    const id = window.setInterval(tick, 1000);
+    const id = window.setInterval(tick, 250);
     return () => window.clearInterval(id);
-  }, [phase, meta?.closes_at, meta?.server_time, submitting, doSubmit]);
+  }, [phase, testId, meta?.remaining_seconds, meta?.closes_at, meta?.server_time]);
 
   const formatRemaining = (seconds: number) => {
     const m = Math.floor(seconds / 60);

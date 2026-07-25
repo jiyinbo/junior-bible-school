@@ -37,7 +37,12 @@ type TestData = {
 type ModuleContext = {
   module: { id: number; name: string };
   level: { id: number; name: string; registration_prefix: string };
-  session: { id: number; name: string };
+  session: {
+    id: number;
+    name: string;
+    session_starts_at: string | null;
+    programme_phase: string;
+  };
 };
 
 type TestShowResponse = ModuleContext & {
@@ -221,6 +226,8 @@ export function ModuleTestPage() {
   const isOpen = status === 'open';
   const canEdit = !isOpen;
   const durationInvalid = !isValidDuration(durationMinutes);
+  const programmeNotStarted = context?.session.programme_phase === 'upcoming';
+  const canOpenTest = Boolean(context) && !durationInvalid && !programmeNotStarted;
 
   if (!moduleId) return null;
 
@@ -319,6 +326,7 @@ export function ModuleTestPage() {
                 variant="contained"
                 color="success"
                 onClick={() => void openTest()}
+                disabled={!canOpenTest}
                 sx={{ width: { xs: '100%', sm: 'auto' } }}
               >
                 Open test
@@ -348,7 +356,9 @@ export function ModuleTestPage() {
 
         {!isOpen && (
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
-            Test closes automatically after the entered duration when opened.
+            {programmeNotStarted
+              ? 'Open test is disabled until the programme start date.'
+              : 'Test closes automatically after the entered duration when opened.'}
           </Typography>
         )}
       </Paper>

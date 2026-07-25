@@ -65,12 +65,29 @@ function formatRegDate(iso: string | null): string {
   }
 }
 
-/** Group print order: session, tier (sort_order), then registration datetime, then reg #. */
+function regDayKey(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * Print order: session → tier (sort_order, then name so equal sort_orders stay together)
+ * → registration calendar day → registration datetime → reg #.
+ */
 function compareForIdCardPrint(a: StudentRow, b: StudentRow): number {
   const session = a.session_name.localeCompare(b.session_name);
   if (session !== 0) return session;
-  const tier = (a.level_sort_order ?? 0) - (b.level_sort_order ?? 0);
-  if (tier !== 0) return tier;
+  const tierOrder = (a.level_sort_order ?? 0) - (b.level_sort_order ?? 0);
+  if (tierOrder !== 0) return tierOrder;
+  const tierName = a.level_name.localeCompare(b.level_name);
+  if (tierName !== 0) return tierName;
+  const day = regDayKey(a.created_at).localeCompare(regDayKey(b.created_at));
+  if (day !== 0) return day;
   const aTime = a.created_at ? Date.parse(a.created_at) : 0;
   const bTime = b.created_at ? Date.parse(b.created_at) : 0;
   if (aTime !== bTime) return aTime - bTime;
@@ -596,9 +613,9 @@ export function StudentsPage() {
         </Box>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
           “Print ID cards” builds an A4 PDF (9 cards per page) for every student matching these
-          filters, grouped by tier then registration date (oldest first). “Print statements” and
-          “Print certificates” cover only graduating (tier-completed) students that match —
-          select a tier to print that tier only.
+          filters, ordered by tier then registration date (oldest first), with a new page when the
+          tier changes. “Print statements” and “Print certificates” cover only graduating
+          (tier-completed) students that match — select a tier to print that tier only.
         </Typography>
       </Paper>
 

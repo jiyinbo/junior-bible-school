@@ -53,7 +53,7 @@ class TestAdminController extends Controller
      * @return array{
      *     module: array{id: int, name: string},
      *     level: array{id: int, name: string, registration_prefix: string},
-     *     session: array{id: int, name: string}
+     *     session: array{id: int, name: string, session_starts_at: string|null, programme_phase: string}
      * }
      */
     private function moduleContextPayload(JbsModule $jbs_module): array
@@ -74,6 +74,8 @@ class TestAdminController extends Controller
             'session' => [
                 'id' => $session->id,
                 'name' => $session->name,
+                'session_starts_at' => $session->session_starts_at?->toIso8601String(),
+                'programme_phase' => $session->programmePhase(),
             ],
         ];
     }
@@ -81,6 +83,13 @@ class TestAdminController extends Controller
     public function open(Request $request, JbsModule $jbs_module): JsonResponse
     {
         abort_unless($request->user()->managesModule($jbs_module), 403);
+
+        $jbs_module->loadMissing('level.session');
+        abort_unless(
+            $jbs_module->level->session->programmePhase() !== 'upcoming',
+            422,
+            'Tests cannot be opened until the programme starts.',
+        );
 
         $data = $request->validate([
             'duration_minutes' => ['sometimes', 'integer', 'min:1', 'max:240'],

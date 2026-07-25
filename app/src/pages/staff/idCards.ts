@@ -19,6 +19,11 @@ export type IdCardStudent = {
   session_name: string;
 };
 
+/** Page break only when session/tier changes — reg date is for sort order, not page splits. */
+function idCardTierKey(student: IdCardStudent): string {
+  return `${student.session_name}\0${student.level_name}`;
+}
+
 async function qrDataUrl(value: string): Promise<string> {
   return QRCode.toDataURL(value, { margin: 0, width: 320, errorCorrectionLevel: 'M' });
 }
@@ -161,18 +166,22 @@ export async function generateIdCardsPdf(
   const gapX = (pageW - 2 * marginX - cols * CARD_WIDTH_MM) / (cols - 1);
   const gapY = (pageH - 2 * marginY - rows * CARD_HEIGHT_MM) / (rows - 1);
 
+  let slot = 0;
   for (let i = 0; i < students.length; i++) {
-    const positionOnPage = i % perPage;
-    if (i > 0 && positionOnPage === 0) {
+    const tierChanged =
+      i > 0 && idCardTierKey(students[i]) !== idCardTierKey(students[i - 1]);
+    if (i > 0 && (slot === 0 || tierChanged)) {
       doc.addPage();
+      slot = 0;
     }
-    const col = positionOnPage % cols;
-    const row = Math.floor(positionOnPage / cols);
+    const col = slot % cols;
+    const row = Math.floor(slot / cols);
     const x = marginX + col * (CARD_WIDTH_MM + gapX);
     const y = marginY + row * (CARD_HEIGHT_MM + gapY);
 
     const qr = await qrDataUrl(students[i].registration_number);
     drawCard(doc, x, y, students[i], qr);
+    slot = (slot + 1) % perPage;
   }
 
   doc.save(filename);
