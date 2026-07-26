@@ -326,19 +326,19 @@ export function StudentDetailPage() {
             />
           </EditableDetailSection>
         </Grid>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <EditableDetailSection
+            title="Reset Student Portal PIN"
+            onEdit={() => setEditSection("portalPin")}
+          >
+            <Typography variant="body2" color="text.secondary">
+              Reset the student&apos;s 4-digit portal PIN if they cannot
+              sign in to take tests or view progress.
+            </Typography>
+          </EditableDetailSection>
+        </Grid>
         {isAdmin && (
           <>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <EditableDetailSection
-                title="Reset Student Portal PIN"
-                onEdit={() => setEditSection("portalPin")}
-              >
-                <Typography variant="body2" color="text.secondary">
-                  Reset the student&apos;s 4-digit portal PIN if they cannot
-                  sign in to take tests or view progress.
-                </Typography>
-              </EditableDetailSection>
-            </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
               <Paper sx={{ p: { xs: 2, sm: 3 }, height: "100%" }}>
                 <Typography variant="h6" gutterBottom>
