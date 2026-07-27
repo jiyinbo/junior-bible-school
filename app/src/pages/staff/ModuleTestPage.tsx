@@ -68,8 +68,9 @@ function normalizeIndices(indices: number[], choiceCount: number): number[] {
 }
 
 export function ModuleTestPage() {
-  const { isAdmin } = useStaffAuth();
+  const { user, isAdmin } = useStaffAuth();
   const { moduleId } = useParams<{ moduleId: string }>();
+  const canViewSession = isAdmin || user?.role === 'assistant';
   const [context, setContext] = useState<ModuleContext | null>(null);
   const [status, setStatus] = useState<string>('draft');
   const [durationMinutes, setDurationMinutes] = useState<number>(10);
@@ -234,7 +235,7 @@ export function ModuleTestPage() {
   return (
     <>
       <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 2 }}>
-        {context && isAdmin && (
+        {context && canViewSession && (
           <Button
             component={RouterLink}
             to={`/staff/sessions/${context.session.id}`}

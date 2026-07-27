@@ -475,7 +475,10 @@ export function SessionDetailPage() {
               day-by-day timetable under <strong>Timetable</strong>.
             </>
           ) : (
-            <>Viewing tiers, modules and teachers for this session (read-only). Use the Timetable tab for the schedule.</>
+            <>
+              Viewing tiers, modules and teachers for this session. Use a module&apos;s{' '}
+              <strong>Test</strong> chip to open or close tests. Timetable is below.
+            </>
           )}
         </Typography>
       </Paper>

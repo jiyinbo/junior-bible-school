@@ -23,7 +23,7 @@ import { PageHeader } from '../../staff/PageHeader';
 import { useStaffAuth } from '../../staff/StaffAuthContext';
 
 type ModuleRow = {
-  assignment_id: number;
+  assignment_id: number | null;
   module: { id: number; name: string; code: string | null };
   level: string;
   session: string;
@@ -68,9 +68,10 @@ function ModuleCard({ row }: { row: ModuleRow }) {
 }
 
 export function ModulesPage() {
-  const { isAdmin } = useStaffAuth();
+  const { user, isAdmin } = useStaffAuth();
   const [rows, setRows] = useState<ModuleRow[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const seesAllModules = isAdmin || user?.role === 'assistant';
 
   useEffect(() => {
     apiJson<{ data: ModuleRow[] }>('/api/v1/staff/my-modules')
@@ -79,7 +80,11 @@ export function ModulesPage() {
   }, []);
 
   const empty = (
-    <EmptyTableMessage>No modules yet. Ask an admin to assign you on a session.</EmptyTableMessage>
+    <EmptyTableMessage>
+      {seesAllModules
+        ? 'No modules yet. Add modules on a session first.'
+        : 'No modules yet. Ask an admin to assign you on a session.'}
+    </EmptyTableMessage>
   );
 
   return (
@@ -87,8 +92,8 @@ export function ModulesPage() {
       <PageHeader
         title="My modules"
         subtitle={
-          isAdmin
-            ? 'All module assignments. Teachers only see modules assigned to them.'
+          seesAllModules
+            ? 'All modules. Open or close tests and enter scores from here.'
             : 'Modules assigned to you. Edit tests and enter scores from here.'
         }
       />
@@ -115,7 +120,7 @@ export function ModulesPage() {
               </TableHead>
               <TableBody>
                 {rows.map((r) => (
-                  <TableRow key={r.assignment_id}>
+                  <TableRow key={r.module.id}>
                     <TableCell>{r.session}</TableCell>
                     <TableCell>{r.level}</TableCell>
                     <TableCell>
@@ -144,7 +149,7 @@ export function ModulesPage() {
             </Table>
           }
           cards={rows.map((r) => (
-            <ModuleCard key={r.assignment_id} row={r} />
+            <ModuleCard key={r.module.id} row={r} />
           ))}
         />
       </Paper>
