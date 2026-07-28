@@ -1,4 +1,20 @@
-import { Box, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
+import { useMemo, useState } from 'react';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
+  Box,
+  Button,
+  Chip,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Typography,
+} from '@mui/material';
 
 export type TimetablePeriod = {
   id: number;
@@ -259,98 +275,161 @@ function TimetableMatrix({ grid }: { grid: TimetableGridData }) {
   );
 }
 
+function defaultExpandedDayIds(rows: TimetableRow[], today: string): Record<number, boolean> {
+  const todayRow = rows.find((row) => row.date === today);
+  const focus = todayRow ?? rows.find((row) => row.date >= today) ?? rows[0];
+  if (!focus) return {};
+  return { [focus.day_id]: true };
+}
+
 function TimetableStacked({ grid }: { grid: TimetableGridData }) {
   const today = todayDateString();
+  const initialExpanded = useMemo(
+    () => defaultExpandedDayIds(grid.rows, today),
+    [grid.rows, today],
+  );
+  const [expanded, setExpanded] = useState<Record<number, boolean>>(initialExpanded);
+
+  const setAll = (open: boolean) => {
+    const next: Record<number, boolean> = {};
+    for (const row of grid.rows) {
+      next[row.day_id] = open;
+    }
+    setExpanded(next);
+  };
 
   return (
-    <Stack spacing={1.5} sx={{ minWidth: 0, maxWidth: '100%' }}>
+    <Stack spacing={1.25} sx={{ minWidth: 0, maxWidth: '100%' }}>
+      <Stack direction="row" justifyContent="flex-end" spacing={1}>
+        <Button size="small" onClick={() => setAll(true)}>
+          Expand all
+        </Button>
+        <Button size="small" onClick={() => setAll(false)}>
+          Collapse all
+        </Button>
+      </Stack>
+
       {grid.rows.map((row) => {
         const blocks = stackedBlocksForRow(row, grid.periods);
         const isToday = row.date === today;
+        const isOpen = expanded[row.day_id] ?? false;
+        const sessionCount = blocks.filter((b) => b.kind === 'module').length;
 
         return (
-          <Paper
+          <Accordion
             key={row.day_id}
-            variant="outlined"
+            disableGutters
+            elevation={0}
+            expanded={isOpen}
+            onChange={(_, next) => setExpanded((prev) => ({ ...prev, [row.day_id]: next }))}
             sx={{
-              p: 1.5,
+              border: 1,
               borderColor: isToday ? 'primary.main' : 'divider',
               bgcolor: isToday ? 'action.hover' : 'background.paper',
+              borderRadius: 1,
               overflow: 'hidden',
               maxWidth: '100%',
+              '&:before': { display: 'none' },
             }}
           >
-            <Stack spacing={0.25} sx={{ mb: blocks.length > 0 ? 1.25 : 0 }}>
-              <Typography variant="subtitle2" fontWeight={700}>
-                {row.weekday_label}
-                {row.date_label ? ` · ${row.date_label}` : ''}
-                {isToday ? ' · Today' : ''}
-              </Typography>
-              {row.label ? (
-                <Typography variant="caption" color="text.secondary">
-                  {row.label}
+            <AccordionSummary
+              expandIcon={<ExpandMoreIcon />}
+              sx={{
+                px: 1.5,
+                minHeight: 52,
+                '& .MuiAccordionSummary-content': {
+                  my: 1,
+                  alignItems: 'center',
+                  gap: 1,
+                  minWidth: 0,
+                },
+              }}
+            >
+              <Box sx={{ minWidth: 0, flex: 1 }}>
+                <Typography variant="subtitle2" fontWeight={700} noWrap>
+                  {row.weekday_label}
+                  {row.date_label ? ` · ${row.date_label}` : ''}
+                  {isToday ? ' · Today' : ''}
                 </Typography>
-              ) : null}
-            </Stack>
-
-            {blocks.length === 0 ? (
-              <Typography variant="body2" color="text.secondary">
-                No sessions scheduled.
-              </Typography>
-            ) : (
-              <Stack spacing={0.75} sx={{ minWidth: 0 }}>
-                {blocks.map((block) => (
-                  <Box
-                    key={block.key}
-                    sx={{
-                      display: 'grid',
-                      gridTemplateColumns: 'minmax(88px, auto) minmax(0, 1fr)',
-                      gap: 1,
-                      alignItems: 'start',
-                      px: 1,
-                      py: 0.85,
-                      borderRadius: 1,
-                      bgcolor:
-                        block.kind === 'activity'
-                          ? block.structural
-                            ? 'grey.100'
-                            : 'rgba(25, 118, 210, 0.08)'
-                          : 'background.paper',
-                      border: 1,
-                      borderColor: 'divider',
-                    }}
-                  >
-                    <Typography
-                      variant="caption"
-                      fontWeight={700}
+                {row.label ? (
+                  <Typography variant="caption" color="text.secondary" noWrap display="block">
+                    {row.label}
+                  </Typography>
+                ) : null}
+              </Box>
+              <Chip
+                size="small"
+                variant="outlined"
+                label={
+                  blocks.length === 0
+                    ? 'Empty'
+                    : sessionCount > 0
+                      ? `${sessionCount} class${sessionCount === 1 ? '' : 'es'}`
+                      : `${blocks.length} item${blocks.length === 1 ? '' : 's'}`
+                }
+                sx={{ flexShrink: 0 }}
+              />
+            </AccordionSummary>
+            <AccordionDetails sx={{ px: 1.5, pt: 0, pb: 1.5 }}>
+              {blocks.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  No sessions scheduled.
+                </Typography>
+              ) : (
+                <Stack spacing={0.75} sx={{ minWidth: 0 }}>
+                  {blocks.map((block) => (
+                    <Box
+                      key={block.key}
                       sx={{
-                        fontVariantNumeric: 'tabular-nums',
-                        whiteSpace: 'nowrap',
-                        pt: 0.15,
+                        display: 'grid',
+                        gridTemplateColumns: 'minmax(88px, auto) minmax(0, 1fr)',
+                        gap: 1,
+                        alignItems: 'start',
+                        px: 1,
+                        py: 0.85,
+                        borderRadius: 1,
+                        bgcolor:
+                          block.kind === 'activity'
+                            ? block.structural
+                              ? 'grey.100'
+                              : 'rgba(25, 118, 210, 0.08)'
+                            : 'background.paper',
+                        border: 1,
+                        borderColor: 'divider',
                       }}
                     >
-                      {block.timeLabel}
-                    </Typography>
-                    <Box sx={{ minWidth: 0 }}>
-                      <Typography variant="body2" fontWeight={700} sx={{ wordBreak: 'break-word' }}>
-                        {block.title}
+                      <Typography
+                        variant="caption"
+                        fontWeight={700}
+                        sx={{
+                          fontVariantNumeric: 'tabular-nums',
+                          whiteSpace: 'nowrap',
+                          pt: 0.15,
+                        }}
+                      >
+                        {block.timeLabel}
                       </Typography>
-                      {block.subtitle ? (
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          display="block"
-                          sx={{ wordBreak: 'break-word' }}
-                        >
-                          {block.subtitle}
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography variant="body2" fontWeight={700} sx={{ wordBreak: 'break-word' }}>
+                          {block.title}
                         </Typography>
-                      ) : null}
+                        {block.subtitle ? (
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            display="block"
+                            sx={{ wordBreak: 'break-word' }}
+                          >
+                            {block.subtitle}
+                          </Typography>
+                        ) : null}
+                      </Box>
                     </Box>
-                  </Box>
-                ))}
-              </Stack>
-            )}
-          </Paper>
+                  ))}
+                </Stack>
+              )}
+            </AccordionDetails>
+          </Accordion>
         );
       })}
 
@@ -364,13 +443,26 @@ export function TimetableGrid({
   variant = 'matrix',
 }: {
   grid: TimetableGridData;
-  variant?: 'matrix' | 'stacked';
+  variant?: 'matrix' | 'stacked' | 'responsive';
 }) {
   if (grid.periods.length === 0) {
     return <Typography color="text.secondary">No timetable columns defined yet.</Typography>;
   }
   if (grid.days.length === 0) {
     return <Typography color="text.secondary">No timetable days yet.</Typography>;
+  }
+
+  if (variant === 'responsive') {
+    return (
+      <>
+        <Box sx={{ display: { xs: 'block', md: 'none' } }}>
+          <TimetableStacked grid={grid} />
+        </Box>
+        <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+          <TimetableMatrix grid={grid} />
+        </Box>
+      </>
+    );
   }
 
   return variant === 'stacked' ? <TimetableStacked grid={grid} /> : <TimetableMatrix grid={grid} />;

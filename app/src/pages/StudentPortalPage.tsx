@@ -311,7 +311,7 @@ export function StudentPortalPage() {
               </Alert>
             )}
             {lookup.timetable_grid.periods.length > 0 ? (
-              <TimetableGrid grid={lookup.timetable_grid} variant="stacked" />
+              <TimetableGrid grid={lookup.timetable_grid} variant="responsive" />
             ) : (
               <Typography color="text.secondary">
                 The timetable for your tier has not been set up yet.
