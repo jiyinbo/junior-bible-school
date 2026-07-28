@@ -91,12 +91,14 @@ class ScoreAdminController extends Controller
             $overallGrade = $overallPercent !== null
                 ? $this->grading->overallGradeForPercent($overallPercent)
                 : null;
+            $modulesScored = count($scoredPercents);
 
             return [
                 'id' => $registration->id,
                 'registration_number' => $registration->registration_number,
                 'full_name' => $registration->fullName(),
                 'modules' => $moduleScores,
+                'modules_scored' => $modulesScored,
                 'overall_score' => $overallPercent !== null ? $overallScore : null,
                 'overall_max_score' => $overallPercent !== null ? $overallMaxScore : null,
                 'overall_percent' => $overallPercent,
@@ -105,28 +107,63 @@ class ScoreAdminController extends Controller
             ];
         });
 
-        $top3 = $students
-            ->filter(fn (array $row) => $row['overall_percent'] !== null)
+        $scored = $students->filter(fn (array $row) => $row['overall_percent'] !== null);
+        $maxModulesScored = (int) $scored->max('modules_scored');
+        $atMaxModules = $scored->filter(fn (array $row) => $row['modules_scored'] === $maxModulesScored);
+
+        // If at least 3 students share the highest test count, Top 3 is drawn only from
+        // that cohort — fewer tests cannot displace them even at 100%.
+        $top3Pool = $atMaxModules->count() >= 3 ? $atMaxModules : $scored;
+
+        $ranked = $top3Pool
             ->sort(function (array $a, array $b) {
+                // Higher average % wins; if tied, prefer more modules scored (relevant when
+                // the pool still mixes counts because fewer than 3 share the max).
                 $cmp = $b['overall_percent'] <=> $a['overall_percent'];
+                if ($cmp !== 0) {
+                    return $cmp;
+                }
+                $cmp = $b['modules_scored'] <=> $a['modules_scored'];
+                if ($cmp !== 0) {
+                    return $cmp;
+                }
+                $cmp = ($b['overall_score'] ?? 0) <=> ($a['overall_score'] ?? 0);
                 if ($cmp !== 0) {
                     return $cmp;
                 }
 
                 return strcasecmp($a['full_name'], $b['full_name']);
             })
-            ->take(3)
-            ->values()
-            ->map(fn (array $row) => [
+            ->values();
+
+        // Competition ranking: include everyone whose place is in the top 3
+        // (ties share a rank only when % and modules scored match).
+        $top3 = collect();
+        $rank = 0;
+        $previousKey = null;
+        foreach ($ranked as $index => $row) {
+            $key = $row['overall_percent']."\0".$row['modules_scored'];
+            if ($previousKey === null || $key !== $previousKey) {
+                $rank = $index + 1;
+            }
+            if ($rank > 3) {
+                break;
+            }
+
+            $top3->push([
                 'id' => $row['id'],
                 'registration_number' => $row['registration_number'],
                 'full_name' => $row['full_name'],
+                'rank' => $rank,
+                'modules_scored' => $row['modules_scored'],
                 'overall_score' => $row['overall_score'],
                 'overall_max_score' => $row['overall_max_score'],
                 'overall_percent' => $row['overall_percent'],
                 'overall_grade_short' => $row['overall_grade_short'],
                 'overall_grade_label' => $row['overall_grade_label'],
             ]);
+            $previousKey = $key;
+        }
 
         return response()->json([
             'data' => [
@@ -137,7 +174,7 @@ class ScoreAdminController extends Controller
                     'sort_order' => $module->sort_order,
                 ])->values(),
                 'students' => $students->values(),
-                'top3' => $top3,
+                'top3' => $top3->values(),
             ],
         ]);
     }

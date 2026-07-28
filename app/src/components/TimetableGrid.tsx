@@ -1,4 +1,4 @@
-import { Box, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
+import { Box, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
 
 export type TimetablePeriod = {
   id: number;
@@ -60,20 +60,120 @@ export type TimetableGridData = {
   legend: TimetableLegendItem[];
 };
 
+type StackedBlock = {
+  key: string;
+  timeLabel: string;
+  title: string;
+  subtitle: string | null;
+  kind: 'module' | 'activity';
+  structural: boolean;
+};
+
 function cellBg(cell: TimetableCell): string | undefined {
   if (cell.type === 'module') return undefined;
   if (cell.type === 'empty') return undefined;
   return cell.structural ? '#eef0f2' : '#dce7f3';
 }
 
-export function TimetableGrid({ grid }: { grid: TimetableGridData }) {
-  if (grid.periods.length === 0) {
-    return <Typography color="text.secondary">No timetable columns defined yet.</Typography>;
+function formatClock(value: string | null | undefined): string | null {
+  if (!value) return null;
+  // API may return "09:30:00" or "09:30".
+  return value.slice(0, 5);
+}
+
+function blockTimeLabel(
+  periods: TimetablePeriod[],
+  startIndex: number,
+  colSpan: number,
+): string {
+  const start = periods[startIndex];
+  const end = periods[Math.min(startIndex + colSpan - 1, periods.length - 1)];
+  if (!start) return '';
+
+  const startClock = formatClock(start.start_time) ?? start.time_label ?? '';
+  const endClock = formatClock(end?.end_time) ?? formatClock(end?.start_time) ?? end?.time_label ?? '';
+
+  if (startClock && endClock && startClock !== endClock) {
+    return `${startClock}–${endClock}`;
   }
-  if (grid.days.length === 0) {
-    return <Typography color="text.secondary">No timetable days yet.</Typography>;
+  return start.time_label ?? startClock ?? endClock ?? '';
+}
+
+function stackedBlocksForRow(row: TimetableRow, periods: TimetablePeriod[]): StackedBlock[] {
+  const indexById = new Map(periods.map((period, index) => [period.id, index]));
+  const blocks: StackedBlock[] = [];
+
+  for (const cell of row.cells) {
+    if (cell.type === 'empty') continue;
+
+    const startIndex = indexById.get(cell.period_id);
+    if (startIndex === undefined) continue;
+
+    const span = Math.max(1, cell.col_span || 1);
+    const title =
+      cell.type === 'module'
+        ? (cell.code ?? cell.name ?? 'Module')
+        : (cell.label ?? 'Activity');
+    const subtitle =
+      cell.type === 'module'
+        ? [cell.name && cell.code ? cell.name : null, cell.teacher_name].filter(Boolean).join(' · ') ||
+          null
+        : null;
+
+    blocks.push({
+      key: `${row.day_id}-${cell.period_id}`,
+      timeLabel: blockTimeLabel(periods, startIndex, span),
+      title,
+      subtitle,
+      kind: cell.type,
+      structural: cell.structural,
+    });
   }
 
+  return blocks;
+}
+
+function todayDateString(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function TimetableLegend({ legend }: { legend: TimetableLegendItem[] }) {
+  if (legend.length === 0) return null;
+
+  return (
+    <Box sx={{ mt: 2, maxWidth: 560 }}>
+      <Typography variant="subtitle2" gutterBottom>
+        Courses
+      </Typography>
+      <Table size="small" sx={{ '& td, & th': { border: '1px solid', borderColor: 'divider' } }}>
+        <TableHead>
+          <TableRow>
+            <TableCell width={48}>S/N</TableCell>
+            <TableCell>Course</TableCell>
+            <TableCell width={90}>Code</TableCell>
+            <TableCell>Lecturer</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {legend.map((item, i) => (
+            <TableRow key={item.module_id}>
+              <TableCell>{i + 1}</TableCell>
+              <TableCell>{item.name}</TableCell>
+              <TableCell>{item.code ?? '—'}</TableCell>
+              <TableCell>{item.teacher_name ?? '—'}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </Box>
+  );
+}
+
+function TimetableMatrix({ grid }: { grid: TimetableGridData }) {
   return (
     <Box sx={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
       <Table
@@ -154,33 +254,124 @@ export function TimetableGrid({ grid }: { grid: TimetableGridData }) {
         </TableBody>
       </Table>
 
-      {grid.legend.length > 0 && (
-        <Box sx={{ mt: 2, maxWidth: 560 }}>
-          <Typography variant="subtitle2" gutterBottom>
-            Courses
-          </Typography>
-          <Table size="small" sx={{ '& td, & th': { border: '1px solid', borderColor: 'divider' } }}>
-            <TableHead>
-              <TableRow>
-                <TableCell width={48}>S/N</TableCell>
-                <TableCell>Course</TableCell>
-                <TableCell width={90}>Code</TableCell>
-                <TableCell>Lecturer</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {grid.legend.map((item, i) => (
-                <TableRow key={item.module_id}>
-                  <TableCell>{i + 1}</TableCell>
-                  <TableCell>{item.name}</TableCell>
-                  <TableCell>{item.code ?? '—'}</TableCell>
-                  <TableCell>{item.teacher_name ?? '—'}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Box>
-      )}
+      <TimetableLegend legend={grid.legend} />
     </Box>
   );
+}
+
+function TimetableStacked({ grid }: { grid: TimetableGridData }) {
+  const today = todayDateString();
+
+  return (
+    <Stack spacing={1.5} sx={{ minWidth: 0, maxWidth: '100%' }}>
+      {grid.rows.map((row) => {
+        const blocks = stackedBlocksForRow(row, grid.periods);
+        const isToday = row.date === today;
+
+        return (
+          <Paper
+            key={row.day_id}
+            variant="outlined"
+            sx={{
+              p: 1.5,
+              borderColor: isToday ? 'primary.main' : 'divider',
+              bgcolor: isToday ? 'action.hover' : 'background.paper',
+              overflow: 'hidden',
+              maxWidth: '100%',
+            }}
+          >
+            <Stack spacing={0.25} sx={{ mb: blocks.length > 0 ? 1.25 : 0 }}>
+              <Typography variant="subtitle2" fontWeight={700}>
+                {row.weekday_label}
+                {row.date_label ? ` · ${row.date_label}` : ''}
+                {isToday ? ' · Today' : ''}
+              </Typography>
+              {row.label ? (
+                <Typography variant="caption" color="text.secondary">
+                  {row.label}
+                </Typography>
+              ) : null}
+            </Stack>
+
+            {blocks.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                No sessions scheduled.
+              </Typography>
+            ) : (
+              <Stack spacing={0.75} sx={{ minWidth: 0 }}>
+                {blocks.map((block) => (
+                  <Box
+                    key={block.key}
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: 'minmax(88px, auto) minmax(0, 1fr)',
+                      gap: 1,
+                      alignItems: 'start',
+                      px: 1,
+                      py: 0.85,
+                      borderRadius: 1,
+                      bgcolor:
+                        block.kind === 'activity'
+                          ? block.structural
+                            ? 'grey.100'
+                            : 'rgba(25, 118, 210, 0.08)'
+                          : 'background.paper',
+                      border: 1,
+                      borderColor: 'divider',
+                    }}
+                  >
+                    <Typography
+                      variant="caption"
+                      fontWeight={700}
+                      sx={{
+                        fontVariantNumeric: 'tabular-nums',
+                        whiteSpace: 'nowrap',
+                        pt: 0.15,
+                      }}
+                    >
+                      {block.timeLabel}
+                    </Typography>
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography variant="body2" fontWeight={700} sx={{ wordBreak: 'break-word' }}>
+                        {block.title}
+                      </Typography>
+                      {block.subtitle ? (
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          display="block"
+                          sx={{ wordBreak: 'break-word' }}
+                        >
+                          {block.subtitle}
+                        </Typography>
+                      ) : null}
+                    </Box>
+                  </Box>
+                ))}
+              </Stack>
+            )}
+          </Paper>
+        );
+      })}
+
+      <TimetableLegend legend={grid.legend} />
+    </Stack>
+  );
+}
+
+export function TimetableGrid({
+  grid,
+  variant = 'matrix',
+}: {
+  grid: TimetableGridData;
+  variant?: 'matrix' | 'stacked';
+}) {
+  if (grid.periods.length === 0) {
+    return <Typography color="text.secondary">No timetable columns defined yet.</Typography>;
+  }
+  if (grid.days.length === 0) {
+    return <Typography color="text.secondary">No timetable days yet.</Typography>;
+  }
+
+  return variant === 'stacked' ? <TimetableStacked grid={grid} /> : <TimetableMatrix grid={grid} />;
 }

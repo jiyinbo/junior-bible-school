@@ -156,6 +156,8 @@ export function ScoresPage() {
                 gap: 2,
                 gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
                 alignItems: 'stretch',
+                minWidth: 0,
+                maxWidth: '100%',
               }}
             >
               <ScoresTopThree students={board.top3} />

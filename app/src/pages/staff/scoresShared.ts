@@ -30,6 +30,7 @@ export type TierStudentRow = {
   registration_number: string;
   full_name: string;
   modules: Record<string, ModuleScoreCell>;
+  modules_scored: number;
   overall_score: number | null;
   overall_max_score: number | null;
   overall_percent: number | null;
@@ -41,6 +42,8 @@ export type TierTopStudent = {
   id: number;
   registration_number: string;
   full_name: string;
+  rank: number;
+  modules_scored: number;
   overall_score: number;
   overall_max_score: number;
   overall_percent: number;

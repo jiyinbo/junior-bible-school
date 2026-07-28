@@ -84,7 +84,11 @@ export function ScoresMatrixTable({ modules, students, tierLabel }: Props) {
     const sorted = [...filtered].sort((a, b) => {
       if (sortKey === 'name') return compareString(a.full_name, b.full_name, sortDir);
       if (sortKey === 'overall') {
-        return compareNullableNumber(a.overall_percent, b.overall_percent, sortDir);
+        const byPercent = compareNullableNumber(a.overall_percent, b.overall_percent, sortDir);
+        if (byPercent !== 0) return byPercent;
+        const byModules = compareNullableNumber(a.modules_scored, b.modules_scored, sortDir);
+        if (byModules !== 0) return byModules;
+        return compareNullableNumber(a.overall_score, b.overall_score, sortDir);
       }
       if (sortKey.startsWith('module:')) {
         const moduleId = sortKey.slice('module:'.length);

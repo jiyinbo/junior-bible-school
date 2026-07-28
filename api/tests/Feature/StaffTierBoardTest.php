@@ -125,13 +125,16 @@ class StaffTierBoardTest extends TestCase
         $response->assertJsonCount(3, 'data.top3');
 
         $response->assertJsonPath('data.top3.0.id', $first->id);
+        $response->assertJsonPath('data.top3.0.rank', 1);
         $response->assertJsonPath('data.top3.0.overall_score', 170);
         $response->assertJsonPath('data.top3.0.overall_max_score', 200);
         $response->assertJsonPath('data.top3.0.overall_percent', 85);
         $response->assertJsonPath('data.top3.0.overall_grade_short', 'D');
         $response->assertJsonPath('data.top3.0.overall_grade_label', 'Distinction');
         $response->assertJsonPath('data.top3.1.id', $second->id);
+        $response->assertJsonPath('data.top3.1.rank', 2);
         $response->assertJsonPath('data.top3.2.id', $third->id);
+        $response->assertJsonPath('data.top3.2.rank', 3);
 
         $firstRow = collect($response->json('data.students'))->firstWhere('id', $first->id);
         $this->assertSame(90, $firstRow['modules'][(string) $moduleA->id]['score']);
@@ -141,6 +144,175 @@ class StaffTierBoardTest extends TestCase
         $this->assertNull(
             collect($response->json('data.students'))->firstWhere('id', $unscored->id)['overall_percent'],
         );
+    }
+
+    public function test_tier_board_top3_includes_ties_for_third_place(): void
+    {
+        ['session' => $session, 'level' => $level, 'moduleA' => $moduleA] = $this->tierFixture();
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $first = $this->student($session, $level, 'BCC/0001', 'Ada', 'Lovelace');
+        $tiedA = $this->student($session, $level, 'BCC/0002', 'Alan', 'Turing');
+        $tiedB = $this->student($session, $level, 'BCC/0003', 'Grace', 'Hopper');
+        $fourth = $this->student($session, $level, 'BCC/0004', 'Zoe', 'Mitchell');
+
+        foreach (
+            [
+                [$first, 95],
+                [$tiedA, 70],
+                [$tiedB, 70],
+                [$fourth, 40],
+            ] as [$student, $score]
+        ) {
+            JbsModuleScoreOutcome::query()->create([
+                'jbs_student_registration_id' => $student->id,
+                'jbs_module_id' => $moduleA->id,
+                'score' => $score,
+                'max_score' => 100,
+                'source' => 'paper',
+            ]);
+        }
+
+        $response = $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/v1/staff/scores/tier-board?session=Summer%202026&level=BCC');
+
+        $response->assertOk();
+        // 1st alone, then two tied for 2nd (competition ranks 1, 2, 2) — all within top-3 places.
+        // Fourth (rank 4) is excluded.
+        $response->assertJsonCount(3, 'data.top3');
+        $response->assertJsonPath('data.top3.0.id', $first->id);
+        $response->assertJsonPath('data.top3.0.rank', 1);
+        $response->assertJsonPath('data.top3.1.id', $tiedA->id);
+        $response->assertJsonPath('data.top3.1.rank', 2);
+        $response->assertJsonPath('data.top3.2.id', $tiedB->id);
+        $response->assertJsonPath('data.top3.2.rank', 2);
+    }
+
+    public function test_tier_board_top3_keeps_all_students_tied_for_third(): void
+    {
+        ['session' => $session, 'level' => $level, 'moduleA' => $moduleA] = $this->tierFixture();
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $first = $this->student($session, $level, 'BCC/0001', 'Ada', 'Lovelace');
+        $second = $this->student($session, $level, 'BCC/0002', 'Grace', 'Hopper');
+        $tiedA = $this->student($session, $level, 'BCC/0003', 'Alan', 'Turing');
+        $tiedB = $this->student($session, $level, 'BCC/0004', 'Zoe', 'Mitchell');
+
+        foreach (
+            [
+                [$first, 95],
+                [$second, 80],
+                [$tiedA, 60],
+                [$tiedB, 60],
+            ] as [$student, $score]
+        ) {
+            JbsModuleScoreOutcome::query()->create([
+                'jbs_student_registration_id' => $student->id,
+                'jbs_module_id' => $moduleA->id,
+                'score' => $score,
+                'max_score' => 100,
+                'source' => 'paper',
+            ]);
+        }
+
+        $response = $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/v1/staff/scores/tier-board?session=Summer%202026&level=BCC');
+
+        $response->assertOk();
+        // Ranks 1, 2, 3, 3 — both 3rd-place ties are included (4 people in "top 3").
+        $response->assertJsonCount(4, 'data.top3');
+        $response->assertJsonPath('data.top3.0.rank', 1);
+        $response->assertJsonPath('data.top3.1.rank', 2);
+        $response->assertJsonPath('data.top3.2.rank', 3);
+        $response->assertJsonPath('data.top3.3.rank', 3);
+        $topIds = collect($response->json('data.top3'))->pluck('id')->all();
+        $this->assertSame([$first->id, $second->id, $tiedA->id, $tiedB->id], $topIds);
+    }
+
+    public function test_tier_board_ranks_more_modules_above_equal_percent_with_fewer(): void
+    {
+        ['session' => $session, 'level' => $level, 'moduleA' => $moduleA, 'moduleB' => $moduleB] = $this->tierFixture();
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $twoPerfect = $this->student($session, $level, 'BCC/0001', 'Chinwendu', 'Emeafu');
+        $onePerfect = $this->student($session, $level, 'BCC/0002', 'Darrin', 'Osteen');
+
+        foreach ([$moduleA, $moduleB] as $module) {
+            JbsModuleScoreOutcome::query()->create([
+                'jbs_student_registration_id' => $twoPerfect->id,
+                'jbs_module_id' => $module->id,
+                'score' => 100,
+                'max_score' => 100,
+                'source' => 'paper',
+            ]);
+        }
+
+        JbsModuleScoreOutcome::query()->create([
+            'jbs_student_registration_id' => $onePerfect->id,
+            'jbs_module_id' => $moduleA->id,
+            'score' => 100,
+            'max_score' => 100,
+            'source' => 'paper',
+        ]);
+
+        $response = $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/v1/staff/scores/tier-board?session=Summer%202026&level=BCC');
+
+        $response->assertOk();
+        $response->assertJsonPath('data.top3.0.id', $twoPerfect->id);
+        $response->assertJsonPath('data.top3.0.rank', 1);
+        $response->assertJsonPath('data.top3.0.modules_scored', 2);
+        $response->assertJsonPath('data.top3.1.id', $onePerfect->id);
+        $response->assertJsonPath('data.top3.1.rank', 2);
+        $response->assertJsonPath('data.top3.1.modules_scored', 1);
+    }
+
+    public function test_tier_board_excludes_fewer_tests_when_three_share_higher_count(): void
+    {
+        ['session' => $session, 'level' => $level, 'moduleA' => $moduleA, 'moduleB' => $moduleB] = $this->tierFixture();
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $twoA = $this->student($session, $level, 'BCC/0001', 'Ada', 'Lovelace');
+        $twoB = $this->student($session, $level, 'BCC/0002', 'Grace', 'Hopper');
+        $twoC = $this->student($session, $level, 'BCC/0003', 'Alan', 'Turing');
+        $onePerfect = $this->student($session, $level, 'BCC/0004', 'Darrin', 'Osteen');
+
+        foreach (
+            [
+                [$twoA, 90],
+                [$twoB, 80],
+                [$twoC, 70],
+            ] as [$student, $score]
+        ) {
+            foreach ([$moduleA, $moduleB] as $module) {
+                JbsModuleScoreOutcome::query()->create([
+                    'jbs_student_registration_id' => $student->id,
+                    'jbs_module_id' => $module->id,
+                    'score' => $score,
+                    'max_score' => 100,
+                    'source' => 'paper',
+                ]);
+            }
+        }
+
+        JbsModuleScoreOutcome::query()->create([
+            'jbs_student_registration_id' => $onePerfect->id,
+            'jbs_module_id' => $moduleA->id,
+            'score' => 100,
+            'max_score' => 100,
+            'source' => 'paper',
+        ]);
+
+        $response = $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/v1/staff/scores/tier-board?session=Summer%202026&level=BCC');
+
+        $response->assertOk();
+        $response->assertJsonCount(3, 'data.top3');
+        $topIds = collect($response->json('data.top3'))->pluck('id')->all();
+        $this->assertSame([$twoA->id, $twoB->id, $twoC->id], $topIds);
+        $this->assertNotContains($onePerfect->id, $topIds);
+        $response->assertJsonPath('data.top3.0.modules_scored', 2);
+        $response->assertJsonPath('data.top3.2.modules_scored', 2);
     }
 
     public function test_teacher_without_assignment_cannot_view_tier_board(): void
