@@ -146,7 +146,7 @@ class StaffTierBoardTest extends TestCase
         );
     }
 
-    public function test_tier_board_top3_includes_ties_for_third_place(): void
+    public function test_tier_board_top3_includes_ties_for_second_place(): void
     {
         ['session' => $session, 'level' => $level, 'moduleA' => $moduleA] = $this->tierFixture();
         $admin = User::factory()->create(['role' => 'admin']);
@@ -154,13 +154,15 @@ class StaffTierBoardTest extends TestCase
         $first = $this->student($session, $level, 'BCC/0001', 'Ada', 'Lovelace');
         $tiedA = $this->student($session, $level, 'BCC/0002', 'Alan', 'Turing');
         $tiedB = $this->student($session, $level, 'BCC/0003', 'Grace', 'Hopper');
-        $fourth = $this->student($session, $level, 'BCC/0004', 'Zoe', 'Mitchell');
+        $third = $this->student($session, $level, 'BCC/0004', 'Mae', 'Jemison');
+        $fourth = $this->student($session, $level, 'BCC/0005', 'Zoe', 'Mitchell');
 
         foreach (
             [
                 [$first, 95],
                 [$tiedA, 70],
                 [$tiedB, 70],
+                [$third, 50],
                 [$fourth, 40],
             ] as [$student, $score]
         ) {
@@ -177,15 +179,69 @@ class StaffTierBoardTest extends TestCase
             ->getJson('/api/v1/staff/scores/tier-board?session=Summer%202026&level=BCC');
 
         $response->assertOk();
-        // 1st alone, then two tied for 2nd (competition ranks 1, 2, 2) — all within top-3 places.
-        // Fourth (rank 4) is excluded.
-        $response->assertJsonCount(3, 'data.top3');
+        // Dense ranks 1, 2, 2, 3 — fourth place is excluded.
+        $response->assertJsonCount(4, 'data.top3');
         $response->assertJsonPath('data.top3.0.id', $first->id);
         $response->assertJsonPath('data.top3.0.rank', 1);
         $response->assertJsonPath('data.top3.1.id', $tiedA->id);
         $response->assertJsonPath('data.top3.1.rank', 2);
         $response->assertJsonPath('data.top3.2.id', $tiedB->id);
         $response->assertJsonPath('data.top3.2.rank', 2);
+        $response->assertJsonPath('data.top3.3.id', $third->id);
+        $response->assertJsonPath('data.top3.3.rank', 3);
+    }
+
+    public function test_tier_board_top3_uses_dense_ranks_when_first_is_tied(): void
+    {
+        ['session' => $session, 'level' => $level, 'moduleA' => $moduleA] = $this->tierFixture();
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $tiedFirstA = $this->student($session, $level, 'BCC/0001', 'Michelle', 'Ugulu');
+        $tiedFirstB = $this->student($session, $level, 'BCC/0002', 'Oluwatimilehin', 'Nadi');
+        $tiedSecondA = $this->student($session, $level, 'BCC/0003', 'Josephine', 'Nkemdilim');
+        $tiedSecondB = $this->student($session, $level, 'BCC/0004', 'Kiki', 'Obisesan');
+        $tiedSecondC = $this->student($session, $level, 'BCC/0005', 'Priscilla', 'Abimbola');
+        $third = $this->student($session, $level, 'BCC/0006', 'Zoe', 'Mitchell');
+        $fourth = $this->student($session, $level, 'BCC/0007', 'Yuki', 'Tanaka');
+
+        foreach (
+            [
+                [$tiedFirstA, 98],
+                [$tiedFirstB, 98],
+                [$tiedSecondA, 97],
+                [$tiedSecondB, 97],
+                [$tiedSecondC, 97],
+                [$third, 90],
+                [$fourth, 80],
+            ] as [$student, $score]
+        ) {
+            JbsModuleScoreOutcome::query()->create([
+                'jbs_student_registration_id' => $student->id,
+                'jbs_module_id' => $moduleA->id,
+                'score' => $score,
+                'max_score' => 100,
+                'source' => 'paper',
+            ]);
+        }
+
+        $response = $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/v1/staff/scores/tier-board?session=Summer%202026&level=BCC');
+
+        $response->assertOk();
+        // Dense places: 1, 1, 2, 2, 2, 3 — not competition 1, 1, 3, 3, 3.
+        // Fourth place (80%) is excluded.
+        $response->assertJsonCount(6, 'data.top3');
+        $response->assertJsonPath('data.top3.0.rank', 1);
+        $response->assertJsonPath('data.top3.1.rank', 1);
+        $response->assertJsonPath('data.top3.2.rank', 2);
+        $response->assertJsonPath('data.top3.3.rank', 2);
+        $response->assertJsonPath('data.top3.4.rank', 2);
+        $response->assertJsonPath('data.top3.5.rank', 3);
+        $topIds = collect($response->json('data.top3'))->pluck('id')->all();
+        $this->assertSame(
+            [$tiedFirstA->id, $tiedFirstB->id, $tiedSecondA->id, $tiedSecondB->id, $tiedSecondC->id, $third->id],
+            $topIds,
+        );
     }
 
     public function test_tier_board_top3_keeps_all_students_tied_for_third(): void

@@ -136,15 +136,16 @@ class ScoreAdminController extends Controller
             })
             ->values();
 
-        // Competition ranking: include everyone whose place is in the top 3
-        // (ties share a rank only when % and modules scored match).
+        // Dense ranking: places 1, 2, 3 with ties kept on the same place
+        // (e.g. two tied 1sts → next distinct score is 2nd, not 3rd).
+        // Include everyone whose place is in the top 3.
         $top3 = collect();
         $rank = 0;
         $previousKey = null;
-        foreach ($ranked as $index => $row) {
+        foreach ($ranked as $row) {
             $key = $row['overall_percent']."\0".$row['modules_scored'];
             if ($previousKey === null || $key !== $previousKey) {
-                $rank = $index + 1;
+                $rank++;
             }
             if ($rank > 3) {
                 break;
