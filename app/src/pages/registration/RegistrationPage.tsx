@@ -13,6 +13,7 @@ import {
   Typography,
 } from '@mui/material';
 import { apiJson } from '../../api/http';
+import { ThemeToggleButton } from '../../components/ThemeToggleButton';
 import { usePublicRegistrationOpen } from '../../hooks/usePublicRegistrationOpen';
 import { StepParentInfo } from './StepParentInfo';
 import { StepChildInfo } from './StepChildInfo';
@@ -108,9 +109,12 @@ export function RegistrationPage() {
 
   return (
       <Container maxWidth="md" sx={{ py: 6, px: { xs: 2, sm: 3 } }}>
-        <Button component={RouterLink} to="/" sx={{ mb: 2 }}>
-          ← Home
-        </Button>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+          <Button component={RouterLink} to="/">
+            ← Home
+          </Button>
+          <ThemeToggleButton edge="end" />
+        </Box>
         <Typography variant="h4" gutterBottom>
           Junior Bible School registration
         </Typography>

@@ -20,6 +20,7 @@ import { toastSuccess } from '../feedback/toast';
 import { IdCardDialog } from '../components/IdCardPreview';
 import { FormRowButton } from '../components/InlineFormRow';
 import { PortalSection } from '../components/PortalSection';
+import { ThemeToggleButton } from '../components/ThemeToggleButton';
 import {
   StudentModulesTable,
   StudentProgressPanel,
@@ -212,9 +213,12 @@ export function StudentPortalPage() {
 
   return (
     <Container maxWidth="md" sx={{ py: 6, px: { xs: 2, sm: 3 } }}>
-      <Button component={RouterLink} to="/" sx={{ mb: 2 }}>
-        ← Home
-      </Button>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+        <Button component={RouterLink} to="/">
+          ← Home
+        </Button>
+        <ThemeToggleButton edge="end" />
+      </Box>
       <Typography variant="h4" gutterBottom>
         Student portal
       </Typography>

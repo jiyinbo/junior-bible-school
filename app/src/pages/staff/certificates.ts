@@ -1,6 +1,9 @@
-import { jsPDF } from 'jspdf';
-import shieldUrl from '../../assets/certs/wofbi-shield.png';
-import winnersUrl from '../../assets/certs/winners-logo.png';
+import fontkit from '@pdf-lib/fontkit';
+import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFPage } from 'pdf-lib';
+import copperplateBoldUrl from '../../assets/certs/Copperplate-Bold.ttf';
+import statementTemplateUrl from '../../assets/certs/statement-template.pdf';
+import certificateTemplateUrl from '../../assets/certs/certificate-template.pdf';
+import winnersLogoUrl from '../../assets/certs/winners-logo.png';
 
 /** Shared payload the API returns for both the statement of result and the certificate. */
 export type DocumentData = {
@@ -17,47 +20,28 @@ export type DocumentData = {
   modules: { serial: number; name: string; grade: string; taken: boolean }[];
 };
 
-const RED: [number, number, number] = [192, 40, 40];
-const DARK: [number, number, number] = [38, 43, 56];
-const TEXT: [number, number, number] = [20, 20, 20];
-const MUTED: [number, number, number] = [90, 90, 90];
-const GRAY_BG: [number, number, number] = [217, 217, 217];
-const GRAY_HEAD: [number, number, number] = [201, 201, 201];
-const LINE: [number, number, number] = [110, 110, 110];
+const BLACK = rgb(0.08, 0.08, 0.08);
+const DARK = rgb(0.15, 0.17, 0.22);
+const RED = rgb(0.75, 0.16, 0.16);
+const WHITE = rgb(1, 1, 1);
+const TABLE_BG = rgb(217 / 255, 217 / 255, 217 / 255);
 
-type LoadedImage = { dataUrl: string; w: number; h: number };
-type Images = { shield: LoadedImage; winners: LoadedImage };
+const STATEMENT_ROWS = 12;
+const STATEMENT_GRADE_YS = Array.from({ length: STATEMENT_ROWS }, (_, i) => 431 - i * 21.12);
+const STATEMENT_GRADE_CENTER_X = 461.7;
+const STATEMENT_SUBJECT_X = 161.4;
 
-const imageCache = new Map<string, Promise<LoadedImage>>();
+const templateCache = new Map<string, Promise<ArrayBuffer>>();
 
-function loadImage(url: string): Promise<LoadedImage> {
-  const cached = imageCache.get(url);
+function loadTemplate(url: string): Promise<ArrayBuffer> {
+  const cached = templateCache.get(url);
   if (cached) return cached;
-  const promise = new Promise<LoadedImage>((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        reject(new Error('Canvas not supported'));
-        return;
-      }
-      ctx.drawImage(img, 0, 0);
-      resolve({ dataUrl: canvas.toDataURL('image/png'), w: img.naturalWidth, h: img.naturalHeight });
-    };
-    img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
-    img.src = url;
+  const promise = fetch(url).then(async (res) => {
+    if (!res.ok) throw new Error(`Failed to load PDF template (${res.status})`);
+    return res.arrayBuffer();
   });
-  imageCache.set(url, promise);
+  templateCache.set(url, promise);
   return promise;
-}
-
-async function loadImages(): Promise<Images> {
-  const [shield, winners] = await Promise.all([loadImage(shieldUrl), loadImage(winnersUrl)]);
-  return { shield, winners };
 }
 
 /** Strips a trailing " - 2026" style year suffix so headings read cleanly. */
@@ -65,254 +49,298 @@ function sessionSubtitle(sessionName: string): string {
   return sessionName.replace(/\s*-\s*\d{4}\s*$/, '').trim() || sessionName;
 }
 
-function drawCenteredImage(
-  doc: jsPDF,
-  image: LoadedImage,
-  cx: number,
-  top: number,
-  targetW: number,
-): number {
-  const h = (image.h / image.w) * targetW;
-  doc.addImage(image.dataUrl, 'PNG', cx - targetW / 2, top, targetW, h);
-  return top + h;
+function shortLevelName(levelName: string): string {
+  return levelName
+    .replace(/\b(junior\s+bible\s+school|certificate\s+course|course)\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim() || levelName;
 }
 
-function labeledLine(
-  doc: jsPDF,
-  x: number,
+/** Statement heading uses the tier stem only, e.g. "Basic (10-12)" → "BASIC". */
+function statementTierLabel(levelName: string): string {
+  const short = shortLevelName(levelName);
+  const stem = short.replace(/\s*\([^)]*\)\s*$/, '').trim() || short;
+  return stem.toUpperCase();
+}
+
+const MONTH_NAMES =
+  'January|February|March|April|May|June|July|August|September|October|November|December';
+
+/** Certificate session line, e.g. "August 2026 Session". */
+function formatSessionLabel(sessionName: string, issuedOn: string): string {
+  const monthYear = new RegExp(`\\b(${MONTH_NAMES})\\s+(\\d{4})\\b`, 'i');
+  const fromSession = sessionName.match(monthYear);
+  if (fromSession) {
+    const month = fromSession[1].charAt(0).toUpperCase() + fromSession[1].slice(1).toLowerCase();
+    return `${month} ${fromSession[2]} Session`;
+  }
+  const fromIssued = issuedOn.match(monthYear);
+  if (fromIssued) {
+    return `${fromIssued[1]} ${fromIssued[2]} Session`;
+  }
+  const year =
+    sessionName.match(/\b(20\d{2})\b/)?.[1] ?? issuedOn.match(/\b(20\d{2})\b/)?.[1] ?? '';
+  return year ? `August ${year} Session` : 'Session';
+}
+
+function cover(page: PDFPage, x: number, y: number, width: number, height: number, color = WHITE): void {
+  page.drawRectangle({ x, y, width, height, color, borderWidth: 0 });
+}
+
+function drawCentered(
+  page: PDFPage,
+  text: string,
+  centerX: number,
   y: number,
-  rightX: number,
-  label: string,
-  value?: string,
+  size: number,
+  font: PDFFont,
+  color = BLACK,
 ): void {
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10.5);
-  doc.setTextColor(...TEXT);
-  doc.text(label, x, y);
-  const lineStart = x + doc.getTextWidth(label) + 2.5;
-  doc.setDrawColor(...LINE);
-  doc.setLineWidth(0.25);
-  doc.line(lineStart, y + 0.6, rightX, y + 0.6);
-  if (value) {
-    doc.setFont('helvetica', 'bold');
-    doc.text(value, lineStart + 2, y - 0.4);
-  }
+  const width = font.widthOfTextAtSize(text, size);
+  page.drawText(text, { x: centerX - width / 2, y, size, font, color });
 }
 
-// ---------------------------------------------------------------------------
-// Statement of result (A4 portrait)
-// ---------------------------------------------------------------------------
+function drawRight(
+  page: PDFPage,
+  text: string,
+  rightX: number,
+  y: number,
+  size: number,
+  font: PDFFont,
+  color = BLACK,
+): void {
+  const width = font.widthOfTextAtSize(text, size);
+  page.drawText(text, { x: rightX - width, y, size, font, color });
+}
 
-function drawStatement(doc: jsPDF, data: DocumentData, images: Images): void {
-  const pageW = 210;
-  const margin = 18;
+function fitText(text: string, font: PDFFont, size: number, maxWidth: number): string {
+  if (font.widthOfTextAtSize(text, size) <= maxWidth) return text;
+  const ellipsis = '…';
+  let lo = 0;
+  let hi = text.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    const candidate = `${text.slice(0, mid).trimEnd()}${ellipsis}`;
+    if (font.widthOfTextAtSize(candidate, size) <= maxWidth) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo > 0 ? `${text.slice(0, lo).trimEnd()}${ellipsis}` : ellipsis;
+}
+
+async function fillStatementPage(
+  page: PDFPage,
+  data: DocumentData,
+  font: PDFFont,
+  fontBold: PDFFont,
+  winnersLogo: PDFImage,
+): Promise<void> {
+  const pageW = page.getWidth();
   const cx = pageW / 2;
-  const rightX = pageW - margin;
+  // Past the longest label ("Student Number:") so name / number / date line up.
+  const valueX = 175;
+  const leftX = 72;
 
-  let y = 14;
-  y = drawCenteredImage(doc, images.shield, cx, y, 24) + 5;
+  // Programme heading, e.g. "SUMMER JUNIOR BIBLE SCHOOL (BASIC)"
+  cover(page, 90, 568, 420, 26);
+  const heading = `SUMMER JUNIOR BIBLE SCHOOL (${statementTierLabel(data.level_name)})`;
+  drawCentered(page, fitText(heading, fontBold, 16, 400), cx, 574, 16, fontBold, BLACK);
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(20);
-  doc.setTextColor(...RED);
-  doc.text('WORD OF FAITH BIBLE INSTITUTE', cx, y, { align: 'center' });
-  y += 5;
-
-  doc.setFont('helvetica', 'italic');
-  doc.setFontSize(9);
-  doc.setTextColor(...MUTED);
-  doc.text('…liberating the world through the preaching of the Word of Faith', cx, y, {
-    align: 'center',
+  // Clear value columns (and the sample date line), then draw aligned values.
+  cover(page, valueX - 4, 517, 360, 18);
+  page.drawText(fitText(data.full_name, font, 12, 350), {
+    x: valueX,
+    y: 521,
+    size: 12,
+    font,
+    color: BLACK,
   });
-  y += 7;
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
-  doc.setTextColor(...TEXT);
-  doc.text(`JUNIOR WOFBI COURSE - JWC (${data.level_name})`, cx, y, { align: 'center' });
-  y += 6;
+  cover(page, valueX - 4, 496, 360, 18);
+  page.drawText(fitText(data.registration_number, font, 12, 350), {
+    x: valueX,
+    y: 500,
+    size: 12,
+    font,
+    color: BLACK,
+  });
 
-  doc.setFontSize(14);
-  doc.setTextColor(...RED);
-  doc.text('STATEMENT OF RESULT', cx, y, { align: 'center' });
-  y += 12;
+  // Template bakes "Date: 1st August 2025" into one run — redraw label + value.
+  cover(page, 70, 475, 450, 18);
+  page.drawText('Date:', {
+    x: 72,
+    y: 479,
+    size: 12,
+    font,
+    color: BLACK,
+  });
+  page.drawText(data.issued_on, {
+    x: valueX,
+    y: 479,
+    size: 12,
+    font,
+    color: BLACK,
+  });
 
-  labeledLine(doc, margin, y, rightX, 'Student Name:', data.full_name);
-  y += 8;
-  labeledLine(doc, margin, y, rightX, 'Student Number:', data.registration_number);
-  y += 8;
-  labeledLine(doc, margin, y, rightX, 'Date:', data.issued_on);
-  y += 8;
+  // Subject titles + grades (cover sample Basic rows, redraw from API data)
+  for (let i = 0; i < STATEMENT_ROWS; i++) {
+    const y = STATEMENT_GRADE_YS[i];
+    const module = data.modules[i];
 
-  // Results table with a light-grey block behind it.
-  const tableX = margin;
-  const tableW = rightX - margin;
-  const serialW = 30;
-  const gradeW = 30;
-  const subjectX = tableX + serialW;
-  const gradeX = tableX + tableW - gradeW;
-  const rowH = 7.2;
-  const headH = 8;
-  const tableTop = y;
-  const tableHeight = headH + data.modules.length * rowH;
+    cover(page, STATEMENT_SUBJECT_X - 2, y - 2, 280, 16, TABLE_BG);
+    cover(page, 448, y - 2, 36, 16, TABLE_BG);
 
-  doc.setFillColor(...GRAY_BG);
-  doc.rect(tableX, tableTop, tableW, tableHeight, 'F');
-  doc.setFillColor(...GRAY_HEAD);
-  doc.rect(tableX, tableTop, tableW, headH, 'F');
+    if (!module) continue;
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.setTextColor(...TEXT);
-  const headMid = tableTop + headH / 2 + 1.3;
-  doc.text('Serial Number', tableX + serialW / 2, headMid, { align: 'center' });
-  doc.text('Subject Title', subjectX + 3, headMid);
-  doc.text('Grade', gradeX + gradeW / 2, headMid, { align: 'center' });
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
-  let rowY = tableTop + headH;
-  for (const m of data.modules) {
-    const mid = rowY + rowH / 2 + 1.2;
-    doc.setTextColor(...MUTED);
-    doc.text(`${m.serial}.`, tableX + serialW / 2, mid, { align: 'center' });
-    doc.setTextColor(...TEXT);
-    doc.text(m.name, subjectX + 3, mid, { maxWidth: gradeX - subjectX - 6 });
-    doc.setFont('helvetica', 'bold');
-    doc.text(m.grade, gradeX + gradeW / 2, mid, { align: 'center' });
-    doc.setFont('helvetica', 'normal');
-    rowY += rowH;
+    page.drawText(fitText(module.name, font, 11, 270), {
+      x: STATEMENT_SUBJECT_X,
+      y,
+      size: 11,
+      font,
+      color: BLACK,
+    });
+    drawCentered(page, module.grade, STATEMENT_GRADE_CENTER_X, y, 11, fontBold, BLACK);
   }
 
-  y = tableTop + tableHeight + 12;
+  // Pages export scrambled the Word footer. Wipe below the table and redraw in
+  // template order: *NS → Overall Grade → Controller → Winners' Chapel.
+  cover(page, 50, 0, pageW - 100, 188);
+
+  page.drawText('*NS: No Show', {
+    x: leftX,
+    y: 165,
+    size: 12,
+    font: fontBold,
+    color: RED,
+  });
 
   const overall = data.overall_grade_label ? data.overall_grade_label.toUpperCase() : '—';
-  labeledLine(doc, margin, y, rightX, 'Overall Grade:', overall);
-  y += 12;
-  labeledLine(doc, margin, y, rightX, 'Controller of Examinations:');
-
-  // Footer: Winners' Chapel logo + campus line.
-  const footerY = 285;
-  const logoW = 9;
-  const logoH = (images.winners.h / images.winners.w) * logoW;
-  doc.addImage(images.winners.dataUrl, 'PNG', margin, footerY - logoH + 1, logoW, logoH);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
-  doc.setTextColor(...TEXT);
-  doc.text("Winners' Chapel International, Dartford", margin + logoW + 3, footerY - logoH / 2 + 1.5);
-}
-
-// ---------------------------------------------------------------------------
-// Certificate of achievement (A4 landscape)
-// ---------------------------------------------------------------------------
-
-function drawCertificate(doc: jsPDF, data: DocumentData, images: Images): void {
-  const pageW = 297;
-  const cx = pageW / 2;
-
-  let y = 26;
-  doc.setFont('times', 'bolditalic');
-  doc.setFontSize(30);
-  doc.setTextColor(...RED);
-  doc.text('The Word of Faith Bible Institute, Dartford', cx, y, { align: 'center' });
-  y += 14;
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(24);
-  doc.setTextColor(...TEXT);
-  doc.text('Certificate of Achievement', cx, y, { align: 'center' });
-  y += 14;
-
-  doc.setFont('times', 'italic');
-  doc.setFontSize(17);
-  doc.setTextColor(...RED);
-  doc.text('This is to certify that', cx, y, { align: 'center' });
-  y += 16;
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(30);
-  doc.setTextColor(...DARK);
-  doc.text(data.full_name.toUpperCase(), cx, y, { align: 'center', maxWidth: pageW - 50 });
-  y += 14;
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
-  doc.setTextColor(...TEXT);
-  doc.text('has fulfilled the requirements of the Institute for the', cx, y, { align: 'center' });
-  y += 15;
-
-  doc.setFont('times', 'bolditalic');
-  doc.setFontSize(30);
-  doc.setTextColor(...DARK);
-  doc.text(`${data.level_name} Junior Bible School`, cx, y, {
-    align: 'center',
-    maxWidth: pageW - 50,
+  page.drawText('Overall Grade:', {
+    x: leftX,
+    y: 140,
+    size: 12,
+    font,
+    color: BLACK,
+  });
+  page.drawText(overall, {
+    x: leftX + font.widthOfTextAtSize('Overall Grade:  ', 12),
+    y: 140,
+    size: 12,
+    font: fontBold,
+    color: BLACK,
   });
 
-  // Shield crest, centred low on the page.
-  drawCenteredImage(doc, images.shield, cx, 150, 22);
+  page.drawText('Controller of Examinations: ____________________________', {
+    x: leftX,
+    y: 110,
+    size: 12,
+    font,
+    color: BLACK,
+  });
 
-  // Signature lines.
-  const sigY = 188;
-  const leftX = 40;
-  const rightX = pageW - 40;
-  const lineLen = 55;
-  doc.setDrawColor(...LINE);
-  doc.setLineWidth(0.3);
-  doc.line(leftX, sigY, leftX + lineLen, sigY);
-  doc.line(rightX - lineLen, sigY, rightX, sigY);
-
-  doc.setFont('helvetica', 'bolditalic');
-  doc.setFontSize(11);
-  doc.setTextColor(...TEXT);
-  doc.text('WOFBI Coordinator', leftX, sigY + 6);
-  doc.text('Date', rightX, sigY + 6, { align: 'right' });
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(11);
-  doc.setTextColor(...MUTED);
-  doc.text(data.issued_on, rightX, sigY - 2, { align: 'right' });
-
-  // Faint session reference in the footer.
-  doc.setFontSize(9);
-  doc.setTextColor(...MUTED);
-  doc.text(sessionSubtitle(data.session_name), cx, 202, { align: 'center' });
+  const logoH = 28;
+  const logoW = (winnersLogo.width / winnersLogo.height) * logoH;
+  page.drawImage(winnersLogo, { x: leftX, y: 42, width: logoW, height: logoH });
+  page.drawText("Winners' Chapel International, Dartford", {
+    x: leftX + logoW + 8,
+    y: 42 + logoH / 2 - 4,
+    size: 11,
+    font,
+    color: BLACK,
+  });
 }
 
-// ---------------------------------------------------------------------------
-// Public generators
-// ---------------------------------------------------------------------------
+async function fillCertificatePage(
+  page: PDFPage,
+  data: DocumentData,
+  font: PDFFont,
+  copperplate: PDFFont,
+): Promise<void> {
+  const pageW = page.getWidth();
+  const cx = pageW / 2;
+
+  // Recipient name — template uses Copperplate Bold ~25pt
+  cover(page, 180, 298, 480, 40);
+  const name = fitText(data.full_name.toUpperCase(), copperplate, 25, 460);
+  drawCentered(page, name, cx, 306, 25, copperplate, DARK);
+
+  // Level (template sample: BASIC)
+  cover(page, 290, 165, 260, 40);
+  const level = fitText(shortLevelName(data.level_name).toUpperCase(), copperplate, 22, 230);
+  drawCentered(page, level, cx, 175, 22, copperplate, RED);
+
+  // Session — keep short, e.g. "AUGUST 2026 SESSION"
+  cover(page, 250, 135, 360, 34);
+  const session = formatSessionLabel(data.session_name, data.issued_on).toUpperCase();
+  drawCentered(page, session, cx, 147, 18, copperplate, BLACK);
+
+  // Date right-aligned to the "Date" label / signature line
+  cover(page, 540, 60, 160, 18);
+  drawRight(page, data.issued_on, 640, 66, 11, font, BLACK);
+}
+
+async function buildStatementsPdf(list: DocumentData[]): Promise<Uint8Array> {
+  const [templateBytes, winnersBytes] = await Promise.all([
+    loadTemplate(statementTemplateUrl),
+    loadTemplate(winnersLogoUrl),
+  ]);
+  const out = await PDFDocument.create();
+  const font = await out.embedFont(StandardFonts.Helvetica);
+  const fontBold = await out.embedFont(StandardFonts.HelveticaBold);
+  const winnersLogo = await out.embedPng(winnersBytes);
+
+  for (const data of list) {
+    const template = await PDFDocument.load(templateBytes.slice(0));
+    // Page 2 only had the overflowed controller line — page 1 is the designed sheet.
+    const [page] = await out.copyPages(template, [0]);
+    out.addPage(page);
+    await fillStatementPage(page, data, font, fontBold, winnersLogo);
+  }
+
+  return out.save();
+}
+
+async function buildCertificatesPdf(list: DocumentData[]): Promise<Uint8Array> {
+  const [templateBytes, copperplateBytes] = await Promise.all([
+    loadTemplate(certificateTemplateUrl),
+    loadTemplate(copperplateBoldUrl),
+  ]);
+  const out = await PDFDocument.create();
+  out.registerFontkit(fontkit);
+  const font = await out.embedFont(StandardFonts.Helvetica);
+  const copperplate = await out.embedFont(copperplateBytes);
+
+  for (const data of list) {
+    const template = await PDFDocument.load(templateBytes.slice(0));
+    const [page] = await out.copyPages(template, [0]);
+    out.addPage(page);
+    await fillCertificatePage(page, data, font, copperplate);
+  }
+
+  return out.save();
+}
+
+function downloadPdf(bytes: Uint8Array, filename: string): void {
+  const blob = new Blob([bytes], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export async function generateStatementPdf(data: DocumentData, filename: string): Promise<void> {
-  const images = await loadImages();
-  const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
-  drawStatement(doc, data, images);
-  doc.save(filename);
+  downloadPdf(await buildStatementsPdf([data]), filename);
 }
 
 export async function generateCertificatePdf(data: DocumentData, filename: string): Promise<void> {
-  const images = await loadImages();
-  const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape', compress: true });
-  drawCertificate(doc, data, images);
-  doc.save(filename);
+  downloadPdf(await buildCertificatesPdf([data]), filename);
 }
 
 export async function generateStatementsPdf(list: DocumentData[], filename: string): Promise<void> {
-  const images = await loadImages();
-  const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
-  list.forEach((data, i) => {
-    if (i > 0) doc.addPage('a4', 'portrait');
-    drawStatement(doc, data, images);
-  });
-  doc.save(filename);
+  downloadPdf(await buildStatementsPdf(list), filename);
 }
 
 export async function generateCertificatesPdf(list: DocumentData[], filename: string): Promise<void> {
-  const images = await loadImages();
-  const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape', compress: true });
-  list.forEach((data, i) => {
-    if (i > 0) doc.addPage('a4', 'landscape');
-    drawCertificate(doc, data, images);
-  });
-  doc.save(filename);
+  downloadPdf(await buildCertificatesPdf(list), filename);
 }

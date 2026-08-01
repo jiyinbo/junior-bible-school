@@ -285,23 +285,30 @@ export function StudentModulesTable({
     );
   }
 
+  const headCellSx = {
+    bgcolor: (theme: { palette: { mode: string } }) =>
+      theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50',
+    color: 'text.primary',
+    fontWeight: 700,
+  } as const;
+
   const table = (
     <Table size="small">
       <TableHead>
         <TableRow>
-          <TableCell>Module</TableCell>
+          <TableCell sx={headCellSx}>Module</TableCell>
           {isStudent ? (
-            <TableCell>Status</TableCell>
+            <TableCell sx={headCellSx}>Status</TableCell>
           ) : (
             <>
-              <TableCell>Score</TableCell>
-              <TableCell>%</TableCell>
-              <TableCell>Grade</TableCell>
-              <TableCell>Source</TableCell>
-              <TableCell>Status</TableCell>
+              <TableCell sx={headCellSx}>Score</TableCell>
+              <TableCell sx={headCellSx}>%</TableCell>
+              <TableCell sx={headCellSx}>Grade</TableCell>
+              <TableCell sx={headCellSx}>Source</TableCell>
+              <TableCell sx={headCellSx}>Status</TableCell>
             </>
           )}
-          {showAdminColumn && <TableCell align="right" />}
+          {showAdminColumn && <TableCell align="right" sx={headCellSx} />}
         </TableRow>
       </TableHead>
       <TableBody>
@@ -398,7 +405,9 @@ export function StudentProgressPanel({
               py: 1.5,
               borderBottom: 1,
               borderColor: 'divider',
-              bgcolor: 'grey.50',
+              bgcolor: (theme) =>
+                theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50',
+              color: 'text.primary',
             }}
           >
             <Typography variant="subtitle1" fontWeight={600}>

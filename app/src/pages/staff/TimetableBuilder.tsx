@@ -27,6 +27,7 @@ import {
   TextField,
   Tooltip,
   Typography,
+  useTheme,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
@@ -73,6 +74,11 @@ const emptyPeriodDraft: PeriodDraft = {
 };
 
 export function TimetableBuilder({ sessionId, tiers, canManage }: Props) {
+  const theme = useTheme();
+  const headerStrong = theme.palette.mode === 'dark' ? 'grey.900' : 'grey.200';
+  const headerSoft = theme.palette.mode === 'dark' ? 'grey.800' : 'grey.100';
+  const activityBg =
+    theme.palette.mode === 'dark' ? 'rgba(142, 180, 224, 0.18)' : 'rgba(26, 51, 82, 0.08)';
   const [tierId, setTierId] = useState<number | ''>(tiers[0]?.id ?? '');
   const [grid, setGrid] = useState<TimetableGridData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -416,7 +422,8 @@ export function TimetableBuilder({ sessionId, tiers, canManage }: Props) {
                   <TableRow>
                     <TableCell
                       sx={{
-                        bgcolor: 'grey.200',
+                        bgcolor: headerStrong,
+                        color: 'text.primary',
                         fontWeight: 700,
                         position: 'sticky',
                         left: 0,
@@ -428,7 +435,10 @@ export function TimetableBuilder({ sessionId, tiers, canManage }: Props) {
                       Date / Time
                     </TableCell>
                     {grid.periods.map((p) => (
-                      <TableCell key={p.id} sx={{ bgcolor: 'grey.100', fontWeight: 700 }}>
+                      <TableCell
+                        key={p.id}
+                        sx={{ bgcolor: headerSoft, color: 'text.primary', fontWeight: 700 }}
+                      >
                         {p.time_label ?? '—'}
                       </TableCell>
                     ))}
@@ -453,7 +463,7 @@ export function TimetableBuilder({ sessionId, tiers, canManage }: Props) {
                               bgcolor: e?.module_id
                                 ? 'transparent'
                                 : e?.activity_label || placeholder
-                                  ? '#dce7f3'
+                                  ? activityBg
                                   : 'transparent',
                               color: placeholder ? 'text.disabled' : 'text.primary',
                               fontWeight: e ? 700 : 400,
@@ -472,7 +482,8 @@ export function TimetableBuilder({ sessionId, tiers, canManage }: Props) {
                       <TableRow key={d.id}>
                         <TableCell
                           sx={{
-                            bgcolor: 'grey.100',
+                            bgcolor: headerSoft,
+                            color: 'text.primary',
                             fontWeight: 700,
                             whiteSpace: 'nowrap',
                             position: 'sticky',

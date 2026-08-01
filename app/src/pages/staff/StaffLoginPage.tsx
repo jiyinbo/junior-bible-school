@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link as RouterLink, Navigate, useNavigate } from "react-router-dom";
 import {
+  Box,
   Button,
   Container,
   Paper,
@@ -9,6 +10,7 @@ import {
   Typography,
 } from "@mui/material";
 import { parseApiError } from "../../api/http";
+import { ThemeToggleButton } from "../../components/ThemeToggleButton";
 import { useStaffAuth } from "../../staff/StaffAuthContext";
 
 export function StaffLoginPage() {
@@ -34,9 +36,12 @@ export function StaffLoginPage() {
 
   return (
     <Container maxWidth="xs" sx={{ py: 8 }}>
-      <Button component={RouterLink} to="/" sx={{ mb: 2 }}>
-        ← Home
-      </Button>
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+        <Button component={RouterLink} to="/">
+          ← Home
+        </Button>
+        <ThemeToggleButton edge="end" />
+      </Box>
       <Paper sx={{ p: 3 }}>
         <Typography variant="h5" gutterBottom>
           Staff login

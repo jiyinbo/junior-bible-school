@@ -1,7 +1,6 @@
 import { Navigate, Route, Routes, useParams } from 'react-router-dom';
-import { CssBaseline, ThemeProvider } from '@mui/material';
 import { SnackbarProvider } from 'notistack';
-import { schoolTheme } from './theme/schoolTheme';
+import { ColorModeProvider } from './theme/ColorModeContext';
 import { HomePage } from './pages/HomePage';
 import { RegisterPage } from './pages/RegisterPage';
 import { StudentPortalPage } from './pages/StudentPortalPage';
@@ -37,8 +36,7 @@ function LegacyAdminSessionRedirect() {
 
 export default function App() {
   return (
-    <ThemeProvider theme={schoolTheme}>
-      <CssBaseline />
+    <ColorModeProvider>
       <SnackbarProvider maxSnack={4} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <StaffAuthProvider>
           <Routes>
@@ -81,6 +79,6 @@ export default function App() {
           </Routes>
         </StaffAuthProvider>
       </SnackbarProvider>
-    </ThemeProvider>
+    </ColorModeProvider>
   );
 }

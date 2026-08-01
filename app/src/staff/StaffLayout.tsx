@@ -19,6 +19,7 @@ import {
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import SchoolRoundedIcon from '@mui/icons-material/SchoolRounded';
+import { ThemeToggleButton } from '../components/ThemeToggleButton';
 import { useStaffAuth } from './StaffAuthContext';
 import { navItemsForRole, navSectionsForRole } from './navConfig';
 
@@ -163,6 +164,7 @@ export function StaffLayout() {
               n.path === '/staff' ? location.pathname === '/staff' : location.pathname.startsWith(n.path),
             )?.label ?? 'Staff portal'}
           </Typography>
+          <ThemeToggleButton edge="end" />
         </Toolbar>
       </AppBar>
 

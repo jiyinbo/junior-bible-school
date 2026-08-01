@@ -14,6 +14,8 @@ import {
   TableHead,
   TableRow,
   Typography,
+  useTheme,
+  type Theme,
 } from '@mui/material';
 
 export type TimetablePeriod = {
@@ -85,10 +87,21 @@ type StackedBlock = {
   structural: boolean;
 };
 
-function cellBg(cell: TimetableCell): string | undefined {
-  if (cell.type === 'module') return undefined;
-  if (cell.type === 'empty') return undefined;
-  return cell.structural ? '#eef0f2' : '#dce7f3';
+function cellBg(cell: TimetableCell, theme: Theme): string | undefined {
+  if (cell.type === 'module' || cell.type === 'empty') return undefined;
+  if (cell.structural) {
+    return theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[200];
+  }
+  return theme.palette.mode === 'dark'
+    ? 'rgba(142, 180, 224, 0.18)'
+    : 'rgba(26, 51, 82, 0.08)';
+}
+
+function headerBg(theme: Theme, strong = false): string {
+  if (theme.palette.mode === 'dark') {
+    return strong ? theme.palette.grey[900] : theme.palette.grey[800];
+  }
+  return strong ? theme.palette.grey[200] : theme.palette.grey[100];
 }
 
 function formatClock(value: string | null | undefined): string | null {
@@ -190,6 +203,8 @@ function TimetableLegend({ legend }: { legend: TimetableLegendItem[] }) {
 }
 
 function TimetableMatrix({ grid }: { grid: TimetableGridData }) {
+  const theme = useTheme();
+
   return (
     <Box sx={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
       <Table
@@ -217,7 +232,8 @@ function TimetableMatrix({ grid }: { grid: TimetableGridData }) {
           <TableRow>
             <TableCell
               sx={{
-                bgcolor: 'grey.200',
+                bgcolor: headerBg(theme, true),
+                color: 'text.primary',
                 fontWeight: 700,
                 position: 'sticky',
                 left: 0,
@@ -229,7 +245,10 @@ function TimetableMatrix({ grid }: { grid: TimetableGridData }) {
               Date / Time
             </TableCell>
             {grid.periods.map((p) => (
-              <TableCell key={p.id} sx={{ bgcolor: 'grey.100', fontWeight: 700 }}>
+              <TableCell
+                key={p.id}
+                sx={{ bgcolor: headerBg(theme), color: 'text.primary', fontWeight: 700 }}
+              >
                 {p.time_label ?? ''}
               </TableCell>
             ))}
@@ -240,7 +259,8 @@ function TimetableMatrix({ grid }: { grid: TimetableGridData }) {
             <TableRow key={row.day_id}>
               <TableCell
                 sx={{
-                  bgcolor: 'grey.100',
+                  bgcolor: headerBg(theme),
+                  color: 'text.primary',
                   fontWeight: 700,
                   whiteSpace: 'nowrap',
                   position: 'sticky',
@@ -257,7 +277,8 @@ function TimetableMatrix({ grid }: { grid: TimetableGridData }) {
                   colSpan={cell.col_span > 1 ? cell.col_span : undefined}
                   rowSpan={cell.row_span > 1 ? cell.row_span : undefined}
                   sx={{
-                    bgcolor: cellBg(cell),
+                    bgcolor: cellBg(cell, theme),
+                    color: 'text.primary',
                     fontWeight: cell.type === 'module' || cell.type === 'activity' ? 700 : 400,
                   }}
                   title={cell.type === 'module' ? cell.name ?? undefined : undefined}
@@ -388,11 +409,15 @@ function TimetableStacked({ grid }: { grid: TimetableGridData }) {
                         px: 1,
                         py: 0.85,
                         borderRadius: 1,
-                        bgcolor:
+                        bgcolor: (theme) =>
                           block.kind === 'activity'
                             ? block.structural
-                              ? 'grey.100'
-                              : 'rgba(25, 118, 210, 0.08)'
+                              ? theme.palette.mode === 'dark'
+                                ? 'grey.800'
+                                : 'grey.100'
+                              : theme.palette.mode === 'dark'
+                                ? 'rgba(142, 180, 224, 0.18)'
+                                : 'rgba(26, 51, 82, 0.08)'
                             : 'background.paper',
                         border: 1,
                         borderColor: 'divider',

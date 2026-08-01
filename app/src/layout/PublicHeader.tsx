@@ -21,6 +21,7 @@ import {
 import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
 import SchoolRoundedIcon from '@mui/icons-material/SchoolRounded';
+import { ThemeToggleButton } from '../components/ThemeToggleButton';
 import { usePublicRegistrationOpen } from '../hooks/usePublicRegistrationOpen';
 
 const REGISTRATION_CLOSED_HINT =
@@ -130,6 +131,8 @@ export function PublicHeader() {
               </Typography>
             </Box>
           </Stack>
+
+          <ThemeToggleButton />
 
           {!isMobile && (
             <Stack direction="row" spacing={1} alignItems="center" flexShrink={0}>

@@ -189,7 +189,7 @@ function StudentCardStat({ label, value }: { label: string; value: string | numb
         px: 1.25,
         py: 1,
         borderRadius: 1,
-        bgcolor: 'grey.50',
+        bgcolor: (theme) => (theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50'),
         border: 1,
         borderColor: 'divider',
       }}

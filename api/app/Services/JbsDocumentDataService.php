@@ -5,9 +5,9 @@ namespace App\Services;
 use App\Models\JbsStudentRegistration;
 
 /**
- * Builds the plain-data payload the frontend uses to render the statement of
- * result and certificate PDFs entirely in the browser. Both documents share
- * the same payload so a single fetch feeds either output.
+ * Builds the plain-data payload the frontend uses to fill statement-of-result
+ * and certificate PDF templates in the browser. Both documents share the same
+ * payload so a single fetch feeds either output.
  */
 class JbsDocumentDataService
 {
