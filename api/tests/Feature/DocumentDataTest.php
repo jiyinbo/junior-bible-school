@@ -91,7 +91,7 @@ class DocumentDataTest extends TestCase
             ->getJson("/api/v1/admin/registrations/{$registration->id}/documents/data")
             ->assertOk()
             ->assertJsonPath('data.full_name', 'Ada Lovelace')
-            ->assertJsonPath('data.issued_on', '6 August 2026')
+            ->assertJsonPath('data.issued_on', '2nd August 2026')
             ->assertJsonPath('data.modules.0.grade', 'A')
             ->assertJsonPath('data.modules.1.grade', '—');
 

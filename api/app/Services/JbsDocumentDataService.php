@@ -34,8 +34,6 @@ class JbsDocumentDataService
             ];
         }
 
-        $issuedOn = $registration->level_completed_at ?? now();
-
         return [
             'registration_number' => $registration->registration_number,
             'full_name' => $registration->fullName(),
@@ -43,7 +41,8 @@ class JbsDocumentDataService
             'last_name' => $registration->last_name,
             'session_name' => $registration->session->name,
             'level_name' => $registration->level->name,
-            'issued_on' => $issuedOn->format('j F Y'),
+            // Summer JBS 2026 graduation ceremony date (printed on certificate + statement).
+            'issued_on' => '2nd August 2026',
             'overall_grade_label' => $summary['overall_grade_label'],
             'overall_grade_short' => $summary['overall_grade_short'],
             'overall_percent' => $summary['overall_percent'],

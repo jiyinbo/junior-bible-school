@@ -55,8 +55,83 @@ class StudentRegistrationExportTest extends TestCase
         $response->assertOk();
         $response->assertHeader('content-type', 'text/csv; charset=UTF-8');
         $this->assertStringContainsString('Registration number', $response->streamedContent());
+        $this->assertStringContainsString('Overall grade', $response->streamedContent());
         $this->assertStringContainsString('B/0001', $response->streamedContent());
         $this->assertStringContainsString('ada@example.com', $response->streamedContent());
         $this->assertStringContainsString('parent@example.com', $response->streamedContent());
+    }
+
+    public function test_export_can_limit_to_graduating_students(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $session = JbsSession::query()->create(['name' => 'Summer', 'slug' => 'summer', 'is_past' => false]);
+        $level = JbsLevel::query()->create([
+            'jbs_session_id' => $session->id,
+            'name' => 'Basic',
+            'registration_prefix' => 'B',
+        ]);
+
+        JbsStudentRegistration::query()->create([
+            'jbs_session_id' => $session->id,
+            'jbs_level_id' => $level->id,
+            'registration_number' => 'B/0001',
+            'first_name' => 'Ada',
+            'last_name' => 'Graduated',
+            'email' => 'ada@example.com',
+            'phone' => '07123456789',
+            'guardian_name' => 'Parent',
+            'guardian_relationship' => 'Mother',
+            'guardian_phone' => '07987654321',
+            'guardian_email' => 'parent@example.com',
+            'gender' => 'Female',
+            'date_of_birth' => '2014-01-15',
+            'nationality' => 'British',
+            'address' => '1 Street',
+            'born_again' => true,
+            'place_of_worship' => 'Church',
+            'place_of_worship_address' => 'Town',
+            'pastor_name' => 'Pastor',
+            'activity_group' => 'Youth',
+            'current_school' => 'School',
+            'current_school_year' => 'Year 9',
+            'next_of_kin_name' => 'Kin',
+            'level_completed' => true,
+            'level_completed_at' => now(),
+        ]);
+
+        JbsStudentRegistration::query()->create([
+            'jbs_session_id' => $session->id,
+            'jbs_level_id' => $level->id,
+            'registration_number' => 'B/0002',
+            'first_name' => 'Bob',
+            'last_name' => 'Ongoing',
+            'email' => 'bob@example.com',
+            'phone' => '07123456780',
+            'guardian_name' => 'Parent',
+            'guardian_relationship' => 'Father',
+            'guardian_phone' => '07987654320',
+            'guardian_email' => 'parent2@example.com',
+            'gender' => 'Male',
+            'date_of_birth' => '2014-02-15',
+            'nationality' => 'British',
+            'address' => '2 Street',
+            'born_again' => true,
+            'place_of_worship' => 'Church',
+            'place_of_worship_address' => 'Town',
+            'pastor_name' => 'Pastor',
+            'activity_group' => 'Youth',
+            'current_school' => 'School',
+            'current_school_year' => 'Year 9',
+            'next_of_kin_name' => 'Kin',
+            'level_completed' => false,
+        ]);
+
+        $response = $this->actingAs($admin, 'sanctum')
+            ->get('/api/v1/admin/registrations/export?jbs_session_id='.$session->id.'&level_completed=1');
+
+        $response->assertOk();
+        $csv = $response->streamedContent();
+        $this->assertStringContainsString('B/0001', $csv);
+        $this->assertStringNotContainsString('B/0002', $csv);
     }
 }

@@ -612,10 +612,11 @@ export function StudentsPage() {
           />
         </Box>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
-          “Print ID cards” builds an A4 PDF (9 cards per page) for every student matching these
-          filters, ordered by tier then registration date (oldest first), with a new page when the
-          tier changes. “Print statements” and “Print certificates” cover only graduating
-          (tier-completed) students that match — select a tier to print that tier only.
+          “Print ID cards” and “Export CSV” use every student matching these filters — set Completion
+          to Completed to export graduating students only. “Print statements” and “Print
+          certificates” always cover only graduating (tier-completed) students that match. ID cards
+          are ordered by tier then registration date (oldest first), with a new page when the tier
+          changes.
         </Typography>
       </Paper>
 
