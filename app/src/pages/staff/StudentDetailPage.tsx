@@ -153,6 +153,9 @@ export function StudentDetailPage() {
     progress.level_completed,
     progress.programme_phase,
   );
+  const documentsAvailable =
+    progress.level_completed &&
+    (progress.programme_phase === "ended" || progress.programme_phase === "past");
 
   return (
     <>
@@ -368,7 +371,8 @@ export function StudentDetailPage() {
                   sx={{ mb: 2 }}
                 >
                   Download student documents. Statement and certificate require
-                  tier completion.
+                  the programme to have ended and tier completion (no more than
+                  3 modules without scores).
                 </Typography>
                 <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
                   <Button
@@ -381,7 +385,7 @@ export function StudentDetailPage() {
                   <Button
                     size="small"
                     variant="outlined"
-                    disabled={!progress.level_completed}
+                    disabled={!documentsAvailable}
                     onClick={() => void download("statement")}
                   >
                     Statement
@@ -389,7 +393,7 @@ export function StudentDetailPage() {
                   <Button
                     size="small"
                     variant="contained"
-                    disabled={!progress.level_completed}
+                    disabled={!documentsAvailable}
                     onClick={() => void download("certificate")}
                   >
                     Certificate

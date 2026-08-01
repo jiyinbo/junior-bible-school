@@ -362,7 +362,11 @@ export function StudentPortalPage() {
 
           <PortalSection
             title="Documents (PDF)"
-            subtitle="View ID card · statement and certificate temporarily unavailable"
+            subtitle={
+              lookup.documents_available
+                ? 'View ID card · download statement and certificate'
+                : 'View ID card · statement & certificate after the programme ends (and tier completion)'
+            }
             expanded={expanded.documents}
             onExpandedChange={(open) => setSectionExpanded('documents', open)}
           >
@@ -370,11 +374,20 @@ export function StudentPortalPage() {
               <Button variant="outlined" fullWidth onClick={() => setIdCardOpen(true)}>
                 ID card
               </Button>
-              {/* Temporarily disabled — re-enable when documents are ready for students. */}
-              <Button variant="outlined" fullWidth disabled onClick={() => void dl('statement')}>
+              <Button
+                variant="outlined"
+                fullWidth
+                disabled={!lookup.documents_available}
+                onClick={() => void dl('statement')}
+              >
                 Statement
               </Button>
-              <Button variant="outlined" fullWidth disabled onClick={() => void dl('certificate')}>
+              <Button
+                variant="outlined"
+                fullWidth
+                disabled={!lookup.documents_available}
+                onClick={() => void dl('certificate')}
+              >
                 Certificate
               </Button>
             </Stack>

@@ -66,11 +66,36 @@ class JbsStudentProgressService
         return $completed;
     }
 
+    public function documentsAvailable(JbsStudentRegistration $registration): bool
+    {
+        $registration->loadMissing(['session', 'level.modules']);
+
+        $phase = $registration->session->programmePhase();
+        if (! in_array($phase, ['ended', 'past'], true)) {
+            return false;
+        }
+
+        return $this->isLevelCompleted($registration);
+    }
+
     public function assertDocumentsAllowed(JbsStudentRegistration $registration): void
     {
-        if (! $this->isLevelCompleted($registration)) {
-            abort(403, $this->studentCompletionMessage($registration));
+        if (! $this->documentsAvailable($registration)) {
+            abort(403, $this->studentDocumentsMessage($registration));
         }
+    }
+
+    public function studentDocumentsMessage(JbsStudentRegistration $registration): string
+    {
+        $registration->loadMissing(['session', 'level.modules']);
+        $phase = $registration->session->programmePhase();
+        $max = JbsGradingService::MAX_MISSED_TESTS_FOR_GRADUATION;
+
+        if (! in_array($phase, ['ended', 'past'], true)) {
+            return "Statement and certificate will be available after the programme ends, once you have scores for all but {$max} modules (or fewer missing).";
+        }
+
+        return $this->studentCompletionMessage($registration);
     }
 
     public function studentCompletionMessage(JbsStudentRegistration $registration): string

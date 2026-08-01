@@ -23,13 +23,14 @@ class DocumentDataTest extends TestCase
         int $moduleCount,
         int $scoredCount,
         ?Carbon $completedAt = null,
+        bool $programmeEnded = true,
     ): array {
         $session = JbsSession::query()->create([
             'name' => 'Summer - 2026',
             'slug' => 'summer-2026-'.uniqid(),
             'is_past' => false,
-            'session_starts_at' => now()->subWeek(),
-            'session_ends_at' => now()->addMonth(),
+            'session_starts_at' => now()->subWeeks(2),
+            'session_ends_at' => $programmeEnded ? now()->subDay() : now()->addMonth(),
         ]);
         $level = JbsLevel::query()->create([
             'jbs_session_id' => $session->id,
@@ -102,6 +103,21 @@ class DocumentDataTest extends TestCase
         $admin = User::factory()->create(['role' => 'admin']);
         // 5 modules, 1 score → 4 missing (> 3) → not complete
         [$registration] = $this->registrationWithModules(moduleCount: 5, scoredCount: 1);
+
+        $this->actingAs($admin, 'sanctum')
+            ->getJson("/api/v1/admin/registrations/{$registration->id}/documents/data")
+            ->assertForbidden();
+    }
+
+    public function test_admin_document_data_forbidden_while_programme_still_running(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        [$registration] = $this->registrationWithModules(
+            moduleCount: 5,
+            scoredCount: 2,
+            completedAt: Carbon::parse('2026-08-06 10:00:00'),
+            programmeEnded: false,
+        );
 
         $this->actingAs($admin, 'sanctum')
             ->getJson("/api/v1/admin/registrations/{$registration->id}/documents/data")

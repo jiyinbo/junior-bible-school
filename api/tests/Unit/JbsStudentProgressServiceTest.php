@@ -100,6 +100,31 @@ class JbsStudentProgressServiceTest extends TestCase
         $this->assertFalse($reg->fresh()->level_completed);
     }
 
+    #[Test]
+    public function documents_unavailable_until_programme_ends(): void
+    {
+        [$reg, $modules] = $this->registrationWithModules(moduleCount: 5, sessionStartsAt: now()->subWeek());
+
+        foreach (array_slice($modules, 0, 2) as $module) {
+            JbsModuleScoreOutcome::query()->create([
+                'jbs_student_registration_id' => $reg->id,
+                'jbs_module_id' => $module->id,
+                'score' => 70,
+                'max_score' => 100,
+                'source' => 'paper',
+            ]);
+        }
+
+        $reg = $reg->fresh()->load(['session', 'level.modules']);
+        $this->assertTrue($this->progress->isLevelCompleted($reg));
+        $this->assertFalse($this->progress->documentsAvailable($reg));
+
+        $reg->session->forceFill(['session_ends_at' => now()->subDay()])->save();
+        $reg = $reg->fresh()->load(['session', 'level.modules']);
+
+        $this->assertTrue($this->progress->documentsAvailable($reg));
+    }
+
     /**
      * @return array{0: JbsStudentRegistration, 1: list<JbsModule>}
      */

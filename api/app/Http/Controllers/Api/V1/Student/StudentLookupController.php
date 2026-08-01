@@ -64,7 +64,7 @@ class StudentLookupController extends Controller
         }
 
         $summary = $this->progress->studentPortalSummary($reg);
-        $completed = $summary['level_completed'];
+        $documentsAvailable = $this->progress->documentsAvailable($reg);
         $session = $reg->session;
         $this->timetableGrid->ensureDays($session);
         $timetableGrid = $this->timetableGrid->gridForLevel($reg->level);
@@ -81,11 +81,13 @@ class StudentLookupController extends Controller
                 'open_tests' => $openTests,
                 'completed_tests' => $completedTests,
                 'timetable_grid' => $timetableGrid,
-                'level_completed' => $completed,
-                'programme_completed' => $completed,
-                'documents_available' => $completed,
+                'level_completed' => $summary['level_completed'],
+                'programme_completed' => $summary['level_completed'],
+                'documents_available' => $documentsAvailable,
                 'progress' => $summary,
-                'completion_message' => $completed ? null : $this->progress->studentCompletionMessage($reg),
+                'completion_message' => $documentsAvailable
+                    ? null
+                    : $this->progress->studentDocumentsMessage($reg),
             ],
         ]);
     }
