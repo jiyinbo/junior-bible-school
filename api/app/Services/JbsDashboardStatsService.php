@@ -327,19 +327,26 @@ class JbsDashboardStatsService
             };
 
             $percents = [];
+            $anyScored = false;
             $outcomes = $registration->scoreOutcomes->keyBy('jbs_module_id');
 
             foreach ($registration->level->modules as $module) {
                 $outcome = $outcomes->get($module->id);
                 if ($outcome !== null) {
+                    $anyScored = true;
                     $percents[] = $this->grading->percentFromScores(
                         (float) $outcome->score,
                         (float) $outcome->max_score,
                     );
+                } else {
+                    // Untaken / NS = 0% in the overall average of all modules.
+                    $percents[] = 0;
                 }
             }
 
-            $overallPercent = $this->grading->overallAveragePercent($percents);
+            $overallPercent = $anyScored
+                ? $this->grading->overallAveragePercent($percents)
+                : null;
 
             $field = null;
             if ($overallPercent !== null) {

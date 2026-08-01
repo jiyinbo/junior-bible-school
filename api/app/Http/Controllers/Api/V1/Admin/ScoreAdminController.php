@@ -49,18 +49,26 @@ class ScoreAdminController extends Controller
             ->orderBy('registration_number')
             ->get(['id', 'registration_number', 'first_name', 'last_name']);
 
-        $outcomesByRegistration = $registrations->isEmpty() || $moduleIds === []
+        $allOutcomes = $registrations->isEmpty() || $moduleIds === []
             ? collect()
             : JbsModuleScoreOutcome::query()
                 ->whereIn('jbs_student_registration_id', $registrations->pluck('id'))
                 ->whereIn('jbs_module_id', $moduleIds)
-                ->get()
-                ->groupBy('jbs_student_registration_id');
+                ->get();
 
-        $students = $registrations->map(function (JbsStudentRegistration $registration) use ($modules, $outcomesByRegistration) {
+        $outcomesByRegistration = $allOutcomes->groupBy('jbs_student_registration_id');
+
+        // Typical max per module (for NS / untaken rows in the overall total).
+        $moduleMaxScores = [];
+        foreach ($allOutcomes as $outcome) {
+            $moduleMaxScores[$outcome->jbs_module_id] ??= (int) round((float) $outcome->max_score);
+        }
+
+        $students = $registrations->map(function (JbsStudentRegistration $registration) use ($modules, $outcomesByRegistration, $moduleMaxScores) {
             $outcomes = ($outcomesByRegistration->get($registration->id) ?? collect())->keyBy('jbs_module_id');
             $moduleScores = [];
             $scoredPercents = [];
+            $percentsForOverall = [];
             $overallScore = 0;
             $overallMaxScore = 0;
 
@@ -69,6 +77,9 @@ class ScoreAdminController extends Controller
                 $outcome = $outcomes->get($module->id);
                 if ($outcome === null) {
                     $moduleScores[(string) $module->id] = null;
+                    // Untaken / NS = 0 marks and 0% toward the overall of all modules.
+                    $percentsForOverall[] = 0;
+                    $overallMaxScore += $moduleMaxScores[$module->id] ?? 100;
 
                     continue;
                 }
@@ -83,11 +94,14 @@ class ScoreAdminController extends Controller
                     'grade_short' => $grade['grade_short'],
                 ];
                 $scoredPercents[] = $grade['percent'];
+                $percentsForOverall[] = $grade['percent'];
                 $overallScore += $score;
                 $overallMaxScore += $maxScore;
             }
 
-            $overallPercent = $this->grading->overallAveragePercent($scoredPercents);
+            $overallPercent = $scoredPercents !== []
+                ? $this->grading->overallAveragePercent($percentsForOverall)
+                : null;
             $overallGrade = $overallPercent !== null
                 ? $this->grading->overallGradeForPercent($overallPercent)
                 : null;

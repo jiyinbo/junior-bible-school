@@ -144,6 +144,13 @@ class StaffTierBoardTest extends TestCase
         $this->assertNull(
             collect($response->json('data.students'))->firstWhere('id', $unscored->id)['overall_percent'],
         );
+
+        // One scored module + one NS → 50/200 marks and 25% overall (NS counts as 0).
+        $thirdRow = collect($response->json('data.students'))->firstWhere('id', $third->id);
+        $this->assertSame(50, $thirdRow['overall_score']);
+        $this->assertSame(200, $thirdRow['overall_max_score']);
+        $this->assertSame(25, $thirdRow['overall_percent']);
+        $this->assertSame('Pass', $thirdRow['overall_grade_label']);
     }
 
     public function test_tier_board_top3_includes_ties_for_second_place(): void

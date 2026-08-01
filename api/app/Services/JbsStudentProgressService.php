@@ -203,11 +203,20 @@ class JbsStudentProgressService
             : $this->grading->eligibleForGraduation($testsTotal, $testsTaken);
         $levelCompleted = $this->syncLevelCompletion($registration, $testsTotal, $testsTaken);
 
-        $scoredPercents = array_values(array_filter(
-            array_column($modules, 'percent'),
-            fn ($p) => $p !== null,
-        ));
-        $overallPercent = $this->grading->overallAveragePercent($scoredPercents);
+        // Overall = simple average across every module. Untaken / NS counts as 0%.
+        $anyScored = false;
+        $percentsForOverall = [];
+        foreach ($modules as $row) {
+            if ($row['percent'] !== null) {
+                $anyScored = true;
+                $percentsForOverall[] = $row['percent'];
+            } else {
+                $percentsForOverall[] = 0;
+            }
+        }
+        $overallPercent = $anyScored
+            ? $this->grading->overallAveragePercent($percentsForOverall)
+            : null;
         $overallGrade = $overallPercent !== null
             ? $this->grading->overallGradeForPercent($overallPercent)
             : null;

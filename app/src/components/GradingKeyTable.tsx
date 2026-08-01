@@ -21,7 +21,7 @@ export function GradingKeyTable({ scale, compact = false, variant = 'overall' }:
   const caption =
     variant === 'module'
       ? 'Letter grades apply to each module test. NS = 0% (did not take the test).'
-      : 'Overall grade is the simple average of all module percentages, rounded to 2 decimal places.';
+      : 'Overall grade is the simple average of all module percentages (NS / not taken = 0%), rounded to 2 decimal places.';
 
   return (
     <>

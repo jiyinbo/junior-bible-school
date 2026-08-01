@@ -101,6 +101,29 @@ class JbsStudentProgressServiceTest extends TestCase
     }
 
     #[Test]
+    public function overall_average_counts_untaken_modules_as_zero(): void
+    {
+        [$reg, $modules] = $this->registrationWithModules(moduleCount: 5, sessionStartsAt: now()->subDay());
+
+        // 3 perfect scores + 2 NS → average 60% (Merit), not 100% (Distinction).
+        foreach (array_slice($modules, 0, 3) as $module) {
+            JbsModuleScoreOutcome::query()->create([
+                'jbs_student_registration_id' => $reg->id,
+                'jbs_module_id' => $module->id,
+                'score' => 100,
+                'max_score' => 100,
+                'source' => 'paper',
+            ]);
+        }
+
+        $summary = $this->progress->summary($reg->fresh());
+
+        $this->assertSame(60.0, $summary['overall_percent']);
+        $this->assertSame('Merit', $summary['overall_grade_label']);
+        $this->assertSame('M', $summary['overall_grade_short']);
+    }
+
+    #[Test]
     public function documents_unavailable_until_programme_ends(): void
     {
         [$reg, $modules] = $this->registrationWithModules(moduleCount: 5, sessionStartsAt: now()->subWeek());

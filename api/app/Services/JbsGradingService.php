@@ -5,7 +5,8 @@ namespace App\Services;
 /**
  * Percentage-based grading for Junior Bible School.
  *
- * Overall bands (Distinction, Merit, …) apply to the simple average across modules (2 d.p.).
+ * Overall bands (Distinction, Merit, …) apply to the simple average across all modules (2 d.p.).
+ * Untaken modules / NS count as 0% in that average.
  * Module bands (A–F, NS) apply to each module test result.
  */
 class JbsGradingService
