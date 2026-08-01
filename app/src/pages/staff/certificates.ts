@@ -29,7 +29,11 @@ const WHITE = rgb(1, 1, 1);
 const TABLE_BG = rgb(217 / 255, 217 / 255, 217 / 255);
 
 const STATEMENT_ROWS = 12;
-const STATEMENT_GRADE_YS = Array.from({ length: STATEMENT_ROWS }, (_, i) => 431 - i * 21.12);
+const STATEMENT_ROW_STEP = 21.12;
+const STATEMENT_GRADE_YS = Array.from(
+  { length: STATEMENT_ROWS },
+  (_, i) => 431 - i * STATEMENT_ROW_STEP,
+);
 const STATEMENT_GRADE_CENTER_X = 461.7;
 const STATEMENT_SUBJECT_X = 161.4;
 
@@ -116,6 +120,20 @@ function fitText(text: string, font: PDFFont, size: number, maxWidth: number): s
   return lo > 0 ? `${text.slice(0, lo).trimEnd()}${ellipsis}` : ellipsis;
 }
 
+/** Shrink point size until the full string fits — prefer that over truncating. */
+function fitFontSize(
+  text: string,
+  font: PDFFont,
+  maxSize: number,
+  minSize: number,
+  maxWidth: number,
+): number {
+  for (let size = maxSize; size >= minSize; size -= 0.5) {
+    if (font.widthOfTextAtSize(text, size) <= maxWidth) return size;
+  }
+  return minSize;
+}
+
 function drawSignature(
   page: PDFPage,
   signature: PDFImage,
@@ -141,10 +159,11 @@ async function fillStatementPage(
   const valueX = 175;
   const leftX = 72;
 
-  // Programme heading, e.g. "SUMMER JUNIOR BIBLE SCHOOL (BASIC)"
-  cover(page, 90, 568, 420, 26);
+  // Programme heading, e.g. "SUMMER JUNIOR BIBLE SCHOOL (ADVANCED PLUS)"
+  cover(page, 40, 568, pageW - 80, 26);
   const heading = `SUMMER JUNIOR BIBLE SCHOOL (${statementTierLabel(data.level_name)})`;
-  drawCentered(page, fitText(heading, fontBold, 16, 400), cx, 574, 16, fontBold, BLACK);
+  const headingSize = fitFontSize(heading, fontBold, 16, 11, pageW - 100);
+  drawCentered(page, heading, cx, 574, headingSize, fontBold, BLACK);
 
   // Clear value columns (and the sample date line), then draw aligned values.
   cover(page, valueX - 4, 517, 360, 18);
@@ -182,16 +201,17 @@ async function fillStatementPage(
     color: BLACK,
   });
 
-  // Subject titles + grades (cover sample Basic rows, redraw from API data)
-  for (let i = 0; i < STATEMENT_ROWS; i++) {
+  // Subject titles + grades — only keep as many rows as this tier has modules.
+  const usedCount = Math.min(Math.max(data.modules.length, 0), STATEMENT_ROWS);
+  for (let i = 0; i < usedCount; i++) {
     const y = STATEMENT_GRADE_YS[i];
     const module = data.modules[i];
 
+    cover(page, 105, y - 2, 20, 16, TABLE_BG); // serial
     cover(page, STATEMENT_SUBJECT_X - 2, y - 2, 280, 16, TABLE_BG);
     cover(page, 448, y - 2, 36, 16, TABLE_BG);
 
-    if (!module) continue;
-
+    drawCentered(page, String(module.serial), 114.7, y, 11, font, BLACK);
     page.drawText(fitText(module.name, font, 11, 270), {
       x: STATEMENT_SUBJECT_X,
       y,
@@ -202,13 +222,23 @@ async function fillStatementPage(
     drawCentered(page, module.grade, STATEMENT_GRADE_CENTER_X, y, 11, fontBold, BLACK);
   }
 
-  // Pages export scrambled the Word footer. Wipe below the table and redraw in
-  // template order: *NS → Overall Grade → Controller → Winners' Chapel.
-  cover(page, 50, 0, pageW - 100, 188);
+  // White out unused template rows (9–12 etc.) and shift footer up under the table.
+  const lastRowY = usedCount > 0 ? STATEMENT_GRADE_YS[usedCount - 1] : STATEMENT_GRADE_YS[0];
+  const tableBottom = lastRowY - 8;
+  const shift = lastRowY - STATEMENT_GRADE_YS[STATEMENT_ROWS - 1];
+  cover(page, 50, 0, pageW - 100, tableBottom);
+
+  // Pages export scrambled the Word footer. Redraw: *NS → Overall → Coordinator → logo.
+  const nsY = 168 + shift;
+  const overallY = 148 + shift;
+  const coordY = 110 + shift;
+  const lineY = 100 + shift;
+  const sigY = 102 + shift;
+  const logoY = 42 + shift;
 
   page.drawText('*NS: No Show', {
     x: leftX,
-    y: 168,
+    y: nsY,
     size: 12,
     font: fontBold,
     color: RED,
@@ -217,14 +247,14 @@ async function fillStatementPage(
   const overall = data.overall_grade_label ? data.overall_grade_label.toUpperCase() : '—';
   page.drawText('Overall Grade:', {
     x: leftX,
-    y: 148,
+    y: overallY,
     size: 12,
     font,
     color: BLACK,
   });
   page.drawText(overall, {
     x: leftX + font.widthOfTextAtSize('Overall Grade:  ', 12),
-    y: 148,
+    y: overallY,
     size: 12,
     font: fontBold,
     color: BLACK,
@@ -232,7 +262,7 @@ async function fillStatementPage(
 
   page.drawText('JBS Coordinator:', {
     x: leftX,
-    y: 110,
+    y: coordY,
     size: 12,
     font,
     color: BLACK,
@@ -240,20 +270,19 @@ async function fillStatementPage(
   const coordLabelW = font.widthOfTextAtSize('JBS Coordinator:  ', 12);
   page.drawText('____________________', {
     x: leftX + coordLabelW,
-    y: 100,
+    y: lineY,
     size: 12,
     font,
     color: BLACK,
   });
-  // Keep signature on the line; height must clear Overall Grade above (~y 148).
-  drawSignature(page, signature, leftX + coordLabelW, 102, 32);
+  drawSignature(page, signature, leftX + coordLabelW, sigY, 32);
 
   const logoH = 28;
   const logoW = (winnersLogo.width / winnersLogo.height) * logoH;
-  page.drawImage(winnersLogo, { x: leftX, y: 42, width: logoW, height: logoH });
+  page.drawImage(winnersLogo, { x: leftX, y: logoY, width: logoW, height: logoH });
   page.drawText("Winners' Chapel International, Dartford", {
     x: leftX + logoW + 8,
-    y: 42 + logoH / 2 - 4,
+    y: logoY + logoH / 2 - 4,
     size: 11,
     font,
     color: BLACK,

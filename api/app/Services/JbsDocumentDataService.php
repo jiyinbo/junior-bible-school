@@ -29,7 +29,7 @@ class JbsDocumentDataService
             $modules[] = [
                 'serial' => $i + 1,
                 'name' => $row['module_name'],
-                'grade' => $taken && $row['grade_short'] !== null ? $row['grade_short'] : '—',
+                'grade' => $taken && $row['grade_short'] !== null ? $row['grade_short'] : 'NS',
                 'taken' => $taken,
             ];
         }

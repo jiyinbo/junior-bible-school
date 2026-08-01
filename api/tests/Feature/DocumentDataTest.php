@@ -93,7 +93,7 @@ class DocumentDataTest extends TestCase
             ->assertJsonPath('data.full_name', 'Ada Lovelace')
             ->assertJsonPath('data.issued_on', '2nd August 2026')
             ->assertJsonPath('data.modules.0.grade', 'A')
-            ->assertJsonPath('data.modules.1.grade', '—');
+            ->assertJsonPath('data.modules.1.grade', 'NS');
 
         $this->assertDatabaseHas('jbs_audit_logs', ['action' => 'registration.document_downloaded']);
     }
